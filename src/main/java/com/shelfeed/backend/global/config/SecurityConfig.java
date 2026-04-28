@@ -55,6 +55,7 @@ public class SecurityConfig {
             "/api/v1/users/{userId}",
             "/api/v1/users/{userId}/followers",
             "/api/v1/users/{userId}/following",
+            "/api/v1/genres",
     };
 
     @Bean

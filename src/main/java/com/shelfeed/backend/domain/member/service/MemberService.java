@@ -111,7 +111,11 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
     public MyProfileResponse getMyProfile(Long memberUserId){
         Member member = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        return MyProfileResponse.of(member);
+
+        List<Genre> genres = memberGenreRepository.findAllByMemberWithGenre(member)
+                .stream().map(MemberGenre::getGenre).toList();
+
+        return MyProfileResponse.of(member, genres);
     }
     // ── 3. 프로필 수정
     @Transactional
