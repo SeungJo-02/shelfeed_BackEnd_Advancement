@@ -12,6 +12,7 @@ import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 
 @Service
@@ -28,6 +30,7 @@ import java.util.Set;
 public class FollowService {
 
     private final MemberRepository memberRepository;
+    private final MemberLoader memberLoader;
     private final FollowRepository followRepository;
     private final FeedRepository feedRepository;
     private final BlockRepository blockRepository;
@@ -39,8 +42,8 @@ public class FollowService {
         if (targetUserId.equals(memberUserId)){
             throw new BusinessException(ErrorCode.CANNOT_FOLLOW_SELF);
         }
-        Member follower = getMember(memberUserId);
-        Member followee = getMember(targetUserId);
+        Member follower = memberLoader.getOrThrow(memberUserId);
+        Member followee = memberLoader.getOrThrow(targetUserId);
         // 차단 관계 확인 (양방향)
         if (blockRepository.existsByBlockerAndBlocked(follower, followee) ||
             blockRepository.existsByBlockerAndBlocked(followee, follower)) {
@@ -60,8 +63,8 @@ public class FollowService {
     //2.언팔로우
     @Transactional
     public UnfollowResponse unfollow(Long targetUserId, Long memberUserId){
-        Member follower = getMember(memberUserId);
-        Member followee = getMember(targetUserId);
+        Member follower = memberLoader.getOrThrow(memberUserId);
+        Member followee = memberLoader.getOrThrow(targetUserId);
         //삭제 대상 조회
         Follow follow = followRepository.findByFollowerAndFollowee(follower,followee)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
@@ -75,53 +78,27 @@ public class FollowService {
         return UnfollowResponse.of(followee,follower);
     }
     //3.팔로워 목록
-    public FollowListResponse getFollowers(Long targetUserId, Long cursor, int limit, Long memberUserId){
-        Member target = getMember(targetUserId);
+    public FollowListResponse getFollowers(Long targetUserId, Long cursor, int limit, Long memberUserId) {
+        Member target = memberLoader.getOrThrow(targetUserId);
         //사용자 정보 1번만 조회
-        Member me = (memberUserId != null) ? getMember(memberUserId) : null;
+        Member me = (memberUserId != null) ? memberLoader.getOrThrow(memberUserId) : null;
         //팔로워 목록 조회(패치조인)
         List<Follow> follows = followRepository.findFollowersWithMember(target, cursor, PageRequest.of(0, limit + 1));
-        // 대상이 되는 팔러워 리스트 추출
-        List<Member> candidates = follows.stream().map(Follow::getFollower).toList();
-        //팔로우 관계 in 절
-        Set<Long> followingIds = Collections.emptySet();
-        Set<Long> followedByIds = Collections.emptySet();
-
-        if (me != null && !candidates.isEmpty()) {
-            followingIds = followRepository.findFollowingIds(me, candidates);
-            followedByIds = followRepository.findFollowedByIds(me, candidates);
-        }
-
-        final Set<Long> finalFollowingIds = followingIds;
-        final Set<Long> finalFollowedByIds = followedByIds;
-
-
-        //팔로워 목록에 표기할 유저
-        List<FollowMemberResponse> content = follows.stream().map(follow ->{
-            Member follower = follow.getFollower();
-            Long followerId = follower.getMemberUserId();
-
-            //현재 팔로우 중인지
-            boolean isFollowing = finalFollowingIds.contains(followerId);
-            //타 유저가 나를 팔로우 중인지
-            boolean isFollowBy = finalFollowedByIds.contains(followerId);
-
-            return FollowMemberResponse.of(follower, isFollowing, isFollowBy);
-        }).toList();
-
-        return  FollowListResponse.of(content,limit);
+        return buildFollowList(follows, Follow::getFollower, me, limit);
     }
 
     //4.팔로잉 목록
-    public FollowListResponse getFollowings(Long targetUserId, Long cursor, int limit, Long memberUserId){
-        Member target = getMember(targetUserId);
+    public FollowListResponse getFollowings(Long targetUserId, Long cursor, int limit, Long memberUserId) {
+        Member target = memberLoader.getOrThrow(targetUserId);
         // 사용자 정보 1번만 조회
-        Member me = (memberUserId != null) ? getMember(memberUserId) : null;
+        Member me = (memberUserId != null) ? memberLoader.getOrThrow(memberUserId) : null;
         // 팔로잉 목록 조회 (패치조인)
         List<Follow> follows = followRepository.findFollowingsWithMember(target, cursor, PageRequest.of(0, limit + 1));
-        // 대상이 되는 팔로잉 리스트 추출
-        List<Member> candidates = follows.stream().map(Follow::getFollowee).toList();
-        // 팔로우 관계 IN절
+        return buildFollowList(follows, Follow::getFollowee, me, limit);
+    }
+
+    private FollowListResponse buildFollowList(List<Follow> follows, Function<Follow, Member> memberExtractor, Member me, int limit) {
+        List<Member> candidates = follows.stream().map(memberExtractor).toList();
         Set<Long> followingIds = Collections.emptySet();
         Set<Long> followedByIds = Collections.emptySet();
 
@@ -134,21 +111,14 @@ public class FollowService {
         final Set<Long> finalFollowedByIds = followedByIds;
 
         List<FollowMemberResponse> content = follows.stream().map(follow -> {
-            Member followee = follow.getFollowee();
-            Long followeeId = followee.getMemberUserId();
-            boolean isFollowing = finalFollowingIds.contains(followeeId);
-            boolean isFollowBy = finalFollowedByIds.contains(followeeId);
-            return FollowMemberResponse.of(followee, isFollowing, isFollowBy);
+            Member member = memberExtractor.apply(follow);
+            Long memberId = member.getMemberUserId();
+            return FollowMemberResponse.of(member, finalFollowingIds.contains(memberId), finalFollowedByIds.contains(memberId));
         }).toList();
 
         return FollowListResponse.of(content, limit);
     }
 
 
-
-    private Member getMember(Long memberUserId){
-        return memberRepository.findByMemberUserId(memberUserId)
-                .orElseThrow(()-> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-    }
 
 }

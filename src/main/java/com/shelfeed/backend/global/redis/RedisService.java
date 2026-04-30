@@ -2,8 +2,10 @@ package com.shelfeed.backend.global.redis;
 //리프레시 토큰 저장, 블랙리스트 관리
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -89,6 +91,25 @@ public class RedisService {
             return true;
         }
         return false;
+    }
+
+    // Refresh Token 원자적 교체: 저장된 토큰이 oldToken과 일치할 때만 newToken으로 교체
+    // 불일치 시 저장된 토큰을 삭제(재사용 공격 방어) 후 false 반환
+    private static final RedisScript<Long> ROTATE_SCRIPT = RedisScript.of(
+        "local cur = redis.call('GET', KEYS[1]) " +
+        "if cur == ARGV[1] then " +
+        "  redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]) " +
+        "  return 1 " +
+        "else " +
+        "  redis.call('DEL', KEYS[1]) " +
+        "  return 0 " +
+        "end",
+        Long.class);
+
+    public boolean rotateRefreshToken(Long memberUserId, String oldToken, String newToken, long ttlSeconds) {
+        String key = REFRESH_PREFIX + memberUserId;
+        Long result = redisTemplate.execute(ROTATE_SCRIPT, List.of(key), oldToken, newToken, String.valueOf(ttlSeconds));
+        return Long.valueOf(1L).equals(result);
     }
 
     //memberUserId 시퀀스: INCR 명령으로 동시성 없는 증가 ID 생성

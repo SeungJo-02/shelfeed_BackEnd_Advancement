@@ -7,6 +7,7 @@ import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import com.shelfeed.backend.domain.review.dto.request.ReviewCreateRequest;
 import com.shelfeed.backend.domain.review.dto.request.ReviewUpdateRequest;
 import com.shelfeed.backend.domain.review.dto.response.*;
@@ -14,6 +15,7 @@ import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.entity.ReviewLike;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
+import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.block.repository.BlockRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ReviewService {
     private final MemberRepository memberRepository;
+    private final MemberLoader memberLoader;
     private final ReviewRepository reviewRepository;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
@@ -53,7 +56,7 @@ public class ReviewService {
         if (request.getContent() == null && request.getQuote() == null) {
             throw new BusinessException(ErrorCode.CONTENT_OR_QUOTE_REQUIRED);
         }
-        Member member = getMember(memberUserId);
+        Member member = memberLoader.getOrThrow(memberUserId);
         Book book = getBook(request.getBookId());
         //동일한 도서를 중복으로 감상 눌렀을 떄 에러
         if (reviewRepository.existsByMemberAndBook_BookIdAndIsDeletedFalse(member, request.getBookId())){
@@ -63,7 +66,7 @@ public class ReviewService {
         LibraryBook libraryBook = null;
         if (request.getLibraryBookId() != null) {
             libraryBook = libraryRepository
-                    .findByLibraryBookIdAndMemberId(request.getLibraryBookId(), member)
+                    .findByLibraryBookIdAndMember(request.getLibraryBookId(), member)
                     .orElseThrow(() -> new BusinessException(ErrorCode.LIBRARY_BOOK_NOT_FOUND));
         }
         //감상 저장
@@ -84,11 +87,11 @@ public class ReviewService {
     public ReviewDetailResponse getReview(Long reviewId, Long memberUserId){
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
         boolean isMine = memberUserId != null && review.getMember().getMemberUserId().equals(memberUserId);//본인확인
-        if (!isMine && review.getReviewVisibility().name().equals("PRIVATE")){//비공개 거나 게시물 주인이 아니면
+        if (!isMine && review.getReviewVisibility() == ReviewVisibility.PRIVATE){//비공개 거나 게시물 주인이 아니면
             throw new BusinessException(ErrorCode.PRIVATE_REVIEW);//비공개 감상
         }
         if (!isMine && memberUserId != null) {
-            Member requester = getMember(memberUserId);
+            Member requester = memberLoader.getOrThrow(memberUserId);
             Member owner = review.getMember();
             if (blockRepository.existsByBlockerAndBlocked(owner, requester) ||
                 blockRepository.existsByBlockerAndBlocked(requester, owner)) {
@@ -108,10 +111,7 @@ public class ReviewService {
         }
 
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
-        // 내 감상인가 확인
-        if (!review.getMember().getMemberUserId().equals(memberUserId)){
-            throw new BusinessException(ErrorCode.NOT_REVIEW_OWNER);
-        }
+        validateReviewOwner(review, memberUserId);
 
         // DRAFT가 PUBLISHED로 바뀌면 reviewCount 증가
         boolean wasPublished = review.getReviewStatus() == ReviewStatus.PUBLISHED;
@@ -134,11 +134,8 @@ public class ReviewService {
     @Transactional
     public void deleteReview(Long reviewId, Long memberUserId) {
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
-        // 내 감상인가 확인
-        if (!review.getMember().getMemberUserId().equals(memberUserId)) {
-            throw new BusinessException(ErrorCode.NOT_REVIEW_OWNER);
-        }
-        review.softDelect();//삭제
+        validateReviewOwner(review, memberUserId);
+        review.softDelete();
         //PUBLISHED 였으면 리뷰 카운트 감소
         if (review.getReviewStatus() == ReviewStatus.PUBLISHED){
             memberRepository.decreaseReviewCount(review.getMember().getMemberUserId());
@@ -147,7 +144,7 @@ public class ReviewService {
     }
     //5. 내 감상 목록
     public List<ReviewSummaryResponse> getMyReviews(Long memberUserId, ReviewStatus status, Long cursor, int limit){
-        Member member = getMember(memberUserId);
+        Member member = memberLoader.getOrThrow(memberUserId);
         List<Review> reviews = reviewRepository.findMyReviews(member, status, cursor, PageRequest.of(0, limit + 1));
         boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
         if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기
@@ -159,7 +156,7 @@ public class ReviewService {
     }
     //6. 타 유저 감상 목록
     public List<ReviewSummaryResponse> getUserReviews(Long userId, Long cursor, int limit) {
-        Member member = getMember(userId);
+        Member member = memberLoader.getOrThrow(userId);
         List<Review> reviews = reviewRepository.findUserReviews(member, cursor, PageRequest.of(0, limit + 1));
         boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
         if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기
@@ -173,9 +170,9 @@ public class ReviewService {
     @Transactional
     public ReviewLikeResponse likeReview(Long reviewId, Long memberUserId){
         Review review = getReviewOrThrow(reviewId);
-        Member member = getMember(memberUserId);
+        Member member = memberLoader.getOrThrow(memberUserId);
         // 비공개 감상은 좋아요 불가
-        if (review.getReviewVisibility().name().equals("PRIVATE")) {
+        if (review.getReviewVisibility() == ReviewVisibility.PRIVATE) {
             throw new BusinessException(ErrorCode.PRIVATE_REVIEW);
         }
         // 차단 관계 확인
@@ -209,9 +206,6 @@ public class ReviewService {
     }
 
     //헬퍼 메소드
-    private Member getMember(Long memberUserId) {
-        return memberRepository.findByMemberUserId(memberUserId).orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-    }
 
     private Book getBook(Long bookId) {
         return bookRepository.findById(bookId).orElseThrow(()-> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
@@ -244,6 +238,12 @@ public class ReviewService {
 
         return uniqueTagNames;
     }
+    private void validateReviewOwner(Review review, Long memberUserId) {
+        if (!review.getMember().getMemberUserId().equals(memberUserId)) {
+            throw new BusinessException(ErrorCode.NOT_REVIEW_OWNER);
+        }
+    }
+
     //삭제안된 리뷰 찾기
     private Review getReviewOrThrow(Long reviewId) {
         return reviewRepository.findByReviewIdAndIsDeletedFalse(reviewId).orElseThrow(()-> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));

@@ -6,6 +6,7 @@ import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.search.dto.response.BookSearchResult;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import com.shelfeed.backend.domain.search.dto.response.SearchPageResponse;
 import com.shelfeed.backend.domain.search.dto.response.SearchResponse;
 import com.shelfeed.backend.domain.search.dto.response.UserSearchResult;
@@ -18,8 +19,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Set;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +30,7 @@ import java.util.stream.Collectors;
 public class SearchService {
 
     private final MemberRepository memberRepository;
+    private final MemberLoader memberLoader;
     private final BookRepository bookRepository;
     private final FollowRepository followRepository;
     private final SearchHistoryRepository searchHistoryRepository;
@@ -50,7 +50,7 @@ public class SearchService {
         }
         //로그인 시 검색 기록 저장
         if (memberUserId != null) {
-            Member member = getMember(memberUserId);
+            Member member = memberLoader.getOrThrow(memberUserId);
             searchHistoryRepository.save(SearchHistory.create(member, query.trim()));
         }
 
@@ -122,7 +122,7 @@ public class SearchService {
         //내가 팔로잉을 했는가
         Set<Long> followingIds = Set.of();
         if (memberUserId != null && !result.isEmpty()) {
-            Member me = getMember(memberUserId);
+            Member me = memberLoader.getOrThrow(memberUserId);
             followingIds = followRepository.findFollowingIds(me, result);
         }
 
@@ -141,8 +141,4 @@ public class SearchService {
                 .build();
     }
 
-    private Member getMember(Long memberUserId) {
-        return memberRepository.findByMemberUserId(memberUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-    }
 }

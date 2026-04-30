@@ -2,7 +2,7 @@ package com.shelfeed.backend.domain.library.controller;
 
 import com.shelfeed.backend.domain.library.dto.request.LibraryBookAddRequest;
 import com.shelfeed.backend.domain.library.dto.request.LibraryStatusUpdateRequest;
-import com.shelfeed.backend.domain.library.dto.respond.*;
+import com.shelfeed.backend.domain.library.dto.response.*;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.library.service.LibraryService;
 import com.shelfeed.backend.global.common.response.ApiResponse;

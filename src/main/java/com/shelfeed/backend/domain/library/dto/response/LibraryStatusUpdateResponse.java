@@ -1,4 +1,4 @@
-package com.shelfeed.backend.domain.library.dto.respond;
+package com.shelfeed.backend.domain.library.dto.response;
 
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
@@ -9,17 +9,16 @@ import java.time.LocalDate;
 
 @Getter
 @Builder
-public class LibraryBookAddResponse {
+public class LibraryStatusUpdateResponse {
+
     private Long libraryBookId;
-    private Long bookId;
     private ReadingStatus status;
     private LocalDate startedAt;
     private LocalDate finishedAt;
 
-    public static LibraryBookAddResponse of(LibraryBook lb){
-        return LibraryBookAddResponse.builder()
+    public static LibraryStatusUpdateResponse of(LibraryBook lb) {
+        return LibraryStatusUpdateResponse.builder()
                 .libraryBookId(lb.getLibraryBookId())
-                .bookId(lb.getBook().getBookId())
                 .status(lb.getStatus())
                 .startedAt(lb.getStartedAt())
                 .finishedAt(lb.getFinishedAt())

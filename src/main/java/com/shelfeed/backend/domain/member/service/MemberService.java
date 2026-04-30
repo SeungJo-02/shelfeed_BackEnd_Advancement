@@ -4,6 +4,7 @@ import com.shelfeed.backend.domain.genre.entity.Genre;
 import com.shelfeed.backend.domain.genre.entity.MemberGenre;
 import com.shelfeed.backend.domain.genre.repository.GenreRepository;
 import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
+import com.shelfeed.backend.domain.member.dto.internal.PasswordChangeResult;
 import com.shelfeed.backend.domain.member.dto.request.ChangePasswordRequest;
 import com.shelfeed.backend.domain.member.dto.request.OnboardingRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateGenresRequest;
@@ -142,7 +143,7 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
     }
     // ── 5. 비밀번호 변경
     @Transactional
-    public NewTokenPair changePassword(Long memberUserId, ChangePasswordRequest request){
+    public PasswordChangeResult changePassword(Long memberUserId, ChangePasswordRequest request){
         Member member = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(()-> new BusinessException(ErrorCode.NO_PASSWORD_ACCOUNT));
 
@@ -164,12 +165,10 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
         String newAccessToken = jwtProvider.generateAccessToken(member);
         String newRefreshToken = jwtProvider.generateRefreshToken(member);
         redisService.saveRefreshToken(memberUserId, newRefreshToken, jwtProvider.getRefreshTokenExpiresIn());
-        return new NewTokenPair(newAccessToken, newRefreshToken, jwtProvider.getAccessTokenExpiresIn());
+        return new PasswordChangeResult(newAccessToken, newRefreshToken, jwtProvider.getAccessTokenExpiresIn());
 
 
     }
-    public record NewTokenPair(String accessToken, String refreshToken, long accessTokenExpiresIn) {}
-
     // ── 6. 회원 탈퇴
     @Transactional
     public void withdraw(Long memberUserId, String accessToken, WithdrawRequest request){
@@ -182,7 +181,7 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
             }
         }
 
-        member.maskUserlInfo();
+        member.maskUserInfo();
 
         // 토큰 없애기
         long remainingMs = jwtProvider.getRemainingExpiryMs(accessToken);

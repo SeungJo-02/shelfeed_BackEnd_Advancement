@@ -105,7 +105,7 @@ public class Review extends BaseTimeEntity {
     public void changeVisibility(ReviewVisibility visibility){this.reviewVisibility = visibility;}
 
     //소프트 삭제
-    public void softDelect(){
+    public void softDelete(){
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
     }

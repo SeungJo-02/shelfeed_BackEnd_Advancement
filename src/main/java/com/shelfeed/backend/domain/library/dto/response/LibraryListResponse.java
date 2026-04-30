@@ -1,4 +1,4 @@
-package com.shelfeed.backend.domain.library.dto.respond;
+package com.shelfeed.backend.domain.library.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;

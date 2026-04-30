@@ -1,4 +1,4 @@
-package com.shelfeed.backend.domain.library.dto.respond;
+package com.shelfeed.backend.domain.library.dto.response;
 
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;

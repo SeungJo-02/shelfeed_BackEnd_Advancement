@@ -2,9 +2,9 @@ package com.shelfeed.backend.domain.book.controller;
 
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
-import com.shelfeed.backend.domain.book.dto.respond.BookDetailResponse;
-import com.shelfeed.backend.domain.book.dto.respond.BookReviewListResponse;
-import com.shelfeed.backend.domain.book.dto.respond.BookSearchListResponse;
+import com.shelfeed.backend.domain.book.dto.response.BookDetailResponse;
+import com.shelfeed.backend.domain.book.dto.response.BookReviewListResponse;
+import com.shelfeed.backend.domain.book.dto.response.BookSearchListResponse;
 import com.shelfeed.backend.domain.book.service.BookService;
 import com.shelfeed.backend.global.common.response.ApiResponse;
 import com.shelfeed.backend.global.security.CustomUserDetails;

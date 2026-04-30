@@ -5,12 +5,10 @@ import com.shelfeed.backend.domain.feed.dto.response.FeedListResponse;
 import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
-import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
-import com.shelfeed.backend.global.common.exception.BusinessException;
-import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,17 +25,17 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class FeedService {
 
-    private final MemberRepository memberRepository;
+    private final MemberLoader memberLoader;
     private final FeedRepository feedRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewTagRepository reviewTagRepository;
 
     //피드 조회
     public FeedListResponse getFollowingFeed(Long memberUserId, Long cursor, int limit) {
-        Member member = getMember(memberUserId);
+        Member member = memberLoader.getOrThrow(memberUserId);
         //피드페이지
         //패치 조인으로 피드랑 감상 가져오기
-        List<Feed> feeds = feedRepository.findFeedWithDetails(member,cursor, PageRequest.of(0, limit +1));
+        List<Feed> feeds = feedRepository.findFeedWithDetails(member, cursor, PageRequest.of(0, limit + 1));
         // 리뷰 아이디만 뽑기(in절에 사용하려고)
         List<Long> reviewIds = feeds.stream().map(feed -> feed.getReview().getReviewId()).toList();
         //in절로 좋아요 조회
@@ -59,17 +57,5 @@ public class FeedService {
         }).toList();
 
         return FeedListResponse.of(content, limit);
-
     }
-
-    private Member getMember(Long memberUserId) {
-        return memberRepository.findByMemberUserId(memberUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-    }
-
-
-
-
-
-
 }

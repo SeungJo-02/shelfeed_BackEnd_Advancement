@@ -11,6 +11,7 @@ import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import java.util.Optional;
 public class BlockService {
 
     private final MemberRepository memberRepository;
+    private final MemberLoader memberLoader;
     private final BlockRepository blockRepository;
     private final FollowRepository followRepository;
     private final FeedRepository feedRepository;
@@ -37,8 +39,8 @@ public class BlockService {
             throw new BusinessException(ErrorCode.SELF_BLOCK_NOT_ALLOWED);
         }
 
-        Member blocker = getMember(memberUserId);
-        Member blocked = getMember(targetUserId);
+        Member blocker = memberLoader.getOrThrow(memberUserId);
+        Member blocked = memberLoader.getOrThrow(targetUserId);
         //중복차단 방지
         if (blockRepository.existsByBlockerAndBlocked(blocker, blocked)) {
             throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
@@ -54,8 +56,8 @@ public class BlockService {
     //2. 차단 해제
     @Transactional
     public void unblock(Long targetUserId, Long memberUserId) {
-        Member blocker = getMember(memberUserId);
-        Member blocked = getMember(targetUserId);
+        Member blocker = memberLoader.getOrThrow(memberUserId);
+        Member blocked = memberLoader.getOrThrow(targetUserId);
 
         Block block = blockRepository.findByBlockerAndBlocked(blocker, blocked)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BLOCK_NOT_FOUND));
@@ -65,7 +67,7 @@ public class BlockService {
 
     //3. 차단 목록 조회
     public BlockListResponse getBlockList(Long memberUserId, Long cursor, int limit) {
-        Member member = getMember(memberUserId);
+        Member member = memberLoader.getOrThrow(memberUserId);
 
         List<Block> blocks = blockRepository.findBlocks(member, cursor, PageRequest.of(0, limit + 1));
 
@@ -76,10 +78,6 @@ public class BlockService {
         return BlockListResponse.of(content, limit);
     }
 
-    private Member getMember(Long memberUserId) {
-        return memberRepository.findByMemberUserId(memberUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-    }
     //팔로우 관계라면 카운트 해제
     private void removeFollowIfExists(Member follower, Member followee) {
         Optional<Follow> follow = followRepository.findByFollowerAndFollowee(follower, followee);

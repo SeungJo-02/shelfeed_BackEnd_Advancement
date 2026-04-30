@@ -5,7 +5,7 @@ import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
-import com.shelfeed.backend.domain.book.dto.respond.*;
+import com.shelfeed.backend.domain.book.dto.response.*;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
@@ -103,17 +103,17 @@ public class BookService {
         Long myLibraryBookId = null;
         Long myReviewId = null;
 
-        if (memberUserId != null){Member member = getMemberOrNull(memberUserId);//멤버 있으면 넣고 없으면 null
-            if (member != null){
-
-                Optional<LibraryBook> libraryBook = libraryRepository.findByMemberIdAndBook_BookId(member,bookId);
-                if (libraryBook.isPresent()){//isPresent : Optional에 데이터가 있으면 true 없으면 false
+        if (memberUserId != null) {
+            Member member = getMemberOrNull(memberUserId);
+            if (member != null) {
+                Optional<LibraryBook> libraryBook = libraryRepository.findByMemberAndBook_BookId(member, bookId);
+                if (libraryBook.isPresent()) {
                     myLibraryStatus = libraryBook.get().getStatus();
                     myLibraryBookId = libraryBook.get().getLibraryBookId();
-                    }
+                }
 
-                Optional<Review> myReview = reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member,bookId);
-                if (myReview.isPresent()){
+                Optional<Review> myReview = reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, bookId);
+                if (myReview.isPresent()) {
                     myReviewId = myReview.get().getReviewId();
                 }
             }
@@ -137,7 +137,7 @@ public class BookService {
         if (memberUserId != null) {
             Member member = getMemberOrNull(memberUserId);
             if (member != null) {
-                inMyLibrary = libraryRepository.existsByMemberIdAndBook_BookId(member, book.getBookId());
+                inMyLibrary = libraryRepository.existsByMemberAndBook_BookId(member, book.getBookId());
             }
         }
         return BookDetailResponse.ofIsbn(book, inMyLibrary);
@@ -184,28 +184,7 @@ public class BookService {
     // 알라딘 아이템 → DB Book (없으면 저장) - 단건 조회용 (getBookByIsbn 등)
     private Book findOrCreateBook(AladinItem item) {
         return bookRepository.findByIsbn13(item.getIsbn13())
-                .orElseGet(() -> {
-                    LocalDate pubDate = null;
-                    try {
-                        pubDate = LocalDate.parse(item.getPubDate());
-                    } catch (Exception ignored) {} //날짜형식이 달라도 에러 안생기게
-                    //페이지 있으면 넣고 아니면 말고
-                    Integer totalPages = item.getSubInfo() != null ? item.getSubInfo().getItemPage() : null;
-
-                    Book book = Book.create(
-                            item.getIsbn13(),
-                            item.getTitle(),
-                            item.getAuthor(),
-                            item.getPublisher(),
-                            item.getCover(),
-                            item.getDescription(),
-                            totalPages,
-                            pubDate,
-                            item.getItemId() != null ? String.valueOf(item.getItemId()) : null,
-                            item.getCategoryName()
-                    );
-                    return bookRepository.save(book);
-                });
+                .orElseGet(() -> bookRepository.save(createBookFromItem(item)));
     }
     //맵버 찾거나 없으면 null
     private Member getMemberOrNull(Long memberUserId) {

@@ -120,7 +120,7 @@ public class Member extends BaseTimeEntity {
     }
     public void verifyEmail(){this.emailVerified = true;}
 
-    public void maskUserlInfo() {
+    public void maskUserInfo() {
         this.email = "withdrawn_" + this.memberUserId + "@deleted.com";
         this.nickname = "탈퇴한 사용자";
         this.profileImageUrl = null;

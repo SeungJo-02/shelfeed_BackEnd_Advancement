@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.auth;
 
+import com.shelfeed.backend.domain.auth.dto.internal.AuthTokenResult;
 import com.shelfeed.backend.domain.auth.dto.request.*;
 import com.shelfeed.backend.domain.auth.service.AuthService;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -106,7 +107,7 @@ class AuthServiceTest {
             given(jwtProvider.getAccessTokenExpiresIn()).willReturn(3600L);
             given(jwtProvider.getRefreshTokenExpiresIn()).willReturn(1209600L);
 
-            AuthService.TokenPair result = authService.signup(request);
+            AuthTokenResult.Signup result = authService.signup(request);
 
             assertThat(result.refreshToken()).isEqualTo("refreshToken");
             assertThat(result.response().getAccessToken()).isEqualTo("accessToken");
@@ -284,7 +285,7 @@ class AuthServiceTest {
             given(jwtProvider.getAccessTokenExpiresIn()).willReturn(3600L);
             given(jwtProvider.getRefreshTokenExpiresIn()).willReturn(1209600L);
 
-            AuthService.LoginTokenPair result = authService.login(request);
+            AuthTokenResult.Login result = authService.login(request);
 
             assertThat(result.refreshToken()).isEqualTo("refreshToken");
             verify(redisService).saveRefreshToken(eq(1L), eq("refreshToken"), anyLong());
@@ -351,18 +352,20 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("Redis 저장 토큰과 다르면 TOKEN_REUSE_DETECTED 예외가 발생하고 토큰을 삭제한다")
+        @DisplayName("Redis 저장 토큰과 다르면 TOKEN_REUSE_DETECTED 예외가 발생한다")
         void Redis_토큰_불일치_예외() {
             given(jwtProvider.validateToken("token")).willReturn(true);
             given(jwtProvider.getMemberUserId("token")).willReturn(1L);
-            given(redisService.getRefreshToken(1L)).willReturn("differentToken");
+            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(activeMember));
+            given(jwtProvider.generateAccessToken(any())).willReturn("newAccess");
+            given(jwtProvider.generateRefreshToken(any())).willReturn("newRefresh");
+            given(jwtProvider.getRefreshTokenExpiresIn()).willReturn(1209600L);
+            given(redisService.rotateRefreshToken(1L, "token", "newRefresh", 1209600L)).willReturn(false);
 
             assertThatThrownBy(() -> authService.refresh("token"))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.TOKEN_REUSE_DETECTED);
-
-            verify(redisService).deleteRefreshToken(1L);
         }
 
         @Test
@@ -370,17 +373,16 @@ class AuthServiceTest {
         void 정상_토큰_갱신_성공() {
             given(jwtProvider.validateToken("validRefresh")).willReturn(true);
             given(jwtProvider.getMemberUserId("validRefresh")).willReturn(1L);
-            given(redisService.getRefreshToken(1L)).willReturn("validRefresh");
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(activeMember));
             given(jwtProvider.generateAccessToken(any())).willReturn("newAccess");
             given(jwtProvider.generateRefreshToken(any())).willReturn("newRefresh");
             given(jwtProvider.getAccessTokenExpiresIn()).willReturn(3600L);
             given(jwtProvider.getRefreshTokenExpiresIn()).willReturn(1209600L);
+            given(redisService.rotateRefreshToken(1L, "validRefresh", "newRefresh", 1209600L)).willReturn(true);
 
-            AuthService.RefreshTokenPair result = authService.refresh("validRefresh");
+            AuthTokenResult.Refresh result = authService.refresh("validRefresh");
 
             assertThat(result.newRefreshToken()).isEqualTo("newRefresh");
-            verify(redisService).saveRefreshToken(eq(1L), eq("newRefresh"), anyLong());
         }
     }
 

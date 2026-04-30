@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.auth.service;
 
+import com.shelfeed.backend.domain.auth.dto.internal.AuthTokenResult;
 import com.shelfeed.backend.domain.auth.dto.request.*;
 import com.shelfeed.backend.domain.auth.dto.response.*;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -15,18 +16,24 @@ import com.shelfeed.backend.global.redis.RedisService;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class AuthService {
     private final MemberRepository memberRepository;
     private final SocialAccountRepository socialAccountRepository;
@@ -34,6 +41,15 @@ public class AuthService {
     private final RedisService redisService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+
+    private final RestClient restClient = buildRestClient();
+
+    private static RestClient buildRestClient() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(5));
+        return RestClient.builder().requestFactory(factory).build();
+    }
 
     @Value("${oauth2.google.client-id}")
     private String googleClientId;
@@ -45,18 +61,17 @@ public class AuthService {
     private static final int MAX_EMAIL_VERIFY_ATTEMPTS = 5;
 
     // ── 1. 이메일 회원가입
-    public  TokenPair signup(SignupRequest request){
-        if (memberRepository.existsByEmail(request.getEmail())){//이메일 존재 시 예외 펑
+    @Transactional
+    public AuthTokenResult.Signup signup(SignupRequest request) {
+        if (memberRepository.existsByEmail(request.getEmail())) {//이메일 존재 시 예외 펑
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
-        if (memberRepository.existsByNickname(request.getNickname())){//닉넴 중복 시 예외 펑
+        if (memberRepository.existsByNickname(request.getNickname())) {//닉넴 중복 시 예외 펑
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS);
         }
 
-        Long memberUserId = redisService.generateMemberUserId(); //중복되지 않게 redis에서 부여한 ID
-
+        Long memberUserId = redisService.generateMemberUserId();//중복되지 않게 redis에서 부여한 ID
         Member member = Member.createLocal(memberUserId, request.getEmail(), passwordEncoder.encode(request.getPassword()), request.getNickname(), request.getBio());
-
         memberRepository.save(member); // 저장
 
         // 이메일 인증 코드 생성 후 Redis에 저장 (5분 TTL)
@@ -64,30 +79,31 @@ public class AuthService {
         redisService.saveEmailCode(request.getEmail(), code, 300);
         emailService.sendVerificationEmail(request.getEmail(), code);
 
-        String accessToken = jwtProvider.generateAccessToken(member); //인증 토큰
-        String refreshToken = jwtProvider.generateRefreshToken(member); // 재발급 토큰
-        redisService.saveRefreshToken(memberUserId, refreshToken, jwtProvider.getRefreshTokenExpiresIn());// 재발급 토큰 저장
+        String accessToken = jwtProvider.generateAccessToken(member);//인증 토큰
+        String refreshToken = jwtProvider.generateRefreshToken(member);// 재발급 토큰
+        redisService.saveRefreshToken(memberUserId, refreshToken, jwtProvider.getRefreshTokenExpiresIn());
 
-        return new TokenPair(SignupResponse.of(member, accessToken, jwtProvider.getAccessTokenExpiresIn()), refreshToken
-        );
+        return new AuthTokenResult.Signup(SignupResponse.of(member, accessToken, jwtProvider.getAccessTokenExpiresIn()), refreshToken);
     }
+
     // ── 2. 이메일 인증 확인
-    public EmailVerifyResponse verifyEmail(EmailVerifyRequest request){
+    @Transactional
+    public EmailVerifyResponse verifyEmail(EmailVerifyRequest request) {
         long attempts = redisService.incrementEmailVerifyAttempts(request.getEmail());
-        if (attempts > MAX_EMAIL_VERIFY_ATTEMPTS){
-            redisService.deleteEmailCode(request.getEmail()); //5번 이상 넘어가면 삭제
+        if (attempts > MAX_EMAIL_VERIFY_ATTEMPTS) {
+            redisService.deleteEmailCode(request.getEmail());//5번 이상 넘어가면 삭제
             throw new BusinessException(ErrorCode.CODE_ATTEMPTS_EXCEEDED);
         }
 
         String storedCode = redisService.getEmailCode(request.getEmail());
-        if (storedCode == null){throw new BusinessException(ErrorCode.CODE_EXPIRED);} //만료 or 없으면 예외 펑
+        if (storedCode == null) { throw new BusinessException(ErrorCode.CODE_EXPIRED); }//만료 or 없으면 예외 펑
 
-        if(!storedCode.equals(request.getCode())){
+        if (!storedCode.equals(request.getCode())) {
             throw new BusinessException(ErrorCode.INVALID_EMAIL_CODE);//이메일 코드 다르면 펑
         }
 
-        Member member =  memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(()-> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));// 없는 이메일 이면 펑
+        Member member = memberRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));// 없는 이메일 이면 펑
         member.verifyEmail();
         redisService.deleteEmailCode(request.getEmail());// 인증 완료 했으니까 지우기
 
@@ -95,15 +111,15 @@ public class AuthService {
     }
 
     // ── 3. 이메일 인증 코드 재발송
-    public void resendEmailCode(EmailResendRequest request){
+    public void resendEmailCode(EmailResendRequest request) {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        if (member.isEmailVerified()){
+        if (member.isEmailVerified()) {
             throw new BusinessException(ErrorCode.ALREADY_VERIFIED_EMAIL);//이미 인증이 되었으니까 재발송 필요 없
         }
 
-        boolean cooldownSet = redisService.setResendCooldown(request.getEmail(),60); // 1분간 대기
-        if (!cooldownSet){
+        boolean cooldownSet = redisService.setResendCooldown(request.getEmail(), 60);// 1분간 대기
+        if (!cooldownSet) {
             throw new BusinessException(ErrorCode.RESEND_COOLDOWN);
         }
         String code = generateSixDigitCode();
@@ -112,32 +128,32 @@ public class AuthService {
     }
 
     // ── 4. 이메일 로그인
-    public LoginTokenPair login(LoginRequest request){
+    @Transactional
+    public AuthTokenResult.Login login(LoginRequest request) {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD));
 
-        if (!passwordEncoder.matches(request.getPassword(),member.getPassword())){
+        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);//페스워드 예외 처리
         }
-        if (member.getStatus() == MemberStatus.WITHDRAWN){
+        if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new BusinessException(ErrorCode.WITHDRAWN_MEMBER);//탈퇴인 예외 처리
         }
 
-        member.recordLogin(); //로그인 시점 기록
+        member.recordLogin();//로그인 시점 기록
 
         String accessToken = jwtProvider.generateAccessToken(member);
         String refreshToken = jwtProvider.generateRefreshToken(member);
         redisService.saveRefreshToken(member.getMemberUserId(), refreshToken, jwtProvider.getRefreshTokenExpiresIn());
 
-        return new LoginTokenPair(
+        return new AuthTokenResult.Login(
                 LoginResponse.of(member, accessToken, jwtProvider.getAccessTokenExpiresIn()), refreshToken);
     }
 
     // ── 5. Google OAuth 로그인 URL 생성
-    @Transactional(readOnly = true)
-    public OAuthLoginUrlResponse getGoogleLoginUrl(){
+    public OAuthLoginUrlResponse getGoogleLoginUrl() {
         String state = UUID.randomUUID().toString();
-        redisService.saveOAuthState(state, 300);//5분 유효
+        redisService.saveOAuthState(state, 300);
 
         String logUrl = UriComponentsBuilder
                 .fromUriString("https://accounts.google.com/o/oauth2/v2/auth")
@@ -151,28 +167,23 @@ public class AuthService {
     }
 
     // ── 6. Google OAuth 로그인 완료
-    public GoogleLoginTokenPair googleLogin(OAuthTokenRequest request) {
-        // CSRF 방어: state 검증
-        if (!redisService.validateAndDeleteOAuthState(request.getState())) {
+    @Transactional
+    public AuthTokenResult.GoogleLogin googleLogin(OAuthTokenRequest request) {
+        if (!redisService.validateAndDeleteOAuthState(request.getState())) {// CSRF 방어: state 검증
             throw new BusinessException(ErrorCode.INVALID_OAUTH_STATE);
         }
-        // 1) Google 토큰 엔드포인트에 code 교환 요청
         GoogleTokenResponse tokenResponse = exchangeGoogleCode(request.getCode(), request.getRedirectUri());
-
-        // 2) Google 유저 정보 조회
         GoogleUserInfo userInfo = getGoogleUserInfo(tokenResponse.accessToken());
 
-        // 3) 기존 소셜 계정 조회
         return socialAccountRepository.findByProviderAndProviderId("GOOGLE", userInfo.sub())
                 .map(socialAccount -> {
-                    // 기존 회원 로그인
                     Member member = socialAccount.getMember();
                     member.recordLogin();
                     String accessToken = jwtProvider.generateAccessToken(member);
                     String refreshToken = jwtProvider.generateRefreshToken(member);
                     redisService.saveRefreshToken(member.getMemberUserId(), refreshToken,
                             jwtProvider.getRefreshTokenExpiresIn());
-                    return new GoogleLoginTokenPair(
+                    return new AuthTokenResult.GoogleLogin(
                             GoogleLoginResponse.of(member, accessToken,
                                     jwtProvider.getAccessTokenExpiresIn(), false),
                             refreshToken);
@@ -190,7 +201,7 @@ public class AuthService {
                     String refreshToken = jwtProvider.generateRefreshToken(member);
                     redisService.saveRefreshToken(memberUserId, refreshToken,
                             jwtProvider.getRefreshTokenExpiresIn());
-                    return new GoogleLoginTokenPair(
+                    return new AuthTokenResult.GoogleLogin(
                             GoogleLoginResponse.of(member, accessToken,
                                     jwtProvider.getAccessTokenExpiresIn(), true),
                             refreshToken);
@@ -199,10 +210,7 @@ public class AuthService {
 
     // Google code → token 교환
     private GoogleTokenResponse exchangeGoogleCode(String code, String redirectUri) {
-        org.springframework.web.client.RestClient restClient =
-                org.springframework.web.client.RestClient.create();
-        org.springframework.util.MultiValueMap<String, String> formBody =
-                new org.springframework.util.LinkedMultiValueMap<>();
+        MultiValueMap<String, String> formBody = new LinkedMultiValueMap<>();
         formBody.add("code", code);
         formBody.add("client_id", googleClientId);
         formBody.add("client_secret", googleClientSecret);
@@ -211,7 +219,7 @@ public class AuthService {
         try {
             return restClient.post()
                     .uri("https://oauth2.googleapis.com/token")
-                    .contentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body(formBody)
                     .retrieve()
                     .body(GoogleTokenResponse.class);
@@ -222,8 +230,6 @@ public class AuthService {
 
     // Google accessToken → 유저 정보 조회
     private GoogleUserInfo getGoogleUserInfo(String accessToken) {
-        org.springframework.web.client.RestClient restClient =
-                org.springframework.web.client.RestClient.create();
         try {
             return restClient.get()
                     .uri("https://www.googleapis.com/oauth2/v3/userinfo")
@@ -249,14 +255,14 @@ public class AuthService {
     ) {}
 
     // ── 7. 토큰 갱신
-    public RefreshTokenPair refresh(String refreshToken){
-        if (refreshToken == null){
-            throw new BusinessException(ErrorCode.INVALID_TOKEN); //재발급 없으면 에러 펑
+    public AuthTokenResult.Refresh refresh(String refreshToken) {
+        if (refreshToken == null) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
         Long memberUserId;
-        try{
-            if (!jwtProvider.validateToken(refreshToken)){
-                throw new BusinessException(ErrorCode.INVALID_TOKEN);//인증 안된 토큰 이면 에러 펑
+        try {
+            if (!jwtProvider.validateToken(refreshToken)) {
+                throw new BusinessException(ErrorCode.INVALID_TOKEN);
             }
             memberUserId = jwtProvider.getMemberUserId(refreshToken);
         } catch (ExpiredJwtException e) {
@@ -265,47 +271,44 @@ public class AuthService {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
-        String storedToken = redisService.getRefreshToken(memberUserId);
-
-        if (storedToken == null || !storedToken.equals(refreshToken)) {//저장 된 것과 다르 거나 없으면 에러 펑
-            redisService.deleteRefreshToken(memberUserId);
-            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED);
-        }
-
-        Member member = memberRepository.findByMemberUserId(memberUserId)//우리 회원인지 한 번 더 확인
+        Member member = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         String newAccessToken = jwtProvider.generateAccessToken(member);
         String newRefreshToken = jwtProvider.generateRefreshToken(member);
-        redisService.saveRefreshToken(memberUserId, newRefreshToken, jwtProvider.getRefreshTokenExpiresIn());
 
-        return new RefreshTokenPair(
-                TokenRefreshResponse.of(newAccessToken, jwtProvider.getAccessTokenExpiresIn()), newRefreshToken
-        );
+        if (!redisService.rotateRefreshToken(memberUserId, refreshToken, newRefreshToken, jwtProvider.getRefreshTokenExpiresIn())) {
+            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED);
+        }
+
+        return new AuthTokenResult.Refresh(
+                TokenRefreshResponse.of(newAccessToken, jwtProvider.getAccessTokenExpiresIn()), newRefreshToken);
     }
 
     // ── 8. 로그아웃
-    public void logout(Long memberUserId, String accessToken, String refreshToken){
+    public void logout(Long memberUserId, String accessToken, String refreshToken) {
         long remainingMs = jwtProvider.getRemainingExpiryMs(accessToken);
         if (remainingMs > 0) {
             redisService.addToBlacklist(accessToken, remainingMs);
         }
         redisService.deleteRefreshToken(memberUserId);
     }
+
     // ── 9. 비밀번호 재설정 요청
-    public void sendPasswordReset(PasswordResetSendRequest request){// 존재 안하는 이메일도 성공 응답
+    public void sendPasswordReset(PasswordResetSendRequest request) {
         Optional<Member> memberOpt = memberRepository.findByEmail(request.getEmail());
-        if (memberOpt.isPresent()){//값이 있으면
-            String token = UUID.randomUUID().toString(); // 랜덤 토큰 사용
-            redisService.savePasswordResetToken(token, request.getEmail(),1800); //30분 제한시간
+        if (memberOpt.isPresent()) {
+            String token = UUID.randomUUID().toString();
+            redisService.savePasswordResetToken(token, request.getEmail(), 1800);
             emailService.sendPasswordResetEmail(request.getEmail(), token);
         }
     }
 
     // ── 10. 비밀번호 재설정 실행
-    public void resetPassword(PasswordResetRequest request){
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
         String email = redisService.getEmailByPasswordResetToken(request.getToken());
-        if (email == null){
+        if (email == null) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
         }
 
@@ -313,34 +316,26 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         if (passwordEncoder.matches(request.getNewPassword(), member.getPassword())) {
-            throw new BusinessException(ErrorCode.SAME_PASSWORD); // 기존이랑 같으면 에러 펑
+            throw new BusinessException(ErrorCode.SAME_PASSWORD);
         }
 
         member.changePassword(passwordEncoder.encode(request.getNewPassword()));
         redisService.deletePasswordResetToken(request.getToken());
-        redisService.deleteRefreshToken(member.getMemberUserId());// 싹 다 무효화
+        redisService.deleteRefreshToken(member.getMemberUserId());
     }
 
     // ── 11/12. 닉네임/이메일 중복 확인
-    @Transactional(readOnly = true)
-    public AvailableResponse checkNickname(String nickname){
+    public AvailableResponse checkNickname(String nickname) {
         return AvailableResponse.of(!memberRepository.existsByNickname(nickname));
     }
 
-    @Transactional(readOnly = true)
-    public AvailableResponse checkEmail(String email){
+    public AvailableResponse checkEmail(String email) {
         return AvailableResponse.of(!memberRepository.existsByEmail(email));
     }
 
-    //기타
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private String generateSixDigitCode(){
-        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));//무작위 6자리 수 만듦
+    private String generateSixDigitCode() {
+        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
     }
-
-    public record TokenPair(SignupResponse response, String refreshToken){}
-    public record LoginTokenPair(LoginResponse response, String refreshToken) {}
-    public record GoogleLoginTokenPair(GoogleLoginResponse response, String refreshToken) {}
-    public record RefreshTokenPair(TokenRefreshResponse response, String newRefreshToken) {}
 }

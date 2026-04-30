@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.auth.controller;
 
+import com.shelfeed.backend.domain.auth.dto.internal.AuthTokenResult;
 import com.shelfeed.backend.domain.auth.dto.request.*;
 import com.shelfeed.backend.domain.auth.dto.response.*;
 import com.shelfeed.backend.domain.auth.service.AuthService;
@@ -32,7 +33,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
             @Valid @RequestBody SignupRequest request,HttpServletResponse response) {// 유효성 검사 + JSON 형태의 요청 본문 DTO로 변환
-                AuthService.TokenPair result = authService.signup(request);
+                AuthTokenResult.Signup result = authService.signup(request);
                 setRefreshTokenCookie(response, result.refreshToken());
                 HttpStatus status = HttpStatus.CREATED;
                 return ResponseEntity
@@ -59,7 +60,7 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(
             @Valid@RequestBody LoginRequest request, HttpServletResponse response){
-        AuthService.LoginTokenPair result = authService.login(request);
+        AuthTokenResult.Login result = authService.login(request);
         setRefreshTokenCookie(response, result.refreshToken());
         return ApiResponse.success(200, "로그인 성공", result.response());
     }
@@ -76,7 +77,7 @@ public class AuthController {
     public ApiResponse<GoogleLoginResponse> googleLogin(
             @Valid @RequestBody OAuthTokenRequest request,
             HttpServletResponse response) {
-        AuthService.GoogleLoginTokenPair result = authService.googleLogin(request);
+        AuthTokenResult.GoogleLogin result = authService.googleLogin(request);
         setRefreshTokenCookie(response, result.refreshToken());
         return ApiResponse.success(200, "로그인 성공", result.response());
     }
@@ -86,7 +87,7 @@ public class AuthController {
     public ApiResponse<TokenRefreshResponse> refresh(
             @CookieValue(name = "refreshToken", required = false) String refreshToken,//HTTP 쿠키 값을 컨트롤러 메서드의 파라미터로 쉽게 추출
             HttpServletResponse response) {
-        AuthService.RefreshTokenPair result = authService.refresh(refreshToken);
+        AuthTokenResult.Refresh result = authService.refresh(refreshToken);
         setRefreshTokenCookie(response, result.newRefreshToken());
         return ApiResponse.success(200, "토큰 갱신 성공", result.response());
     }

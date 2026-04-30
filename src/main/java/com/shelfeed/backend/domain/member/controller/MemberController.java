@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.member.controller;
 
+import com.shelfeed.backend.domain.member.dto.internal.PasswordChangeResult;
 import com.shelfeed.backend.domain.member.dto.request.ChangePasswordRequest;
 import com.shelfeed.backend.domain.member.dto.request.OnboardingRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateGenresRequest;
@@ -80,7 +81,7 @@ public class MemberController {
     public ApiResponse<Void> changePassword(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request, HttpServletResponse response){//HttpServletResponse response :HTTP 응답 조작 가능하게
-            MemberService.NewTokenPair result = memberService.changePassword(userDetails.getMember().getMemberUserId(), request);
+            PasswordChangeResult result = memberService.changePassword(userDetails.getMember().getMemberUserId(), request);
         setRefreshTokenCookie(response, result.refreshToken());
 
         return ApiResponse.success(200,"비밀번호가 변경되었습니다.");

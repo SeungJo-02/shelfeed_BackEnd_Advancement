@@ -1,4 +1,4 @@
-package com.shelfeed.backend.domain.book.dto.respond;
+package com.shelfeed.backend.domain.book.dto.response;
 
 import com.shelfeed.backend.domain.book.entity.Book;
 import lombok.Builder;

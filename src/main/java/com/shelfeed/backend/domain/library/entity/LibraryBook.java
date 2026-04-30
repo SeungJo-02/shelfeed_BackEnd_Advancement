@@ -23,7 +23,7 @@ public class LibraryBook extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
-    private Member memberId;
+    private Member member;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
@@ -38,7 +38,7 @@ public class LibraryBook extends BaseTimeEntity {
 
     public static LibraryBook create(Member member, Book book, ReadingStatus status){
         LibraryBook libraryBook = new LibraryBook();
-        libraryBook.memberId = member;
+        libraryBook.member = member;
         libraryBook.book = book;
         libraryBook.status =status;
         return libraryBook;
