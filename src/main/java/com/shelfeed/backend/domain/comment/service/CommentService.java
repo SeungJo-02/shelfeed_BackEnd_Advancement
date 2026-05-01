@@ -82,8 +82,8 @@ public class CommentService {
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());
         if (!notifyTarget.getMemberUserId().equals(memberUserId)) {
-            notificationRepository.save(Notification.createUserNotification(
-                    notifyTarget, member, NotificationType.COMMENT, comment.getCommentId()));
+            notificationRepository.save(Notification.createCommentNotification(
+                    notifyTarget, member, NotificationType.COMMENT, review.getReviewId(), comment.getCommentId()));
         }
         return CommentCreateResponse.of(comment);
     }
@@ -168,8 +168,8 @@ public class CommentService {
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
         commentLikeRepository.save(CommentLike.create(member, comment));
-        notificationRepository.save(Notification.createUserNotification(
-                comment.getMember(), member, NotificationType.COMMENT_LIKE, comment.getCommentId()));
+        notificationRepository.save(Notification.createCommentNotification(
+                comment.getMember(), member, NotificationType.COMMENT_LIKE, reviewId, comment.getCommentId()));
         commentRepository.increaseLikeCount(comment.getCommentId());
         return CommentLikeResponse.of(getComment(commentId));
     }

@@ -3,9 +3,11 @@ package com.shelfeed.backend.global.common.exception;
 import com.shelfeed.backend.global.common.response.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
@@ -42,6 +44,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(409)
                 .body(ApiResponse.error(409, "이미 존재하는 데이터입니다."));
+    }
+
+    // 존재하지 않는 URL (404)
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException e) {
+        return ResponseEntity
+                .status(404)
+                .body(ApiResponse.error(404, "요청한 리소스를 찾을 수 없습니다."));
+    }
+
+    // 허용되지 않는 HTTP Method (405)
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        return ResponseEntity
+                .status(405)
+                .body(ApiResponse.error(405, "지원하지 않는 HTTP 메서드입니다."));
     }
 
     // 그 외 예상치 못한 예외 처리

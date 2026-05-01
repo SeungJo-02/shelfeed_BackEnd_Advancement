@@ -66,7 +66,7 @@ public class Notification {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // 1. 정적메서스 유저 간의 알림
+    // 1. 정적메서드 유저 간의 알림 (REVIEW_LIKE, FOLLOW)
     public static Notification createUserNotification(Member receiver, Member actor, NotificationType type, Long targetId) {
         if (actor == null) {
             throw new IllegalArgumentException("유저 알림은 반드시 유저가 필요합니다.");
@@ -76,12 +76,24 @@ public class Notification {
         noti.actor = actor;
         noti.type = type;
         switch (type) {
-            case REVIEW_LIKE  -> noti.reviewId    = targetId;
-            case COMMENT      -> noti.commentId   = targetId;
-            case COMMENT_LIKE -> noti.commentId   = targetId;
-            case FOLLOW       -> noti.followId    = targetId;
-            default           -> {}
+            case REVIEW_LIKE -> noti.reviewId = targetId;
+            case FOLLOW      -> noti.followId = targetId;
+            default          -> {}
         }
+        return noti;
+    }
+
+    // 2. 댓글 관련 알림 (COMMENT, COMMENT_LIKE) — reviewId + commentId 둘 다 필요
+    public static Notification createCommentNotification(Member receiver, Member actor, NotificationType type, Long reviewId, Long commentId) {
+        if (actor == null) {
+            throw new IllegalArgumentException("유저 알림은 반드시 유저가 필요합니다.");
+        }
+        Notification noti = new Notification();
+        noti.receiver = receiver;
+        noti.actor = actor;
+        noti.type = type;
+        noti.reviewId = reviewId;
+        noti.commentId = commentId;
         return noti;
     }
 
