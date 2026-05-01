@@ -7,6 +7,7 @@ import com.shelfeed.backend.domain.feed.repository.FeedRepository;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import com.shelfeed.backend.domain.review.dto.request.ReviewCreateRequest;
 import com.shelfeed.backend.domain.review.dto.request.ReviewUpdateRequest;
 import com.shelfeed.backend.domain.review.entity.Review;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.*;
 class ReviewServiceTest {
 
     @Mock MemberRepository memberRepository;
+    @Mock MemberLoader memberLoader;
     @Mock ReviewRepository reviewRepository;
     @Mock LibraryRepository libraryRepository;
     @Mock BookRepository bookRepository;
@@ -105,7 +107,7 @@ class ReviewServiceTest {
         @DisplayName("존재하지 않는 회원이면 MEMBER_NOT_FOUND 예외가 발생한다")
         void 회원없음_예외() {
             ReviewCreateRequest request = createRequest(1L, null, (byte) 4, "내용", null, ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED, null);
-            given(memberRepository.findByMemberUserId(99L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(99L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> reviewService.createReview(99L, request))
                     .isInstanceOf(BusinessException.class)
@@ -117,7 +119,7 @@ class ReviewServiceTest {
         @DisplayName("존재하지 않는 도서이면 BOOK_NOT_FOUND 예외가 발생한다")
         void 도서없음_예외() {
             ReviewCreateRequest request = createRequest(99L, null, (byte) 4, "내용", null, ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED, null);
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(bookRepository.findById(99L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> reviewService.createReview(1L, request))
@@ -131,7 +133,7 @@ class ReviewServiceTest {
         void 중복_감상_작성_예외() {
             ReviewCreateRequest request = createRequest(1L, null, (byte) 4, "내용", null,
                     ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED, null);
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(bookRepository.findById(1L)).willReturn(Optional.of(book));
             given(reviewRepository.existsByMemberAndBook_BookIdAndIsDeletedFalse(ownerMember, 1L)).willReturn(true);
 
@@ -145,10 +147,10 @@ class ReviewServiceTest {
         @DisplayName("libraryBookId가 있지만 서재에 없으면 LIBRARY_BOOK_NOT_FOUND 예외가 발생한다")
         void 서재_도서없음_예외() {
             ReviewCreateRequest request = createRequest(1L, 99L, (byte) 4, "내용", null, ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED, null);
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(bookRepository.findById(1L)).willReturn(Optional.of(book));
             given(reviewRepository.existsByMemberAndBook_BookIdAndIsDeletedFalse(ownerMember, 1L)).willReturn(false);
-            given(libraryRepository.findByLibraryBookIdAndMemberId(99L, ownerMember)).willReturn(Optional.empty());
+            given(libraryRepository.findByLibraryBookIdAndMember(99L, ownerMember)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> reviewService.createReview(1L, request))
                     .isInstanceOf(BusinessException.class)
@@ -160,7 +162,7 @@ class ReviewServiceTest {
         @DisplayName("PUBLISHED 상태로 작성하면 감상을 저장하고 reviewCount를 증가시킨다")
         void PUBLISHED_감상_작성_성공() {
             ReviewCreateRequest request = createRequest(1L, null, (byte) 4, "내용", null, ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED, null);
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(bookRepository.findById(1L)).willReturn(Optional.of(book));
             given(reviewRepository.existsByMemberAndBook_BookIdAndIsDeletedFalse(ownerMember, 1L)).willReturn(false);
 
@@ -174,7 +176,7 @@ class ReviewServiceTest {
         @DisplayName("DRAFT 상태로 작성하면 감상을 저장하지만 reviewCount를 증가시키지 않는다")
         void DRAFT_감상_작성_성공() {
             ReviewCreateRequest request = createRequest(1L, null, (byte) 4, "내용", null, ReviewVisibility.PUBLIC, ReviewStatus.DRAFT, null);
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(bookRepository.findById(1L)).willReturn(Optional.of(book));
             given(reviewRepository.existsByMemberAndBook_BookIdAndIsDeletedFalse(ownerMember, 1L)).willReturn(false);
 
@@ -231,7 +233,7 @@ class ReviewServiceTest {
         @DisplayName("차단 관계가 있으면 BLOCKED_USER 예외가 발생한다")
         void 차단_관계_조회_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L)).willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, otherMember)).willReturn(true);
 
             assertThatThrownBy(() -> reviewService.getReview(10L, 2L))
@@ -255,7 +257,7 @@ class ReviewServiceTest {
         @DisplayName("차단 관계가 없으면 타인이 공개 감상을 조회할 수 있다")
         void 공개_감상_타인_조회_성공() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L)).willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, otherMember)).willReturn(false);
             given(blockRepository.existsByBlockerAndBlocked(otherMember, ownerMember)).willReturn(false);
             given(reviewTagRepository.findByReview(publicReview)).willReturn(List.of());
@@ -405,7 +407,7 @@ class ReviewServiceTest {
         @Test
         @DisplayName("존재하지 않는 회원이면 MEMBER_NOT_FOUND 예외가 발생한다")
         void 회원없음_예외() {
-            given(memberRepository.findByMemberUserId(99L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(99L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> reviewService.getMyReviews(99L, null, null, 10))
                     .isInstanceOf(BusinessException.class)
@@ -416,7 +418,7 @@ class ReviewServiceTest {
         @Test
         @DisplayName("정상 조회 시 감상 목록을 반환한다")
         void 정상_내_감상_목록_조회_성공() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(reviewRepository.findMyReviews(eq(ownerMember), any(), any(), any())).willReturn(List.of());
 
             var result = reviewService.getMyReviews(1L, null, null, 10);
@@ -435,7 +437,7 @@ class ReviewServiceTest {
         @Test
         @DisplayName("존재하지 않는 회원이면 MEMBER_NOT_FOUND 예외가 발생한다")
         void 회원없음_예외() {
-            given(memberRepository.findByMemberUserId(99L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(99L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> reviewService.getUserReviews(99L, null, 10))
                     .isInstanceOf(BusinessException.class)
@@ -446,7 +448,7 @@ class ReviewServiceTest {
         @Test
         @DisplayName("정상 조회 시 공개된 감상 목록을 반환한다")
         void 정상_유저_감상_목록_조회_성공() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             given(reviewRepository.findUserReviews(eq(ownerMember), any(), any()))
                     .willReturn(List.of());
 
@@ -479,7 +481,7 @@ class ReviewServiceTest {
         void 비공개_감상_좋아요_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(11L))
                     .willReturn(Optional.of(privateReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
 
             assertThatThrownBy(() -> reviewService.likeReview(11L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -492,7 +494,7 @@ class ReviewServiceTest {
         void 차단_관계_좋아요_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, otherMember)).willReturn(false);
             given(blockRepository.existsByBlockerAndBlocked(otherMember, ownerMember)).willReturn(true);
 
@@ -507,7 +509,7 @@ class ReviewServiceTest {
         void 본인_감상_좋아요_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(ownerMember));
+            given(memberLoader.getOrThrow(1L)).willReturn(ownerMember);
             // 본인-본인 차단 체크: false 반환
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, ownerMember)).willReturn(false);
 
@@ -522,7 +524,7 @@ class ReviewServiceTest {
         void 중복_좋아요_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, otherMember)).willReturn(false);
             given(blockRepository.existsByBlockerAndBlocked(otherMember, ownerMember)).willReturn(false);
             given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
@@ -539,7 +541,7 @@ class ReviewServiceTest {
         void 정상_좋아요_성공() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(blockRepository.existsByBlockerAndBlocked(ownerMember, otherMember)).willReturn(false);
             given(blockRepository.existsByBlockerAndBlocked(otherMember, ownerMember)).willReturn(false);
             given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))

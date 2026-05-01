@@ -73,8 +73,15 @@ public class Notification {
         }
         Notification noti = new Notification();
         noti.receiver = receiver;
-        noti.actor = actor;  // 행위자 세팅
+        noti.actor = actor;
         noti.type = type;
+        switch (type) {
+            case REVIEW_LIKE  -> noti.reviewId    = targetId;
+            case COMMENT      -> noti.commentId   = targetId;
+            case COMMENT_LIKE -> noti.commentId   = targetId;
+            case FOLLOW       -> noti.followId    = targetId;
+            default           -> {}
+        }
         return noti;
     }
 

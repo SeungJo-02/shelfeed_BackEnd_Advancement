@@ -56,4 +56,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     @Transactional
     @Query("UPDATE Member m SET m.reviewCount = m.reviewCount - 1 WHERE m.memberUserId = :id AND m.reviewCount > 0")
     void decreaseReviewCount(@Param("id") Long id);
+
+    // 탈퇴 처리용 batch 카운트 업데이트
+    @Modifying
+    @Transactional
+    @Query("UPDATE Member m SET m.followerCount = m.followerCount - 1 WHERE m.memberUserId IN :ids AND m.followerCount > 0")
+    void decreaseFollowerCountBatch(@Param("ids") List<Long> ids);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Member m SET m.followingCount = m.followingCount - 1 WHERE m.memberUserId IN :ids AND m.followingCount > 0")
+    void decreaseFollowingCountBatch(@Param("ids") List<Long> ids);
 }

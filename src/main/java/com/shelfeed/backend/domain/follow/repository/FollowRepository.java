@@ -51,7 +51,7 @@ public interface FollowRepository extends JpaRepository<Follow,Long> {
     @Query("""
     SELECT f FROM Follow f
     JOIN FETCH f.follower
-    WHERE f.followee = :target AND f.followId < :cursor
+    WHERE f.followee = :target AND (:cursor IS NULL OR f.followId < :cursor)
     ORDER BY f.followId DESC
     """)
     List<Follow> findFollowersWithMember(@Param("target") Member target,
@@ -80,4 +80,7 @@ public interface FollowRepository extends JpaRepository<Follow,Long> {
 
     //타 유저의 팔로워 조회
     List<Follow> findByFollowee(Member followee);
+
+    // 탈퇴 처리용
+    List<Follow> findByFollower(Member follower);
 }

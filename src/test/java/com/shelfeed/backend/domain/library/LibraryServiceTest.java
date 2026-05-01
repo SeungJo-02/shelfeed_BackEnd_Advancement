@@ -14,7 +14,7 @@ import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.library.service.LibraryService;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.enums.LibraryVisibility;
-import com.shelfeed.backend.domain.member.repository.MemberRepository;
+import com.shelfeed.backend.global.common.helper.MemberLoader;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
@@ -41,7 +41,7 @@ import static org.mockito.BDDMockito.*;
 @DisplayName("LibraryService 단위 테스트")
 class LibraryServiceTest {
 
-    @Mock MemberRepository memberRepository;
+    @Mock MemberLoader memberLoader;
     @Mock BookRepository bookRepository;
     @Mock ReviewRepository reviewRepository;
     @Mock LibraryRepository libraryRepository;
@@ -94,9 +94,9 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공")
         void 성공() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
             given(bookRepository.findById(10L)).willReturn(Optional.of(book));
-            given(libraryRepository.existsByMemberIdAndBook_BookId(member, 10L)).willReturn(false);
+            given(libraryRepository.existsByMemberAndBook_BookId(member, 10L)).willReturn(false);
             given(libraryRepository.save(any(LibraryBook.class))).willAnswer(inv -> {
                 LibraryBook lb = inv.getArgument(0);
                 ReflectionTestUtils.setField(lb, "libraryBookId", 100L);
@@ -113,7 +113,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.addBook(1L, addRequest(10L, ReadingStatus.WANT_TO_READ)))
                     .isInstanceOf(BusinessException.class)
@@ -123,7 +123,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("BOOK_NOT_FOUND 예외")
         void 책_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
             given(bookRepository.findById(10L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> libraryService.addBook(1L, addRequest(10L, ReadingStatus.WANT_TO_READ)))
@@ -134,9 +134,9 @@ class LibraryServiceTest {
         @Test
         @DisplayName("ALREADY_IN_LIBRARY 예외")
         void 이미_서재에_있음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
             given(bookRepository.findById(10L)).willReturn(Optional.of(book));
-            given(libraryRepository.existsByMemberIdAndBook_BookId(member, 10L)).willReturn(true);
+            given(libraryRepository.existsByMemberAndBook_BookId(member, 10L)).willReturn(true);
 
             assertThatThrownBy(() -> libraryService.addBook(1L, addRequest(10L, ReadingStatus.WANT_TO_READ)))
                     .isInstanceOf(BusinessException.class)
@@ -151,7 +151,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 상태 필터 조회")
         void 성공_상태_필터() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
             given(libraryRepository.findLibraryBooks(eq(member), eq(ReadingStatus.READING), isNull(), any(PageRequest.class)))
                     .willReturn(List.of(libraryBook));
 
@@ -164,7 +164,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 전체 조회 (status=null)")
         void 성공_전체_조회() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
             given(libraryRepository.findLibraryBooks(eq(member), isNull(), isNull(), any(PageRequest.class)))
                     .willReturn(List.of(libraryBook));
 
@@ -177,7 +177,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.getMyLibrary(1L, null, null, 10))
                     .isInstanceOf(BusinessException.class)
@@ -197,8 +197,8 @@ class LibraryServiceTest {
             lenient().when(review.getRating()).thenReturn((byte) 4);
             lenient().when(review.getContent()).thenReturn("좋은 책");
 
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.of(libraryBook));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.of(libraryBook));
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.of(review));
 
             LibraryBookDetailResponse response = libraryService.getLibraryBookDetail(100L, 1L);
@@ -211,8 +211,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 리뷰 없음")
         void 성공_리뷰_없음() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.of(libraryBook));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.of(libraryBook));
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.empty());
 
             LibraryBookDetailResponse response = libraryService.getLibraryBookDetail(100L, 1L);
@@ -224,7 +224,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.getLibraryBookDetail(100L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -234,8 +234,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("LIBRARY_BOOK_NOT_FOUND 예외")
         void 서재_책_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> libraryService.getLibraryBookDetail(100L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -250,8 +250,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 상태가 변경됨")
         void 성공() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.of(libraryBook));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.of(libraryBook));
 
             libraryService.updateStatus(100L, 1L, statusRequest(ReadingStatus.READING));
 
@@ -262,7 +262,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.updateStatus(100L, 1L, statusRequest(ReadingStatus.READING)))
                     .isInstanceOf(BusinessException.class)
@@ -272,8 +272,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("LIBRARY_BOOK_NOT_FOUND 예외")
         void 서재_책_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> libraryService.updateStatus(100L, 1L, statusRequest(ReadingStatus.READING)))
                     .isInstanceOf(BusinessException.class)
@@ -288,8 +288,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공")
         void 성공() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.of(libraryBook));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.of(libraryBook));
             given(reviewRepository.existsByMember_MemberUserIdAndBook_BookIdAndIsDeletedFalse(1L, 10L)).willReturn(false);
 
             libraryService.removeBook(100L, 1L);
@@ -300,7 +300,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.removeBook(100L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -310,8 +310,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("LIBRARY_BOOK_NOT_FOUND 예외")
         void 서재_책_없음_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> libraryService.removeBook(100L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -321,8 +321,8 @@ class LibraryServiceTest {
         @Test
         @DisplayName("REVIEW_EXISTS 예외 - 리뷰 존재 시 제거 불가")
         void 리뷰_있으면_제거_불가_예외() {
-            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByLibraryBookIdAndMemberId(100L, member)).willReturn(Optional.of(libraryBook));
+            given(memberLoader.getOrThrow(1L)).willReturn(member);
+            given(libraryRepository.findByLibraryBookIdAndMember(100L, member)).willReturn(Optional.of(libraryBook));
             given(reviewRepository.existsByMember_MemberUserIdAndBook_BookIdAndIsDeletedFalse(1L, 10L)).willReturn(true);
 
             assertThatThrownBy(() -> libraryService.removeBook(100L, 1L))
@@ -338,7 +338,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 본인 PRIVATE 서재는 본인이 조회 시 내용을 반환한다 (visibility는 PUBLIC으로 응답)")
         void 성공_본인_서재() {
-            given(memberRepository.findByMemberUserId(3L)).willReturn(Optional.of(privateMember));
+            given(memberLoader.getOrThrow(3L)).willReturn(privateMember);
             given(libraryRepository.findLibraryBooks(eq(privateMember), isNull(), isNull(), any(PageRequest.class)))
                     .willReturn(List.of());
 
@@ -351,7 +351,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 타인 PUBLIC 서재")
         void 성공_타인_PUBLIC() {
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.of(otherMember));
+            given(memberLoader.getOrThrow(2L)).willReturn(otherMember);
             given(libraryRepository.findLibraryBooks(eq(otherMember), isNull(), isNull(), any(PageRequest.class)))
                     .willReturn(List.of(libraryBook));
 
@@ -364,7 +364,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("성공 - 타인 PRIVATE 서재 → 빈 응답 반환")
         void 성공_타인_PRIVATE() {
-            given(memberRepository.findByMemberUserId(3L)).willReturn(Optional.of(privateMember));
+            given(memberLoader.getOrThrow(3L)).willReturn(privateMember);
 
             UserLibraryResponse response = libraryService.getUserLibrary(3L, null, null, 10, 1L);
 
@@ -376,7 +376,7 @@ class LibraryServiceTest {
         @Test
         @DisplayName("MEMBER_NOT_FOUND 예외")
         void 멤버_없음_예외() {
-            given(memberRepository.findByMemberUserId(2L)).willReturn(Optional.empty());
+            given(memberLoader.getOrThrow(2L)).willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
             assertThatThrownBy(() -> libraryService.getUserLibrary(2L, null, null, 10, 1L))
                     .isInstanceOf(BusinessException.class)

@@ -5,6 +5,7 @@ import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.review.entity.Review;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,4 +36,14 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
 
     // 감상 삭제 시 피드에서 제거
     void deleteByReview(Review review);
+
+    // 탈퇴 처리용: 해당 멤버의 모든 피드 제거
+    @Modifying
+    @Query("DELETE FROM Feed f WHERE f.member = :member")
+    void deleteByMember(@Param("member") Member member);
+
+    // 탈퇴 처리용: 탈퇴 멤버의 감상이 타인 피드에 남아있는 것 제거
+    @Modifying
+    @Query("DELETE FROM Feed f WHERE f.review.member = :member")
+    void deleteByReviewMember(@Param("member") Member member);
 }

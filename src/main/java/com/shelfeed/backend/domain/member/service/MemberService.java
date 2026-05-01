@@ -1,5 +1,9 @@
 package com.shelfeed.backend.domain.member.service;
 
+import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.feed.repository.FeedRepository;
+import com.shelfeed.backend.domain.follow.entity.Follow;
+import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.genre.entity.Genre;
 import com.shelfeed.backend.domain.genre.entity.MemberGenre;
 import com.shelfeed.backend.domain.genre.repository.GenreRepository;
@@ -37,6 +41,9 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final GenreRepository genreRepository;
     private final MemberGenreRepository memberGenreRepository;
+    private final FollowRepository followRepository;
+    private final FeedRepository feedRepository;
+    private final BlockRepository blockRepository;
     private final PasswordEncoder passwordEncoder;
     private final RedisService redisService;
     private final JwtProvider jwtProvider;
@@ -180,6 +187,29 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
                     throw new BusinessException(ErrorCode.INVALID_PASSWORD);
             }
         }
+
+        // 팔로잉 관계 제거 + 팔로이의 followerCount 일괄 복원
+        List<Follow> outgoing = followRepository.findByFollower(member);
+        if (!outgoing.isEmpty()) {
+            List<Long> followeeIds = outgoing.stream().map(f -> f.getFollowee().getMemberUserId()).toList();
+            memberRepository.decreaseFollowerCountBatch(followeeIds);
+            followRepository.deleteAll(outgoing);
+        }
+
+        // 팔로워 관계 제거 + 팔로워의 followingCount 일괄 복원
+        List<Follow> incoming = followRepository.findByFollowee(member);
+        if (!incoming.isEmpty()) {
+            List<Long> followerIds = incoming.stream().map(f -> f.getFollower().getMemberUserId()).toList();
+            memberRepository.decreaseFollowingCountBatch(followerIds);
+            followRepository.deleteAll(incoming);
+        }
+
+        // 피드 정리
+        feedRepository.deleteByMember(member);
+        feedRepository.deleteByReviewMember(member);
+
+        // 차단 관계 제거
+        blockRepository.deleteAllByMember(member);
 
         member.maskUserInfo();
 

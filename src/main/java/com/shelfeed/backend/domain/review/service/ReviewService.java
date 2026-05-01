@@ -2,7 +2,10 @@ package com.shelfeed.backend.domain.review.service;
 
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
+import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
+import com.shelfeed.backend.domain.follow.entity.Follow;
+import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -17,6 +20,9 @@ import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.notification.entity.Notification;
+import com.shelfeed.backend.domain.notification.enums.NotificationType;
+import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
@@ -47,6 +53,8 @@ public class ReviewService {
     private final ReviewTagRepository reviewTagRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final FeedRepository feedRepository;
+    private final FollowRepository followRepository;
+    private final NotificationRepository notificationRepository;
     private final BlockRepository blockRepository;
 
     // ── 1 감상 작성
@@ -76,9 +84,12 @@ public class ReviewService {
 
         //테그 처리(List로 나옴)
         List<String> tagNames = saveTags(review, request.getTags());
-        //요청상태가 계시된 상태라면 리뷰 카운트 1 up
+        //요청상태가 계시된 상태라면 리뷰 카운트 1 up + PUBLIC이면 팔로워 피드 생성
         if (request.getReviewStatus() == ReviewStatus.PUBLISHED) {
             memberRepository.increaseReviewCount(memberUserId);
+            if (request.getReviewVisibility() == ReviewVisibility.PUBLIC) {
+                createFeedsForFollowers(member, review);
+            }
         }
         return ReviewCreateResponse.of(review, tagNames);
     }
@@ -113,11 +124,25 @@ public class ReviewService {
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
         validateReviewOwner(review, memberUserId);
 
-        // DRAFT가 PUBLISHED로 바뀌면 reviewCount 증가
-        boolean wasPublished = review.getReviewStatus() == ReviewStatus.PUBLISHED;
-        boolean willPublish = request.getReviewStatus() == ReviewStatus.PUBLISHED;
-        if (!wasPublished && willPublish){
+        ReviewStatus prevStatus = review.getReviewStatus();
+        ReviewStatus nextStatus = request.getReviewStatus();
+        ReviewVisibility prevVis = review.getReviewVisibility();
+        ReviewVisibility nextVis = request.getReviewVisibility();
+        if (prevStatus == ReviewStatus.DRAFT && nextStatus == ReviewStatus.PUBLISHED) {
             memberRepository.increaseReviewCount(review.getMember().getMemberUserId());
+            if (nextVis == ReviewVisibility.PUBLIC) {
+                createFeedsForFollowers(review.getMember(), review);
+            }
+        } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.DRAFT) {
+            feedRepository.deleteByReview(review);
+        } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.PUBLISHED) {
+            boolean wasPublic = prevVis == ReviewVisibility.PUBLIC;
+            boolean willBePublic = nextVis == ReviewVisibility.PUBLIC;
+            if (wasPublic && !willBePublic) {
+                feedRepository.deleteByReview(review);
+            } else if (!wasPublic && willBePublic) {
+                createFeedsForFollowers(review.getMember(), review);
+            }
         }
         //업데이트
         review.update(
@@ -191,6 +216,8 @@ public class ReviewService {
         }
         reviewLikeRepository.save(ReviewLike.create(review,member));// 저장
         reviewRepository.increaseLikeCount(review.getReviewId());
+        notificationRepository.save(Notification.createUserNotification(
+                review.getMember(), member, NotificationType.REVIEW_LIKE, review.getReviewId()));
         return ReviewLikeResponse.of(review);
     }
     //8. 감상 좋아요 취소
@@ -252,6 +279,14 @@ public class ReviewService {
     private List<String> getTagNames(Review review) {
         return reviewTagRepository.findByReview(review).stream()
                 .map(reviewTag -> reviewTag.getTag().getTagName()).toList();
+    }
+
+    // 팔로워 전체 피드 일괄 생성
+    private void createFeedsForFollowers(Member reviewer, Review review) {
+        List<Feed> feeds = followRepository.findByFollowee(reviewer).stream()
+                .map(follow -> Feed.create(follow.getFollower(), review))
+                .toList();
+        if (!feeds.isEmpty()) feedRepository.saveAll(feeds);
     }
 
     //태그 이름 목록 일괄 조회 (IN절 - N+1 방지)

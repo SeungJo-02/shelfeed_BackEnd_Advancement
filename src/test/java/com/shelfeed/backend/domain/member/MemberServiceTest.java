@@ -3,6 +3,7 @@ package com.shelfeed.backend.domain.member;
 import com.shelfeed.backend.domain.genre.entity.Genre;
 import com.shelfeed.backend.domain.genre.repository.GenreRepository;
 import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
+import com.shelfeed.backend.domain.member.dto.internal.PasswordChangeResult;
 import com.shelfeed.backend.domain.member.dto.request.*;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.enums.MemberStatus;
@@ -366,7 +367,7 @@ class MemberServiceTest {
             given(jwtProvider.getAccessTokenExpiresIn()).willReturn(3600L);
             given(jwtProvider.getRefreshTokenExpiresIn()).willReturn(1209600L);
 
-            MemberService.NewTokenPair result = memberService.changePassword(1L,
+            PasswordChangeResult result = memberService.changePassword(1L,
                     changePasswordRequest("currentPw", "NewPass1!"));
 
             assertThat(result.accessToken()).isEqualTo("newAccess");

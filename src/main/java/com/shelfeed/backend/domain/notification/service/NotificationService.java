@@ -40,15 +40,14 @@ public class NotificationService {
                 PageRequest.of(0, limit + 1)
         );
 
-        List<NotificationItemResponse> content = notifications.stream()
+        List<NotificationItemResponse> all = notifications.stream()
                 .map(NotificationItemResponse::of)
                 .toList();
-
-        String nextCursor = null;
-        if (content.size() > limit) {
-            Long nextId = content.get(limit - 1).getNotificationId();
-            nextCursor = cursorUtils.encode(nextId);
-        }
+        boolean hasNext = all.size() > limit;
+        List<NotificationItemResponse> content = hasNext ? all.subList(0, limit) : all;
+        String nextCursor = hasNext
+                ? cursorUtils.encode(content.get(content.size() - 1).getNotificationId())
+                : null;
 
         return NotificationListResponse.of(content, limit, nextCursor);
     }

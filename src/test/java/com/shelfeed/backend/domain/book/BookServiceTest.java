@@ -188,7 +188,7 @@ class BookServiceTest {
             given(bookRepository.findAverageRatingByBookId(10L)).willReturn(4.0);
             given(bookRepository.countReviewsByBookId(10L)).willReturn(10L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByMemberIdAndBook_BookId(member, 10L)).willReturn(Optional.of(lb));
+            given(libraryRepository.findByMemberAndBook_BookId(member, 10L)).willReturn(Optional.of(lb));
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.of(review));
 
             BookDetailResponse response = bookService.getBook(10L, 1L);
@@ -205,7 +205,7 @@ class BookServiceTest {
             given(bookRepository.findAverageRatingByBookId(10L)).willReturn(null);
             given(bookRepository.countReviewsByBookId(10L)).willReturn(0L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByMemberIdAndBook_BookId(member, 10L)).willReturn(Optional.empty());
+            given(libraryRepository.findByMemberAndBook_BookId(member, 10L)).willReturn(Optional.empty());
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.empty());
 
             BookDetailResponse response = bookService.getBook(10L, 1L);
@@ -276,7 +276,7 @@ class BookServiceTest {
         void 성공_로그인_서재_확인() {
             given(bookRepository.findByIsbn13("9781234567890")).willReturn(Optional.of(book));
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.existsByMemberIdAndBook_BookId(member, 10L)).willReturn(true);
+            given(libraryRepository.existsByMemberAndBook_BookId(member, 10L)).willReturn(true);
 
             BookDetailResponse response = bookService.getBookByIsbn("9781234567890", 1L);
 

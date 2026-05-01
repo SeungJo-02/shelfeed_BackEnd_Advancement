@@ -51,6 +51,7 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     INVALID_RATING(400, "R005", "평점은 1~5 사이의 정수여야 합니다."),
     TOO_MANY_TAGS(400, "R006", "태그는 최대 5개까지 등록할 수 있습니다."),
     PRIVATE_REVIEW(403, "R007", "비공개 감상입니다."),
+    REVIEW_NOT_PUBLISHED(400, "R008", "발행된 리뷰에만 댓글을 작성할 수 있습니다."),
     // 댓글
     COMMENT_NOT_FOUND(404, "CM001", "존재하지 않는 댓글입니다."),
     NOT_COMMENT_OWNER(403, "CM002", "본인의 댓글만 수정/삭제할 수 있습니다."),

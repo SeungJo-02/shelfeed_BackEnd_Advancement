@@ -1,7 +1,14 @@
 package com.shelfeed.backend.domain.follow.service;
 
 import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
+import com.shelfeed.backend.domain.notification.entity.Notification;
+import com.shelfeed.backend.domain.notification.enums.NotificationType;
+import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
+import com.shelfeed.backend.domain.review.entity.Review;
+import com.shelfeed.backend.domain.review.repository.ReviewRepository;
+import org.springframework.data.domain.PageRequest;
 import com.shelfeed.backend.domain.follow.dto.response.FollowListResponse;
 import com.shelfeed.backend.domain.follow.dto.response.FollowMemberResponse;
 import com.shelfeed.backend.domain.follow.dto.response.FollowResponse;
@@ -33,6 +40,8 @@ public class FollowService {
     private final MemberLoader memberLoader;
     private final FollowRepository followRepository;
     private final FeedRepository feedRepository;
+    private final ReviewRepository reviewRepository;
+    private final NotificationRepository notificationRepository;
     private final BlockRepository blockRepository;
 
     //1. 팔로우
@@ -58,6 +67,13 @@ public class FollowService {
         // 카운트 업데이트
         memberRepository.increaseFollowingCount(follower.getMemberUserId());
         memberRepository.increaseFollowerCount(followee.getMemberUserId());
+        notificationRepository.save(Notification.createUserNotification(
+                followee, follower, NotificationType.FOLLOW, follow.getFollowId()));
+        // 팔로우의 최근 PUBLISHED+PUBLIC 감상 최대 30개 소급 피드 생성
+        List<Review> recentReviews = reviewRepository.findUserReviews(followee, null, PageRequest.of(0, 30));
+        if (!recentReviews.isEmpty()) {
+            feedRepository.saveAll(recentReviews.stream().map(r -> Feed.create(follower, r)).toList());
+        }
         return FollowResponse.of(follow,follower);
     }
     //2.언팔로우
