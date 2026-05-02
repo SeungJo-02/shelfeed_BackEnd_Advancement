@@ -51,17 +51,20 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
                                        @Param("cursor") Long cursor,
                                        Pageable pageable);
 
-    //인기순(커서 기반)
+    //인기순(커서 기반) — (likeCount DESC, reviewId DESC) 복합 커서
     @Query("""
         SELECT r from Review r WHERE r.book.bookId = :bookId
         AND r.isDeleted = false
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
-        AND(:cursor IS NULL OR r.likeCount < :cursor OR r.likeCount < :cursorLike OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
+        AND (:cursorLike IS NULL
+             OR r.likeCount < :cursorLike
+             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
         ORDER BY r.likeCount DESC, r.reviewId DESC
 """)
     List<Review> findBookReviewsPopular(@Param("bookId") Long bookId,
-                                       @Param("cursor") Long cursor,
+                                       @Param("cursorLike") Integer cursorLike,
+                                       @Param("cursorId") Long cursorId,
                                        Pageable pageable);
 
 

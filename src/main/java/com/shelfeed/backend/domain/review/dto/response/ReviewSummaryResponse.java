@@ -38,7 +38,7 @@ public class ReviewSummaryResponse {
         private String coverImageUrl;
     }
 
-    public static ReviewSummaryResponse of(Review review, List<String> tags) {
+    public static ReviewSummaryResponse of(Review review, List<String> tags, boolean isLiked) {
         return ReviewSummaryResponse.builder()
                 .reviewId(review.getReviewId())
                 .book(BookInfo.builder()
@@ -55,7 +55,7 @@ public class ReviewSummaryResponse {
                 .reviewStatus(review.getReviewStatus())
                 .likeCount(review.getLikeCount())
                 .commentCount(review.getCommentCount())
-                .isLiked(false)
+                .isLiked(isLiked)
                 .tags(tags)
                 .createdAt(review.getCreatedAt())
                 .build();

@@ -55,7 +55,7 @@ public class BookService {
     // 1. 도서 검색
     @Transactional
     public BookSearchListResponse searchBooks(BookSearchRequest request, Long memberUserId) {
-        AladinSearchResponse response = aladinApiClient.search(request.getQuery(), 1, request.getLimit() + 1); //무한스크롤을 위해 +1 개 더 조회
+        AladinSearchResponse response = aladinApiClient.search(request.getQuery(), request.getPage(), request.getLimit() + 1); //무한스크롤을 위해 +1 개 더 조회
         if (response == null || response.getItems() == null) {
             return BookSearchListResponse.of(List.of(), request.getLimit());// 내용없으면 빈 리스트
         }
@@ -147,8 +147,9 @@ public class BookService {
         }
         int pageSize = request.getLimit() + 1;
         boolean isRatingSort = "rating_high".equals(request.getSort()) || "rating_low".equals(request.getSort());
+        boolean isPopularSort = "popular".equals(request.getSort());
         List<Review> reviews = switch (request.getSort()){//필터링
-            case "popular"     -> reviewRepository.findBookReviewsPopular(bookId, request.getCursor(), PageRequest.of(0, pageSize));
+            case "popular"     -> reviewRepository.findBookReviewsPopular(bookId, request.getCursorLike(), request.getCursor(), PageRequest.of(0, pageSize));
             case "rating_high" -> reviewRepository.findBookReviewsRatingHigh(bookId, request.getCursorRating(), request.getCursor(), PageRequest.of(0, pageSize));
             case "rating_low"  -> reviewRepository.findBookReviewsRatingLow(bookId, request.getCursorRating(), request.getCursor(), PageRequest.of(0, pageSize));
             default            -> reviewRepository.findBookReviewsLatest(bookId, request.getCursor(), PageRequest.of(0, pageSize));
@@ -172,7 +173,7 @@ public class BookService {
                 .map(review -> BookReviewResponse.of(review, likedIds.contains(review.getReviewId())))
                 .toList();
 
-        return BookReviewListResponse.of(content, request.getLimit(), isRatingSort);
+        return BookReviewListResponse.of(content, request.getLimit(), isRatingSort, isPopularSort);
     }
 
     // 알라딘 아이템 → Book 엔티티 생성 (저장 없이 객체만 반환, saveAll용)

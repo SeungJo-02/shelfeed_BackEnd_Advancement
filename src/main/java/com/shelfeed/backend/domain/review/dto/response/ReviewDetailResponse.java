@@ -52,7 +52,7 @@ public class ReviewDetailResponse {
         private String coverImageUrl;
     }
 
-    public static ReviewDetailResponse of(Review review, List<String> tags, boolean isMine){
+    public static ReviewDetailResponse of(Review review, List<String> tags, boolean isMine, boolean isLiked){
         return ReviewDetailResponse.builder()
                 .reviewId(review.getReviewId())
                 .user(UserInfo.builder()
@@ -76,7 +76,7 @@ public class ReviewDetailResponse {
                 .reviewStatus(review.getReviewStatus())
                 .likeCount(review.getLikeCount())
                 .commentCount(review.getCommentCount())
-                .isLiked(false)
+                .isLiked(isLiked)
                 .isMine(isMine)
                 .tags(tags)
                 .createdAt(review.getCreatedAt())

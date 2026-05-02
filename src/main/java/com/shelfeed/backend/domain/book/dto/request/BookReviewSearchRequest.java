@@ -16,6 +16,9 @@ public class BookReviewSearchRequest { //API 명세서 속 쿼리 파라미터 �
     @Schema(description = "평점순 전용 커서 — 직전 마지막 항목의 rating (rating_high / rating_low 에서만 사용)", nullable = true)
     private Integer cursorRating;
 
+    @Schema(description = "인기순 전용 커서 — 직전 마지막 항목의 likeCount (popular 에서만 사용)", nullable = true)
+    private Integer cursorLike;
+
     @Schema(defaultValue = "20", minimum = "1", maximum = "50")
     private int limit = 20; // 기본 20, 최대 50
 }

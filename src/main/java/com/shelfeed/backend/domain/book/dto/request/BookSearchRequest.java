@@ -10,6 +10,8 @@ public class BookSearchRequest { //API 명세서 속 쿼리 파라미터 용
     private String query;    // 검색어 (필수)
 
     @Schema(defaultValue = "20", minimum = "1", maximum = "50")
-    private int limit = 20;  // 기본 20, 최대 50
+    private int limit = 20;
 
+    @Schema(defaultValue = "1", minimum = "1", description = "알라딘 API 페이지 번호")
+    private int page = 1;
 }

@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -110,7 +111,8 @@ public class ReviewService {
             }
         }
         List<String> tags = getTagNames(review);
-        return ReviewDetailResponse.of(review,tags,isMine);
+        boolean isLiked = memberUserId != null && reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId, memberUserId);
+        return ReviewDetailResponse.of(review, tags, isMine, isLiked);
     }
 
     //3. 감상 수정
@@ -171,12 +173,16 @@ public class ReviewService {
     public List<ReviewSummaryResponse> getMyReviews(Long memberUserId, ReviewStatus status, Long cursor, int limit){
         Member member = memberLoader.getOrThrow(memberUserId);
         List<Review> reviews = reviewRepository.findMyReviews(member, status, cursor, PageRequest.of(0, limit + 1));
-        boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
-        if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기
+        boolean hasNext = reviews.size() > limit;
+        if (hasNext) reviews = reviews.subList(0, limit);
 
+        List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
+        Set<Long> likedIds = reviews.isEmpty() ? Set.of() : reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId);
         Map<Long, List<String>> tagMap = getTagNamesByReviews(reviews);
         return reviews.stream()
-                .map(review -> ReviewSummaryResponse.of(review, tagMap.getOrDefault(review.getReviewId(), Collections.emptyList())))
+                .map(review -> ReviewSummaryResponse.of(review,
+                        tagMap.getOrDefault(review.getReviewId(), Collections.emptyList()),
+                        likedIds.contains(review.getReviewId())))
                 .toList();
     }
     //6. 타 유저 감상 목록
@@ -193,9 +199,14 @@ public class ReviewService {
         boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
         if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기
 
+        List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
+        Set<Long> likedIds = (requestingUserId != null && !reviews.isEmpty())
+                ? reviewLikeRepository.findLikedReviewIds(reviewIds, requestingUserId) : Set.of();
         Map<Long, List<String>> tagMap = getTagNamesByReviews(reviews);
         return reviews.stream()
-                .map(review -> ReviewSummaryResponse.of(review, tagMap.getOrDefault(review.getReviewId(), Collections.emptyList())))
+                .map(review -> ReviewSummaryResponse.of(review,
+                        tagMap.getOrDefault(review.getReviewId(), Collections.emptyList()),
+                        likedIds.contains(review.getReviewId())))
                 .toList();
     }
     //7. 감상 좋아요
@@ -225,7 +236,7 @@ public class ReviewService {
         reviewRepository.increaseLikeCount(review.getReviewId());
         notificationRepository.save(Notification.createUserNotification(
                 review.getMember(), member, NotificationType.REVIEW_LIKE, review.getReviewId()));
-        return ReviewLikeResponse.of(review);
+        return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
     //8. 감상 좋아요 취소
     @Transactional
@@ -236,7 +247,7 @@ public class ReviewService {
 
         reviewLikeRepository.delete(like);
         reviewRepository.decreaseLikeCount(review.getReviewId());
-        return ReviewLikeResponse.of(review);
+        return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
 
     //헬퍼 메소드
