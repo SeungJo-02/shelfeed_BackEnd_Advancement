@@ -77,7 +77,7 @@ public class CommentService {
                 throw new BusinessException(ErrorCode.NESTED_REPLY_NOT_ALLOWED);
             }
             comment = Comment.createReply(review, member, parentComment, request.getContent());// 대댓글 작성
-            notifyTarget = parentComment.getMember();
+            notifyTarget = memberLoader.getOrThrow(parentComment.getMember().getMemberUserId());
         }
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());

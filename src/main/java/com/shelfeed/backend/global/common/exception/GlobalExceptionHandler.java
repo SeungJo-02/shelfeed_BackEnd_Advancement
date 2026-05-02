@@ -1,6 +1,7 @@
 package com.shelfeed.backend.global.common.exception;
 // 예외를 ApiResponse형태로 바꿔서 에러응답 반환
 import com.shelfeed.backend.global.common.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -11,6 +12,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -65,6 +67,7 @@ public class GlobalExceptionHandler {
     // 그 외 예상치 못한 예외 처리
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+        log.error("예상치 못한 서버 오류", e);
         return ResponseEntity
                 .status(500)
                 .body(ApiResponse.error(500, "서버 내부 오류가 발생했습니다."));

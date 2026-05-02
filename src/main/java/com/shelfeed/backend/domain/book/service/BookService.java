@@ -167,8 +167,10 @@ public class BookService {
             pubDate = LocalDate.parse(item.getPubDate());
         } catch (Exception ignored) {}
         Integer totalPages = item.getSubInfo() != null ? item.getSubInfo().getItemPage() : null;
+        String author = item.getAuthor();
+        if (author != null && author.length() > 50) author = author.substring(0, 50);
         return Book.create(
-                item.getIsbn13(), item.getTitle(), item.getAuthor(), item.getPublisher(),
+                item.getIsbn13(), item.getTitle(), author, item.getPublisher(),
                 item.getCover(), item.getDescription(), totalPages, pubDate,
                 item.getItemId() != null ? String.valueOf(item.getItemId()) : null,
                 item.getCategoryName()
