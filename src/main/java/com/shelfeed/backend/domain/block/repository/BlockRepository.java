@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface BlockRepository extends JpaRepository<Block, Long> {
     //차단한 사람 입장에서 차단인을 차단했는가
@@ -32,4 +33,10 @@ public interface BlockRepository extends JpaRepository<Block, Long> {
     List<Block> findBlocks(@Param("member") Member member,
                            @Param("cursor") Long cursor,
                            Pageable pageable);
+
+    @Query("SELECT b.blocked.memberUserId FROM Block b WHERE b.blocker = :member")
+    Set<Long> findBlockedIds(@Param("member") Member member);
+
+    @Query("SELECT b.blocker.memberUserId FROM Block b WHERE b.blocked = :member")
+    Set<Long> findBlockingIds(@Param("member") Member member);
 }

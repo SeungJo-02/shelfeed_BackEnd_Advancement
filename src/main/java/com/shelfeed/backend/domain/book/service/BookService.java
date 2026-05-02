@@ -16,6 +16,7 @@ import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
+import com.shelfeed.backend.domain.block.repository.BlockRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final AladinApiClient aladinApiClient;
+    private final BlockRepository blockRepository;
 
 
     // 1. 도서 검색
@@ -143,13 +146,25 @@ public class BookService {
             throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
         }
         int pageSize = request.getLimit() + 1;
+        boolean isRatingSort = "rating_high".equals(request.getSort()) || "rating_low".equals(request.getSort());
         List<Review> reviews = switch (request.getSort()){//필터링
-            case "popular" -> reviewRepository.findBookReviewsPopular(bookId, request.getCursor(), PageRequest.of(0,pageSize));
-            case "rating_high" -> reviewRepository.findBookReviewsRatingHigh(bookId, PageRequest.of(0, pageSize));
-            case "rating_low"  -> reviewRepository.findBookReviewsRatingLow(bookId, PageRequest.of(0, pageSize));
-            default -> reviewRepository.findBookReviewsLatest(
-                    bookId, request.getCursor(), PageRequest.of(0, pageSize));
+            case "popular"     -> reviewRepository.findBookReviewsPopular(bookId, request.getCursor(), PageRequest.of(0, pageSize));
+            case "rating_high" -> reviewRepository.findBookReviewsRatingHigh(bookId, request.getCursorRating(), request.getCursor(), PageRequest.of(0, pageSize));
+            case "rating_low"  -> reviewRepository.findBookReviewsRatingLow(bookId, request.getCursorRating(), request.getCursor(), PageRequest.of(0, pageSize));
+            default            -> reviewRepository.findBookReviewsLatest(bookId, request.getCursor(), PageRequest.of(0, pageSize));
         };
+        if (memberUserId != null && !reviews.isEmpty()) {
+            Member me = getMemberOrNull(memberUserId);
+            if (me != null) {
+                Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
+                blocked.addAll(blockRepository.findBlockingIds(me));
+                if (!blocked.isEmpty()) {
+                    reviews = reviews.stream()
+                            .filter(r -> !blocked.contains(r.getMember().getMemberUserId()))
+                            .collect(Collectors.toList());
+                }
+            }
+        }
         List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
         Set<Long> likedIds = memberUserId != null ? reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId) : Set.of();
         //set으로 하는게 성능이 더 좋으니깐 사용
@@ -157,7 +172,7 @@ public class BookService {
                 .map(review -> BookReviewResponse.of(review, likedIds.contains(review.getReviewId())))
                 .toList();
 
-        return BookReviewListResponse.of(content, request.getLimit());
+        return BookReviewListResponse.of(content, request.getLimit(), isRatingSort);
     }
 
     // 알라딘 아이템 → Book 엔티티 생성 (저장 없이 객체만 반환, saveAll용)

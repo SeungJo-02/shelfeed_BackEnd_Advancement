@@ -115,7 +115,6 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
 }
 
     // ── 2. 내 프로필 조회
-    @Transactional(readOnly = true)
     public MyProfileResponse getMyProfile(Long memberUserId){
         Member member = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));

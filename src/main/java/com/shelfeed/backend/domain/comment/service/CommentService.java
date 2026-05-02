@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -102,10 +103,30 @@ public class CommentService {
         boolean hasNext = parentComments.size() > limit;
         if (hasNext) parentComments = parentComments.subList(0, limit);
 
+        // 차단 유저 댓글 필터링
+        Set<Long> blockedIds = Set.of();
+        if (memberUserId != null) {
+            Member me = memberLoader.getOrThrow(memberUserId);
+            Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
+            blocked.addAll(blockRepository.findBlockingIds(me));
+            blockedIds = blocked;
+        }
+        final Set<Long> finalBlockedIds = blockedIds;
+        if (!finalBlockedIds.isEmpty()) {
+            parentComments = parentComments.stream()
+                    .filter(c -> !finalBlockedIds.contains(c.getMember().getMemberUserId()))
+                    .collect(Collectors.toList());
+        }
+
         // 대댓글 IN절 일괄 조회
         List<Comment> allReplies = parentComments.isEmpty()
                 ? List.of()
                 : commentRepository.findRepliesByParents(parentComments);
+        if (!finalBlockedIds.isEmpty() && !allReplies.isEmpty()) {
+            allReplies = allReplies.stream()
+                    .filter(r -> !finalBlockedIds.contains(r.getMember().getMemberUserId()))
+                    .collect(Collectors.toList());
+        }
         Map<Long, List<Comment>> repliesMap = allReplies.stream()
                 .collect(Collectors.groupingBy(r -> r.getParentComment().getCommentId()));
 

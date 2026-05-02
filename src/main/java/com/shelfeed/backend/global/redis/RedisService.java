@@ -13,14 +13,15 @@ import java.util.concurrent.TimeUnit;
 public class RedisService {
     private final StringRedisTemplate redisTemplate;
     // 데이터가 섞이지 않도록 하는 레디스의 규칙(Redis 암묵적인 룰 )
-    private static final String REFRESH_PREFIX     = "auth:refresh:";
-    private static final String BLACKLIST_PREFIX   = "auth:blacklist:";
-    private static final String EMAIL_CODE_PREFIX  = "auth:email:code:";
-    private static final String EMAIL_ATTEMPTS_PREFIX = "auth:email:attempts:";
-    private static final String EMAIL_COOLDOWN_PREFIX = "auth:email:cooldown:";
-    private static final String PW_RESET_PREFIX    = "auth:pwreset:";
-    private static final String OAUTH_STATE_PREFIX = "auth:oauth:state:";
-    private static final String MEMBER_SEQ_KEY     = "seq:member";
+    private static final String REFRESH_PREFIX          = "auth:refresh:";
+    private static final String BLACKLIST_PREFIX         = "auth:blacklist:";
+    private static final String EMAIL_CODE_PREFIX        = "auth:email:code:";
+    private static final String EMAIL_ATTEMPTS_PREFIX    = "auth:email:attempts:";
+    private static final String EMAIL_COOLDOWN_PREFIX    = "auth:email:cooldown:";
+    private static final String PW_RESET_PREFIX          = "auth:pwreset:";
+    private static final String OAUTH_STATE_PREFIX       = "auth:oauth:state:";
+    private static final String MEMBER_SEQ_KEY           = "seq:member";
+    private static final String ALADIN_SYNC_PREFIX       = "search:aladin:";
 
     // Refresh Token : JWT는 서버 강제 무효화 불가하기에 로그인,갱신,로그아웃 시 저장·검증·삭제 형식으로 만들기
     public void saveRefreshToken(Long memberUserId, String refreshToken, long ttlSeconds){//opsForValue: Key-Value로 사용할 것을 정의
@@ -115,5 +116,15 @@ public class RedisService {
     //memberUserId 시퀀스: INCR 명령으로 동시성 없는 증가 ID 생성
     public Long generateMemberUserId() {
         return redisTemplate.opsForValue().increment(MEMBER_SEQ_KEY);
+    }
+
+    // 알라딘 검색 캐싱 여부 확인
+    public boolean isAladinQuerySynced(String query) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(ALADIN_SYNC_PREFIX + query.toLowerCase()));
+    }
+
+    // 알라딘 검색 결과 캐싱 마킹 (TTL: 분 단위)
+    public void markAladinQuerySynced(String query, long ttlMinutes) {
+        redisTemplate.opsForValue().set(ALADIN_SYNC_PREFIX + query.toLowerCase(), "1", ttlMinutes, TimeUnit.MINUTES);
     }
 }

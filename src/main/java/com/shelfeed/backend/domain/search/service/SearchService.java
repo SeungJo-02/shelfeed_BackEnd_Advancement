@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.search.service;
 
+import com.shelfeed.backend.domain.block.repository.BlockRepository;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.book.service.BookService;
@@ -15,12 +16,14 @@ import com.shelfeed.backend.domain.search.entity.SearchHistory;
 import com.shelfeed.backend.domain.search.repository.SearchHistoryRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +41,8 @@ public class SearchService {
     private final BookService bookService;
     private final FollowRepository followRepository;
     private final SearchHistoryRepository searchHistoryRepository;
+    private final BlockRepository blockRepository;
+    private final RedisService redisService;
 
     private static final Set<String> VALID_SEARCH_TYPES = Set.of("all", "book", "user");
 
@@ -52,10 +57,13 @@ public class SearchService {
         if (type == null || !VALID_SEARCH_TYPES.contains(type)) {
             throw new BusinessException(ErrorCode.INVALID_SEARCH_TYPE);
         }
-        //로그인 시 검색 기록 저장
+        //로그인 시 검색 기록 저장 — 동일 키워드 재검색 시 createdAt 갱신(upsert)
         if (memberUserId != null) {
             Member member = memberLoader.getOrThrow(memberUserId);
-            searchHistoryRepository.save(SearchHistory.create(member, query.trim()));
+            searchHistoryRepository.findByMemberAndKeyword(member, query.trim())
+                    .ifPresentOrElse(SearchHistory::touch,
+                            () -> searchHistoryRepository.save(SearchHistory.create(member, query.trim()))
+                    );
         }
 
         SearchPageResponse<BookSearchResult> books = SearchPageResponse.empty();
@@ -74,9 +82,10 @@ public class SearchService {
     private SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
         // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출
         // 알라딘 API 오류·타임아웃 시 DB 결과로 폴백 (검색 자체는 실패하지 않음)
-        if (cursor == null) {
+        if (cursor == null && !redisService.isAladinQuerySynced(query)) {
             try {
                 bookService.syncFromAladin(query, limit);
+                redisService.markAladinQuerySynced(query, 5);
             } catch (Exception e) {
                 log.warn("알라딘 캐싱 실패, DB 결과로 폴백: query={}, error={}", query, e.getMessage());
             }
@@ -136,7 +145,16 @@ public class SearchService {
         Set<Long> followingIds = Set.of();
         if (memberUserId != null && !result.isEmpty()) {
             Member me = memberLoader.getOrThrow(memberUserId);
-            followingIds = followRepository.findFollowingIds(me, result);
+            Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
+            blocked.addAll(blockRepository.findBlockingIds(me));
+            if (!blocked.isEmpty()) {
+                result = result.stream()
+                        .filter(m -> !blocked.contains(m.getMemberUserId()))//차단 된놈 거르고 나머지를 모은다
+                        .collect(Collectors.toList());
+            }
+            if (!result.isEmpty()) {
+                followingIds = followRepository.findFollowingIds(me, result);
+            }
         }
 
         final Set<Long> finalFollowingIds = followingIds;
@@ -144,7 +162,7 @@ public class SearchService {
                 .map(target -> UserSearchResult.of(target, finalFollowingIds.contains(target.getMemberUserId())))
                 .toList();
 
-        Long nextCursor = hasNext ? result.get(result.size() - 1).getMemberUserId() : null;
+        Long nextCursor = (hasNext && !result.isEmpty()) ? result.get(result.size() - 1).getMemberUserId() : null;
 
         return SearchPageResponse.<UserSearchResult>builder()
                 .content(content)

@@ -8,12 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByEmail(String email);
-    Optional<Member> findByMemberUserId(Long MemberUserId);
+    Optional<Member> findByMemberUserId(Long memberUserId);
+    List<Member> findByMemberUserIdIn(Collection<Long> memberUserIds);
     boolean existsByEmail(String email);
     boolean existsByNickname(String nickname);
 

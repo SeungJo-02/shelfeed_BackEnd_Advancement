@@ -30,8 +30,12 @@ public class SearchHistory {
     private String keyword;
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public void touch() {
+        this.createdAt = LocalDateTime.now();
+    }
 
     // 정적 메서드
     public static SearchHistory create(Member member, String keyword) {

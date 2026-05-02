@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -51,8 +52,9 @@ public class FollowService {
         if (targetUserId.equals(memberUserId)){
             throw new BusinessException(ErrorCode.CANNOT_FOLLOW_SELF);
         }
-        Member follower = memberLoader.getOrThrow(memberUserId);
-        Member followee = memberLoader.getOrThrow(targetUserId);
+        Map<Long, Member> members = memberLoader.getOrThrowAll(List.of(memberUserId, targetUserId));
+        Member follower = members.get(memberUserId);
+        Member followee = members.get(targetUserId);
         // 차단 관계 확인 (양방향)
         if (blockRepository.existsByBlockerAndBlocked(follower, followee) ||
             blockRepository.existsByBlockerAndBlocked(followee, follower)) {
@@ -79,8 +81,9 @@ public class FollowService {
     //2.언팔로우
     @Transactional
     public UnfollowResponse unfollow(Long targetUserId, Long memberUserId){
-        Member follower = memberLoader.getOrThrow(memberUserId);
-        Member followee = memberLoader.getOrThrow(targetUserId);
+        Map<Long, Member> members = memberLoader.getOrThrowAll(List.of(memberUserId, targetUserId));
+        Member follower = members.get(memberUserId);
+        Member followee = members.get(targetUserId);
         //삭제 대상 조회
         Follow follow = followRepository.findByFollowerAndFollowee(follower,followee)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));

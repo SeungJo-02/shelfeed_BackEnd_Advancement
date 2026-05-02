@@ -180,8 +180,15 @@ public class ReviewService {
                 .toList();
     }
     //6. 타 유저 감상 목록
-    public List<ReviewSummaryResponse> getUserReviews(Long userId, Long cursor, int limit) {
+    public List<ReviewSummaryResponse> getUserReviews(Long userId, Long requestingUserId, Long cursor, int limit) {
         Member member = memberLoader.getOrThrow(userId);
+        if (requestingUserId != null && !requestingUserId.equals(userId)) {
+            Member requester = memberLoader.getOrThrow(requestingUserId);
+            if (blockRepository.existsByBlockerAndBlocked(member, requester) ||
+                blockRepository.existsByBlockerAndBlocked(requester, member)) {
+                throw new BusinessException(ErrorCode.BLOCKED_USER);
+            }
+        }
         List<Review> reviews = reviewRepository.findUserReviews(member, cursor, PageRequest.of(0, limit + 1));
         boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
         if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기

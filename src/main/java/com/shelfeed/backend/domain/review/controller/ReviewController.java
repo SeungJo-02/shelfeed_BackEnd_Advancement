@@ -74,9 +74,11 @@ public class ReviewController {
     @GetMapping("/members/{userId}/reviews")
     public ApiResponse<List<ReviewSummaryResponse>> getUserReviews(
             @PathVariable Long userId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "20") int limit){
-        return ApiResponse.success(200, reviewService.getUserReviews(userId,cursor,limit));
+        Long requestingUserId = userDetails != null ? userDetails.getMember().getMemberUserId() : null;
+        return ApiResponse.success(200, reviewService.getUserReviews(userId, requestingUserId, cursor, limit));
     }
 
     //7. 감상 좋아요

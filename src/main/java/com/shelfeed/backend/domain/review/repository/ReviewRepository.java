@@ -57,8 +57,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         AND r.isDeleted = false
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
-        AND(:cursor IS NULL OR r.likeCount < :cursor)
-        ORDER BY r.likeCount DESC
+        AND(:cursor IS NULL OR r.likeCount < :cursor OR r.likeCount < :cursorLike OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
+        ORDER BY r.likeCount DESC, r.reviewId DESC
 """)
     List<Review> findBookReviewsPopular(@Param("bookId") Long bookId,
                                        @Param("cursor") Long cursor,
@@ -66,27 +66,37 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
 
 
-    //평점이 높은 순(Offset 기반 페이징) 겹치는 값이 많기도하고 유저들이 평점 낮은 거 까지 볼까?
+    //평점이 높은 순(커서 기반) — (rating DESC, reviewId DESC) 복합 커서
     @Query("""
-        SELECT r from Review r WHERE r.book.bookId = :bookId
+        SELECT r FROM Review r WHERE r.book.bookId = :bookId
         AND r.isDeleted = false
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
+        AND (:cursorRating IS NULL
+             OR r.rating < :cursorRating
+             OR (r.rating = :cursorRating AND r.reviewId < :cursorId))
         ORDER BY r.rating DESC, r.reviewId DESC
 """)
     List<Review> findBookReviewsRatingHigh(@Param("bookId") Long bookId,
-                                       Pageable pageable);
+                                           @Param("cursorRating") Integer cursorRating,
+                                           @Param("cursorId") Long cursorId,
+                                           Pageable pageable);
 
-    //평점이 낮은 순(Offset 기반 페이징) 겹치는 값이 많기도하고 유저들이 평점 낮은 거 까지 볼까?
+    //평점이 낮은 순(커서 기반) — (rating ASC, reviewId DESC) 복합 커서
     @Query("""
-        SELECT r from Review r WHERE r.book.bookId = :bookId
+        SELECT r FROM Review r WHERE r.book.bookId = :bookId
         AND r.isDeleted = false
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
+        AND (:cursorRating IS NULL
+             OR r.rating > :cursorRating
+             OR (r.rating = :cursorRating AND r.reviewId < :cursorId))
         ORDER BY r.rating ASC, r.reviewId DESC
 """)
     List<Review> findBookReviewsRatingLow(@Param("bookId") Long bookId,
-                                       Pageable pageable);
+                                          @Param("cursorRating") Integer cursorRating,
+                                          @Param("cursorId") Long cursorId,
+                                          Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Transactional
