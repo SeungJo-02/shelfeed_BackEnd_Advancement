@@ -224,7 +224,7 @@ public class ReviewService {
             blockRepository.existsByBlockerAndBlocked(member, owner)) {
             throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
-        // 셀프 좋아요 막기(나중에 상황봐서 빼도 됨)
+        // TODO: 셀프 좋아요 정책 재검토 — 필요 없으면 제거
         if (review.getMember().getMemberUserId().equals(memberUserId)){
             throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
         }

@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -100,6 +101,70 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
                                           @Param("cursorRating") Integer cursorRating,
                                           @Param("cursorId") Long cursorId,
                                           Pageable pageable);
+
+    // ── 추천 피드용 쿼리 ──────────────────────────────────────────────────
+
+    // 장르 기반 추천 (Content-based)
+    @Query("""
+        SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book b
+        WHERE b.genre IN :genres
+        AND r.isDeleted = false
+        AND r.reviewVisibility = 'PUBLIC'
+        AND r.reviewStatus = 'PUBLISHED'
+        AND r.member <> :me
+        AND (:cursorLike IS NULL
+             OR r.likeCount < :cursorLike
+             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
+        ORDER BY r.likeCount DESC, r.reviewId DESC
+    """)
+    List<Review> findRecommendedByGenres(@Param("genres") List<String> genres,
+                                         @Param("me") Member me,
+                                         @Param("cursorLike") Integer cursorLike,
+                                         @Param("cursorId") Long cursorId,
+                                         Pageable pageable);
+
+    // 팔로우 유저 서재 기반 추천 (Social-based)
+    @Query("""
+        SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book b
+        WHERE b IN (
+            SELECT lb.book FROM LibraryBook lb
+            WHERE lb.member IN (
+                SELECT f.followee FROM Follow f WHERE f.follower = :me
+            )
+            AND lb.status = 'FINISHED'
+        )
+        AND r.isDeleted = false
+        AND r.reviewVisibility = 'PUBLIC'
+        AND r.reviewStatus = 'PUBLISHED'
+        AND r.member <> :me
+        AND (:cursorLike IS NULL
+             OR r.likeCount < :cursorLike
+             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
+        ORDER BY r.likeCount DESC, r.reviewId DESC
+    """)
+    List<Review> findRecommendedByFolloweeLibrary(@Param("me") Member me,
+                                                  @Param("cursorLike") Integer cursorLike,
+                                                  @Param("cursorId") Long cursorId,
+                                                  Pageable pageable);
+
+    // 최근 인기 감상카드 (Cold-start 폴백)
+    @Query("""
+        SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book
+        WHERE r.isDeleted = false
+        AND r.reviewVisibility = 'PUBLIC'
+        AND r.reviewStatus = 'PUBLISHED'
+        AND r.createdAt >= :since
+        AND r.member <> :me
+        AND (:cursorLike IS NULL
+             OR r.likeCount < :cursorLike
+             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
+        ORDER BY r.likeCount DESC, r.reviewId DESC
+    """)
+    List<Review> findPopularRecent(@Param("since") LocalDateTime since,
+                                   @Param("me") Member me,
+                                   @Param("cursorLike") Integer cursorLike,
+                                   @Param("cursorId") Long cursorId,
+                                   Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Transactional

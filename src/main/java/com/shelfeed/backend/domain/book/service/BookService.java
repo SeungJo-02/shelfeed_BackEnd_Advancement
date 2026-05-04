@@ -189,8 +189,16 @@ public class BookService {
                 item.getIsbn13(), item.getTitle(), author, item.getPublisher(),
                 item.getCover(), item.getDescription(), totalPages, pubDate,
                 item.getItemId() != null ? String.valueOf(item.getItemId()) : null,
-                item.getCategoryName()
+                item.getCategoryName(),
+                extractGenre(item.getCategoryName())
         );
+    }
+
+    // "국내도서>소설/시/희곡>한국소설" → "소설/시/희곡", "소설" → "소설" (단일 계층도 보존)
+    private String extractGenre(String categoryName) {
+        if (categoryName == null || categoryName.isBlank()) return null;
+        String[] parts = categoryName.split(">");
+        return parts.length >= 2 ? parts[1].trim() : parts[0].trim();
     }
 
     // 알라딘 아이템 → DB Book (없으면 저장) - 단건 조회용 (getBookByIsbn 등)

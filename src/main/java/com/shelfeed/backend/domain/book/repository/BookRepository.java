@@ -31,7 +31,7 @@ SELECT AVG(r.rating) FROM Review r WHERE r.book.bookId = :bookId AND r.isDeleted
     WHERE (b.title LIKE %:query% OR b.author LIKE %:query%)
     AND (:cursor IS NULL OR b.bookId < :cursor)
     ORDER BY b.bookId DESC
-""")// %Like% 이기에 풀스캔을 때리는 상황이 발생해서 나중에 리팩토링 하겠습니다.
+""")// TODO: %LIKE% 풀스캔 → Full-Text Search 또는 Elasticsearch로 교체
     List<Book> searchBooks(@Param("query") String query,
                            @Param("cursor") Long cursor,
                            Pageable pageable);

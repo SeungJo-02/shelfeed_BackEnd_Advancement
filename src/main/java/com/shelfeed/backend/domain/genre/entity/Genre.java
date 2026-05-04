@@ -17,4 +17,7 @@ public class Genre {
 
     @Column(length = 50, nullable = false)
     private String genreName;
+
+    @Column(length = 100)
+    private String categoryPattern;
 }
