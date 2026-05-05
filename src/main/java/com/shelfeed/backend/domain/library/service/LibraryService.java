@@ -100,6 +100,13 @@ public class LibraryService {
         return UserLibraryResponse.of(content, limit);
     }
 
+    //7. 지혜의 탑 — 내 완독 도서 목록
+    public WisdomTowerResponse getWisdomTower(Long memberUserId) {
+        Member member = memberLoader.getOrThrow(memberUserId);
+        List<LibraryBook> books = libraryRepository.findFinishedBooksForTower(member);
+        return WisdomTowerResponse.of(books);
+    }
+
     private Book getBook(Long bookId){
         return bookRepository.findById(bookId).orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
     }

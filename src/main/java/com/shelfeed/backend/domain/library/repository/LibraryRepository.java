@@ -32,6 +32,11 @@ public interface LibraryRepository extends JpaRepository<LibraryBook,Long> {
     @Query("SELECT lb.book.bookId FROM LibraryBook lb WHERE lb.member = :member AND lb.book.bookId IN :bookIds")
     Set<Long> findBookIdsByMemberAndBookIdIn(@Param("member") Member member, @Param("bookIds") List<Long> bookIds);
 
+    // 지혜의 탑 — 완독 도서 목록 (완독일 최신순)
+    @Query("SELECT lb FROM LibraryBook lb JOIN FETCH lb.book WHERE lb.member = :member " +
+            "AND lb.status = 'FINISHED' ORDER BY lb.finishedAt DESC, lb.libraryBookId DESC")
+    List<LibraryBook> findFinishedBooksForTower(@Param("member") Member member);
+
     // 추천용 — 읽은/읽는 중 도서의 장르 빈도 집계
     @Query("""
         SELECT b.genre, COUNT(lb) as cnt

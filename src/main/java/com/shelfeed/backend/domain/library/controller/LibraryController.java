@@ -80,4 +80,11 @@ public class LibraryController {
         Long requestingUserId = (userDetails != null) ? userDetails.getMember().getMemberUserId() : null;
         return ApiResponse.success(200, libraryService.getUserLibrary(userId,status,cursor,limit,requestingUserId));
     }
+    //7. 지혜의 탑 GET /api/v1/library/me/wisdom-tower
+    @GetMapping("/library/me/wisdom-tower")
+    public ApiResponse<WisdomTowerResponse> getWisdomTower(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long memberUserId = userDetails.getMember().getMemberUserId();
+        return ApiResponse.success(200, libraryService.getWisdomTower(memberUserId));
+    }
 }
