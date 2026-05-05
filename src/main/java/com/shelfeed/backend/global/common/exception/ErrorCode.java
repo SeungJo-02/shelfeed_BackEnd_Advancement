@@ -32,6 +32,7 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     TOKEN_REUSE_DETECTED(401,"A013", "토큰 재사용이 감지되었습니다. 모든 세션이 로그아웃됩니다."),
     INVALID_OAUTH_STATE(400,"A014", "유효하지 않은 OAuth state입니다."),
     OAUTH_PROVIDER_ERROR(502,"A015", "OAuth 제공자 연동 중 오류가 발생했습니다."),
+    EMAIL_SEND_FAILED(502,"A016", "이메일 발송에 실패했습니다."),
     //도서
     BOOK_NOT_FOUND(404, "B001", "존재하지 않는 도서입니다."),
     //장르

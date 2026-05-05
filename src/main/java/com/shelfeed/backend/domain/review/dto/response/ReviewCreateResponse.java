@@ -28,7 +28,6 @@ public class ReviewCreateResponse {
     private List<String> tags;
     private LocalDateTime createdAt;
 
-    // TODO: tags 파라미터 현재 미사용 — 태그 저장 로직 연동 후 응답에 포함
     public static ReviewCreateResponse of(Review review, List<String> tags) {
         return ReviewCreateResponse.builder()
                 .reviewId(review.getReviewId())

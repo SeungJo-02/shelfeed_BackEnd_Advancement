@@ -24,6 +24,19 @@ spring:
       s3:
         bucket: ${AWS_S3_BUCKET:local-bucket}
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
 jwt:
   secret: ${JWT_SECRET}
   access-expiration: 3600000      # 1시간
@@ -55,3 +68,7 @@ aladin:
   api:
     ttbkey: ${ALADIN_API_KEY}
     version: "20131101"
+
+app:
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:5173}

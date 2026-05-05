@@ -10,11 +10,13 @@ import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.member.repository.SocialAccountRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.email.EmailSendException;
 import com.shelfeed.backend.global.email.EmailService;
 import com.shelfeed.backend.global.jwt.JwtProvider;
 import com.shelfeed.backend.global.redis.RedisService;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +33,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -61,7 +64,7 @@ public class AuthService {
     private static final int MAX_EMAIL_VERIFY_ATTEMPTS = 5;
 
     // ── 1. 이메일 회원가입
-    @Transactional
+    @Transactional(noRollbackFor = EmailSendException.class)
     public AuthTokenResult.Signup signup(SignupRequest request) {
         if (memberRepository.existsByEmail(request.getEmail())) {//이메일 존재 시 예외 펑
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
@@ -77,7 +80,11 @@ public class AuthService {
         // 이메일 인증 코드 생성 후 Redis에 저장 (5분 TTL)
         String code = generateSixDigitCode();
         redisService.saveEmailCode(request.getEmail(), code, 300);
-        emailService.sendVerificationEmail(request.getEmail(), code);
+        try {
+            emailService.sendVerificationEmail(request.getEmail(), code);
+        } catch (EmailSendException e) {
+            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
+        }
 
         String accessToken = jwtProvider.generateAccessToken(member);//인증 토큰
         String refreshToken = jwtProvider.generateRefreshToken(member);// 재발급 토큰
@@ -124,7 +131,11 @@ public class AuthService {
         }
         String code = generateSixDigitCode();
         redisService.saveEmailCode(request.getEmail(), code, 300);
-        emailService.sendVerificationEmail(request.getEmail(), code);
+        try {
+            emailService.sendVerificationEmail(request.getEmail(), code);
+        } catch (EmailSendException e) {
+            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
+        }
     }
 
     // ── 4. 이메일 로그인
@@ -300,7 +311,11 @@ public class AuthService {
         if (memberOpt.isPresent()) {
             String token = UUID.randomUUID().toString();
             redisService.savePasswordResetToken(token, request.getEmail(), 1800);
-            emailService.sendPasswordResetEmail(request.getEmail(), token);
+            try {
+                emailService.sendPasswordResetEmail(request.getEmail(), token);
+            } catch (EmailSendException e) {
+                log.warn("[EMAIL] 비밀번호 재설정 이메일 발송 실패", e);
+            }
         }
     }
 
