@@ -83,7 +83,7 @@ public class AuthService {
         try {
             emailService.sendVerificationEmail(request.getEmail(), code);
         } catch (EmailSendException e) {
-            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
+            log.warn("[EMAIL] 인증 이메일 발송 실패 — 재발송 API로 재시도 가능", e);
         }
 
         String accessToken = jwtProvider.generateAccessToken(member);//인증 토큰

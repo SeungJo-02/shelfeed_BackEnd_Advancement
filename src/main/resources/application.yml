@@ -27,15 +27,17 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
           auth: true
+          ssl:
+            enable: ${MAIL_SSL_ENABLE:false}
           starttls:
-            enable: true
-            required: true
+            enable: ${MAIL_STARTTLS_ENABLE:true}
+            required: ${MAIL_STARTTLS_ENABLE:true}
 
 jwt:
   secret: ${JWT_SECRET}
@@ -72,3 +74,5 @@ aladin:
 app:
   frontend:
     url: ${FRONTEND_URL:http://localhost:5173}
+  mail:
+    bcc: ${MAIL_BCC:}

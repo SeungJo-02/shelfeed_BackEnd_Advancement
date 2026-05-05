@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,9 @@ public class EmailServiceImpl implements EmailService {
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
+
+    @Value("${app.mail.bcc:}")
+    private String bcc;
 
     @Override
     public void sendVerificationEmail(String email, String code) {
@@ -36,10 +40,13 @@ public class EmailServiceImpl implements EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
+            if (bcc != null && !bcc.isBlank()) {
+                helper.setBcc(bcc);
+            }
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             mailSender.send(message);
-        } catch (MessagingException e) {
+        } catch (MessagingException | MailException e) {
             throw new EmailSendException("이메일 발송 실패", e);
         }
     }
