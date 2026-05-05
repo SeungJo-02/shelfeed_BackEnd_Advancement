@@ -82,7 +82,8 @@ public class CommentService {
         }
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());
-        if (!notifyTarget.getMemberUserId().equals(memberUserId)) {
+        if (!notifyTarget.getMemberUserId().equals(memberUserId)
+                && notifyTarget.getNotificationPreferences().isCommentEnabled()) {
             notificationRepository.save(Notification.createCommentNotification(
                     notifyTarget, member, NotificationType.COMMENT, review.getReviewId(), comment.getCommentId()));
         }

@@ -90,6 +90,7 @@ public class ReviewService {
             memberRepository.increaseReviewCount(memberUserId);
             if (request.getReviewVisibility() == ReviewVisibility.PUBLIC) {
                 createFeedsForFollowers(member, review);
+                notifyFollowersOfNewReview(member, review);
             }
         }
         return ReviewCreateResponse.of(review, tagNames);
@@ -134,6 +135,7 @@ public class ReviewService {
             memberRepository.increaseReviewCount(review.getMember().getMemberUserId());
             if (nextVis == ReviewVisibility.PUBLIC) {
                 createFeedsForFollowers(review.getMember(), review);
+                notifyFollowersOfNewReview(review.getMember(), review);
             }
         } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.DRAFT) {
             feedRepository.deleteByReview(review);
@@ -234,8 +236,10 @@ public class ReviewService {
         }
         reviewLikeRepository.save(ReviewLike.create(review,member));// 저장
         reviewRepository.increaseLikeCount(review.getReviewId());
-        notificationRepository.save(Notification.createUserNotification(
-                review.getMember(), member, NotificationType.REVIEW_LIKE, review.getReviewId()));
+        if (review.getMember().getNotificationPreferences().isLikeEnabled()) {
+            notificationRepository.save(Notification.createUserNotification(
+                    review.getMember(), member, NotificationType.REVIEW_LIKE, review.getReviewId()));
+        }
         return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
     //8. 감상 좋아요 취소
@@ -301,10 +305,20 @@ public class ReviewService {
 
     // 팔로워 전체 피드 일괄 생성
     private void createFeedsForFollowers(Member reviewer, Review review) {
-        List<Feed> feeds = followRepository.findByFollowee(reviewer).stream()
+        List<Feed> feeds = followRepository.findAllFollowersWithMember(reviewer).stream()
                 .map(follow -> Feed.create(follow.getFollower(), review))
                 .toList();
         if (!feeds.isEmpty()) feedRepository.saveAll(feeds);
+    }
+
+    // 팔로워에게 새 감상 알림 (followingReviewEnabled 설정 확인)
+    private void notifyFollowersOfNewReview(Member reviewer, Review review) {
+        List<Notification> notifications = followRepository.findAllFollowersWithMember(reviewer).stream()
+                .filter(follow -> follow.getFollower().getNotificationPreferences().isFollowingReviewEnabled())
+                .map(follow -> Notification.createUserNotification(
+                        follow.getFollower(), reviewer, NotificationType.FOLLOWING_REVIEW, review.getReviewId()))
+                .toList();
+        if (!notifications.isEmpty()) notificationRepository.saveAll(notifications);
     }
 
     //태그 이름 목록 일괄 조회 (IN절 - N+1 방지)

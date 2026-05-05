@@ -76,9 +76,9 @@ public class Notification {
         noti.actor = actor;
         noti.type = type;
         switch (type) {
-            case REVIEW_LIKE -> noti.reviewId = targetId;
-            case FOLLOW      -> noti.followId = targetId;
-            default          -> {}
+            case REVIEW_LIKE, FOLLOWING_REVIEW -> noti.reviewId = targetId;
+            case FOLLOW                        -> noti.followId = targetId;
+            default                            -> {}
         }
         return noti;
     }

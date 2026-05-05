@@ -1,8 +1,10 @@
 package com.shelfeed.backend.domain.member.entity;
 
+import com.shelfeed.backend.domain.member.converter.NotificationPreferencesConverter;
 import com.shelfeed.backend.domain.member.enums.LibraryVisibility;
 import com.shelfeed.backend.domain.member.enums.MemberRole;
 import com.shelfeed.backend.domain.member.enums.MemberStatus;
+import com.shelfeed.backend.domain.member.vo.NotificationPreferences;
 import com.shelfeed.backend.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -49,8 +51,9 @@ public class Member extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private LibraryVisibility libraryVisibility = LibraryVisibility.PUBLIC;
 
+    @Convert(converter = NotificationPreferencesConverter.class)
     @Column(nullable = false, columnDefinition = "JSON")
-    private String notificationPreferences = "{}";
+    private NotificationPreferences notificationPreferences = new NotificationPreferences();
 
     @Column(nullable = false)
     private int followerCount = 0;
@@ -119,6 +122,14 @@ public class Member extends BaseTimeEntity {
         this.withdrawnAt = LocalDateTime.now();
     }
     public void verifyEmail(){this.emailVerified = true;}
+
+    public void updateLibraryVisibility(LibraryVisibility visibility) {
+        this.libraryVisibility = visibility;
+    }
+
+    public void updateNotificationPreferences(NotificationPreferences prefs) {
+        this.notificationPreferences = prefs;
+    }
 
     public void maskUserInfo() {
         this.email = "withdrawn_" + this.memberUserId + "@deleted.com";

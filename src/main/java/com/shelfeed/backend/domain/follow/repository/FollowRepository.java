@@ -78,6 +78,10 @@ public interface FollowRepository extends JpaRepository<Follow,Long> {
 
 
 
+    // 팔로워 전체 조회 + follower JOIN FETCH (피드·알림 일괄 처리용)
+    @Query("SELECT f FROM Follow f JOIN FETCH f.follower WHERE f.followee = :followee")
+    List<Follow> findAllFollowersWithMember(@Param("followee") Member followee);
+
     //타 유저의 팔로워 조회
     List<Follow> findByFollowee(Member followee);
 

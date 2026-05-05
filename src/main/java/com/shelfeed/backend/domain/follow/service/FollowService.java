@@ -69,8 +69,10 @@ public class FollowService {
         // 카운트 업데이트
         memberRepository.increaseFollowingCount(follower.getMemberUserId());
         memberRepository.increaseFollowerCount(followee.getMemberUserId());
-        notificationRepository.save(Notification.createUserNotification(
-                followee, follower, NotificationType.FOLLOW, follow.getFollowId()));
+        if (followee.getNotificationPreferences().isFollowEnabled()) {
+            notificationRepository.save(Notification.createUserNotification(
+                    followee, follower, NotificationType.FOLLOW, follow.getFollowId()));
+        }
         // 팔로우의 최근 PUBLISHED+PUBLIC 감상 최대 30개 소급 피드 생성
         List<Review> recentReviews = reviewRepository.findUserReviews(followee, null, PageRequest.of(0, 30));
         if (!recentReviews.isEmpty()) {

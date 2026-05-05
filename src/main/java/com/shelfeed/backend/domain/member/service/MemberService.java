@@ -11,16 +11,20 @@ import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
 import com.shelfeed.backend.domain.member.dto.internal.PasswordChangeResult;
 import com.shelfeed.backend.domain.member.dto.request.ChangePasswordRequest;
 import com.shelfeed.backend.domain.member.dto.request.OnboardingRequest;
+import com.shelfeed.backend.domain.member.dto.request.SettingsUpdateRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateGenresRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateProfileRequest;
 import com.shelfeed.backend.domain.member.dto.request.WithdrawRequest;
 import com.shelfeed.backend.domain.member.dto.response.MyProfileResponse;
 import com.shelfeed.backend.domain.member.dto.response.OnboardingResponse;
+import com.shelfeed.backend.domain.member.dto.response.SettingsResponse;
 import com.shelfeed.backend.domain.member.dto.response.UpdateGenresResponse;
 import com.shelfeed.backend.domain.member.dto.response.UpdateProfileResponse;
 import com.shelfeed.backend.domain.member.dto.response.UserProfileResponse;
 import com.shelfeed.backend.domain.member.entity.Member;
+import com.shelfeed.backend.domain.member.enums.LibraryVisibility;
 import com.shelfeed.backend.domain.member.enums.MemberStatus;
+import com.shelfeed.backend.domain.member.vo.NotificationPreferences;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
@@ -175,7 +179,39 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
 
 
     }
-    // ── 6. 회원 탈퇴
+    // ── 6. 설정 조회
+    public SettingsResponse getSettings(Long memberUserId) {
+        Member member = memberRepository.findByMemberUserId(memberUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        return SettingsResponse.of(member);
+    }
+
+    // ── 7. 설정 수정
+    @Transactional
+    public SettingsResponse updateSettings(Long memberUserId, SettingsUpdateRequest request) {
+        Member member = memberRepository.findByMemberUserId(memberUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
+        if (request.getLibraryVisibility() != null) {
+            member.updateLibraryVisibility(request.getLibraryVisibility());
+        }
+
+        NotificationPreferences current = member.getNotificationPreferences();
+        member.updateNotificationPreferences(NotificationPreferences.builder()
+                .likeEnabled(request.getLikeEnabled() != null
+                        ? request.getLikeEnabled() : current.isLikeEnabled())
+                .commentEnabled(request.getCommentEnabled() != null
+                        ? request.getCommentEnabled() : current.isCommentEnabled())
+                .followEnabled(request.getFollowEnabled() != null
+                        ? request.getFollowEnabled() : current.isFollowEnabled())
+                .followingReviewEnabled(request.getFollowingReviewEnabled() != null
+                        ? request.getFollowingReviewEnabled() : current.isFollowingReviewEnabled())
+                .build());
+
+        return SettingsResponse.of(member);
+    }
+
+    // ── 8. 회원 탈퇴
     @Transactional
     public void withdraw(Long memberUserId, String accessToken, WithdrawRequest request){
         Member member = memberRepository.findByMemberUserId(memberUserId)

@@ -3,11 +3,13 @@ package com.shelfeed.backend.domain.member.controller;
 import com.shelfeed.backend.domain.member.dto.internal.PasswordChangeResult;
 import com.shelfeed.backend.domain.member.dto.request.ChangePasswordRequest;
 import com.shelfeed.backend.domain.member.dto.request.OnboardingRequest;
+import com.shelfeed.backend.domain.member.dto.request.SettingsUpdateRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateGenresRequest;
 import com.shelfeed.backend.domain.member.dto.request.UpdateProfileRequest;
 import com.shelfeed.backend.domain.member.dto.request.WithdrawRequest;
 import com.shelfeed.backend.domain.member.dto.response.MyProfileResponse;
 import com.shelfeed.backend.domain.member.dto.response.OnboardingResponse;
+import com.shelfeed.backend.domain.member.dto.response.SettingsResponse;
 import com.shelfeed.backend.domain.member.dto.response.UpdateGenresResponse;
 import com.shelfeed.backend.domain.member.dto.response.UpdateProfileResponse;
 import com.shelfeed.backend.domain.member.dto.response.UserProfileResponse;
@@ -98,7 +100,24 @@ public class MemberController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
-    // 6. 회원 탈퇴  DELETE /api/v1/users/me
+    // 6. 설정 조회  GET /api/v1/users/me/settings
+    @GetMapping("/me/settings")
+    public ApiResponse<SettingsResponse> getSettings(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(200,
+                memberService.getSettings(userDetails.getMember().getMemberUserId()));
+    }
+
+    // 7. 설정 수정  PATCH /api/v1/users/me/settings
+    @PatchMapping("/me/settings")
+    public ApiResponse<SettingsResponse> updateSettings(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody SettingsUpdateRequest request) {
+        return ApiResponse.success(200, "설정이 저장되었습니다.",
+                memberService.updateSettings(userDetails.getMember().getMemberUserId(), request));
+    }
+
+    // 8. 회원 탈퇴  DELETE /api/v1/users/me
     @DeleteMapping("/me")
     public ApiResponse<Void> withdraw(
             @AuthenticationPrincipal CustomUserDetails userDetails,
