@@ -134,6 +134,7 @@ public class AuthService {
         try {
             emailService.sendVerificationEmail(request.getEmail(), code);
         } catch (EmailSendException e) {
+            log.warn("[EMAIL] 인증 이메일 재발송 실패 — cause: {}", e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }

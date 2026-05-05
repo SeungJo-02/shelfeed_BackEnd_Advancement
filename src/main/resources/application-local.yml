@@ -14,6 +14,15 @@ spring:
     init:
       mode: always
 
+  mail:
+    properties:
+      mail:
+        smtp:
+          socketFactory:
+            port: ${MAIL_PORT:465}
+            class: javax.net.ssl.SSLSocketFactory
+            fallback: false
+
 oauth2:
   google:
     client-id: ${GOOGLE_CLIENT_ID}
