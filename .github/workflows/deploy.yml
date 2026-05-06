@@ -25,6 +25,16 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest
 
+      - name: EC2에 설정 파일 복사
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          source: "docker-compose.prod.yml,docker/prometheus/prometheus-prod.yml"
+          target: /home/ec2-user/app
+          strip_components: 0
+
       - name: EC2 배포
         uses: appleboy/ssh-action@v1
         with:
@@ -33,6 +43,8 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /home/ec2-user/app
+            mv docker/prometheus/prometheus-prod.yml prometheus.yml 2>/dev/null || true
+            rm -rf docker
             echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest" >> .env
             docker-compose -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.prod.yml up -d
