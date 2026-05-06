@@ -1,0 +1,26 @@
+version: '3.9'
+
+# EC2 운영용 - 앱 + Redis만 (DB는 RDS 사용)
+
+services:
+  app:
+    image: ${DOCKER_IMAGE}
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 3
+    restart: unless-stopped
