@@ -19,6 +19,8 @@ import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.block.repository.BlockRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,6 +44,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BookService {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final BookRepository bookRepository;
     private final MemberRepository memberRepository;
@@ -243,8 +248,10 @@ public class BookService {
                 bookRepository.saveAllAndFlush(newBooks);
                 newBooks.forEach(b -> all.put(b.getIsbn13(), b));
             } catch (DataIntegrityViolationException e) {
-                // 동시 요청으로 인한 unique 위반 — 재조회로 맵 재구성
+                // 동시 요청으로 인한 unique 위반 — Session에 null ID 엔티티가 남아있으므로
+                // clear() 후 재조회해야 AssertionFailure를 방지할 수 있다.
                 log.warn("도서 saveAll unique 위반 (동시 요청 추정), 재조회 진행: isbns={}", isbns);
+                entityManager.clear();
                 bookRepository.findByIsbn13In(isbns).forEach(b -> all.put(b.getIsbn13(), b));
             }
         }

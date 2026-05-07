@@ -29,6 +29,7 @@ src/main/generated/
 
 ### Test ###
 cookies.txt
+k6/tokens.local.json
 
 ### OMC (Claude Code plugin) ###
 .omc/
