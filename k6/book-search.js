@@ -19,6 +19,7 @@ const VU_COUNT = 10;
 // ─────────────────────────────────────────────────────────────
 
 export const options = {
+  tags: { testid: 'shelfeed' },
   scenarios: {
     concurrent_search: {
       executor: 'shared-iterations',
