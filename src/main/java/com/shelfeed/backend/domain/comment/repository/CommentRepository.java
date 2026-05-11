@@ -37,12 +37,12 @@ public interface CommentRepository extends JpaRepository<Comment,Long> {
     // 감상 삭제 시 댓들 모두 소프트 델리트 용도로 사용
     List<Comment> findByReview (Review review);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.commentId = :id")
     void increaseLikeCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount - 1 WHERE c.commentId = :id AND c.likeCount > 0")
     void decreaseLikeCount(@Param("id") Long id);

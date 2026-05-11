@@ -166,22 +166,22 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
                                    @Param("cursorId") Long cursorId,
                                    Pageable pageable);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Review r SET r.likeCount = r.likeCount + 1 WHERE r.reviewId = :id")
     void increaseLikeCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Review r SET r.likeCount = r.likeCount - 1 WHERE r.reviewId = :id AND r.likeCount > 0")
     void decreaseLikeCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Review r SET r.commentCount = r.commentCount + 1 WHERE r.reviewId = :id")
     void increaseCommentCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Review r SET r.commentCount = r.commentCount - 1 WHERE r.reviewId = :id AND r.commentCount > 0")
     void decreaseCommentCount(@Param("id") Long id);

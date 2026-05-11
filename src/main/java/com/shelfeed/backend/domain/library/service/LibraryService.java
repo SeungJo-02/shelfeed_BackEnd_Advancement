@@ -2,6 +2,7 @@ package com.shelfeed.backend.domain.library.service;
 
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
+import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.library.dto.request.LibraryBookAddRequest;
 import com.shelfeed.backend.domain.library.dto.request.LibraryStatusUpdateRequest;
 import com.shelfeed.backend.domain.library.dto.response.*;
@@ -30,6 +31,7 @@ public class LibraryService {
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
     private final LibraryRepository libraryRepository;
+    private final FollowRepository followRepository;
 
     //1. 서재 도서 추가
     @Transactional
@@ -89,10 +91,14 @@ public class LibraryService {
     //6. 타 유저 서재 목록 조회
     public UserLibraryResponse getUserLibrary(Long userId, ReadingStatus status, Long cursor, int limit, Long requestingUserId) {
         Member member = memberLoader.getOrThrow(userId);
-        // 본인 서재는 공개 여부 무관하게 조회
+        // 본인 서재는 공개 여부 무관하게 조회, 팔로워도 비공개 무관하게 조회
         boolean isSelf = userId.equals(requestingUserId);
         if (!isSelf && member.getLibraryVisibility() == LibraryVisibility.PRIVATE) {
-            return UserLibraryResponse.ofPrivate();
+            boolean isFollower = requestingUserId != null &&
+                    followRepository.existsByFollowerAndFollowee(memberLoader.getOrThrow(requestingUserId), member);
+            if (!isFollower) {
+                return UserLibraryResponse.ofPrivate();
+            }
         }
 
         List<LibraryBook> books = libraryRepository.findLibraryBooks(member, status, cursor, PageRequest.of(0, limit + 1));

@@ -51,6 +51,8 @@ public class BlockService {
         removeFollowIfExists(blocked, blocker);  // 상대방이 나 팔로우 해제
         //상대방 감상을 내 피드에서 제거
         feedRepository.deleteByMemberAndReview_Member(blocker, blocked);
+        //내 감상을 상대방 피드에서 제거
+        feedRepository.deleteByMemberAndReview_Member(blocked, blocker);
     }
 
     //2. 차단 해제

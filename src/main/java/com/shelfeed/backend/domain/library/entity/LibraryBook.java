@@ -40,7 +40,14 @@ public class LibraryBook extends BaseTimeEntity {
         LibraryBook libraryBook = new LibraryBook();
         libraryBook.member = member;
         libraryBook.book = book;
-        libraryBook.status =status;
+        libraryBook.status = status;
+        if (status == ReadingStatus.READING) {
+            libraryBook.startedAt = LocalDate.now();
+        }
+        if (status == ReadingStatus.FINISHED) {
+            libraryBook.startedAt = LocalDate.now();
+            libraryBook.finishedAt = LocalDate.now();
+        }
         return libraryBook;
     }
     // 도서 상태 변경하면 날짜 업로드

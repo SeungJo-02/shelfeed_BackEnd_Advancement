@@ -29,22 +29,22 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
                                @Param("cursor") Long cursor,
                                Pageable pageable);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Member m SET m.followerCount = m.followerCount + 1 WHERE m.memberUserId = :id")
     void increaseFollowerCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Member m SET m.followerCount = m.followerCount - 1 WHERE m.memberUserId = :id AND m.followerCount > 0")
     void decreaseFollowerCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Member m SET m.followingCount = m.followingCount + 1 WHERE m.memberUserId = :id")
     void increaseFollowingCount(@Param("id") Long id);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Member m SET m.followingCount = m.followingCount - 1 WHERE m.memberUserId = :id AND m.followingCount > 0")
     void decreaseFollowingCount(@Param("id") Long id);

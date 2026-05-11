@@ -78,7 +78,10 @@ public class FollowService {
         if (!recentReviews.isEmpty()) {
             feedRepository.saveAll(recentReviews.stream().map(r -> Feed.create(follower, r)).toList());
         }
-        return FollowResponse.of(follow,follower);
+        // clearAutomatically=true 로 영속성 컨텍스트가 비워졌으므로 DB에서 최신 카운트를 재조회
+        Member freshFollower = memberLoader.getOrThrow(memberUserId);
+        Member freshFollowee = memberLoader.getOrThrow(targetUserId);
+        return FollowResponse.of(follow, freshFollower, freshFollowee);
     }
     //2.언팔로우
     @Transactional
@@ -95,8 +98,10 @@ public class FollowService {
         memberRepository.decreaseFollowerCount(followee.getMemberUserId());
         //엔팔한 멤버의 피드 내 피드화면에서 제거
         feedRepository.deleteByMemberAndReview_Member(follower,followee);
-
-        return UnfollowResponse.of(followee,follower);
+        // clearAutomatically=true 로 영속성 컨텍스트가 비워졌으므로 DB에서 최신 카운트를 재조회
+        Member freshFollower = memberLoader.getOrThrow(memberUserId);
+        Member freshFollowee = memberLoader.getOrThrow(targetUserId);
+        return UnfollowResponse.of(freshFollowee, freshFollower);
     }
     //3.팔로워 목록
     public FollowListResponse getFollowers(Long targetUserId, Long cursor, int limit, Long memberUserId) {

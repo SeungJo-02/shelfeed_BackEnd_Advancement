@@ -19,6 +19,7 @@ public class CommentResponse {
     private Boolean isLiked;        // CommentLikeRepository 연결 후 적용
     private Boolean isDeleted;
     private Boolean isMine;
+    private Boolean isEdited;
     private LocalDateTime createdAt;
     private List<ReplyResponse> replies;
 
@@ -47,6 +48,7 @@ public class CommentResponse {
                 .isLiked(isLiked)     //CommentLikeRepository 연결 후 적용
                 .isDeleted(deleted)
                 .isMine(isMine)
+                .isEdited(!deleted && comment.getUpdatedAt().isAfter(comment.getCreatedAt().plusSeconds(1)))
                 .createdAt(comment.getCreatedAt())
                 .replies(replies)
                 .build();
