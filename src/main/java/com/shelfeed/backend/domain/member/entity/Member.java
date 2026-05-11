@@ -131,6 +131,10 @@ public class Member extends BaseTimeEntity {
         this.notificationPreferences = prefs;
     }
 
+    public void promoteToAdmin() {
+        this.role = MemberRole.ADMIN;
+    }
+
     public void maskUserInfo() {
         this.email = "withdrawn_" + this.memberUserId + "@deleted.com";
         this.nickname = "탈퇴한 사용자";
