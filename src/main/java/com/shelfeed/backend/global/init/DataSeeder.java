@@ -9,6 +9,10 @@ import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
 import com.shelfeed.backend.domain.follow.entity.Follow;
 import com.shelfeed.backend.domain.follow.repository.FollowRepository;
+import com.shelfeed.backend.domain.comment.entity.Comment;
+import com.shelfeed.backend.domain.comment.repository.CommentRepository;
+import com.shelfeed.backend.domain.review.entity.ReviewLike;
+import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.genre.entity.Genre;
 import com.shelfeed.backend.domain.genre.entity.MemberGenre;
 import com.shelfeed.backend.domain.genre.repository.GenreRepository;
@@ -34,6 +38,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -52,6 +57,8 @@ public class DataSeeder implements ApplicationRunner {
     private final RedisService redisService;
     private final GenreRepository genreRepository;
     private final MemberGenreRepository memberGenreRepository;
+    private final CommentRepository commentRepository;
+    private final ReviewLikeRepository reviewLikeRepository;
 
     private static final List<String> KEYWORDS = List.of(
             "소설", "자기계발", "과학", "역사", "철학"
@@ -162,6 +169,34 @@ public class DataSeeder implements ApplicationRunner {
             "글 속에 녹아있는 유머가 진지한 주제를 더 쉽게 받아들이게 해줬어요."
     };
 
+    private static final String[] COMMENT_CONTENTS = {
+            "저도 이 책 정말 좋아했어요! 공감되는 감상이네요.",
+            "오 이 책 읽어보고 싶었는데 감상 보니까 더 읽고 싶어졌어요.",
+            "역시 이 책이죠. 저도 밑줄 엄청 그었어요 ㅎㅎ",
+            "이 부분에서 저도 눈물이 났어요. 너무 공감돼요.",
+            "좋은 책 추천해줘서 고마워요! 바로 구매했어요.",
+            "이 책 작가님 다른 책도 읽어보셨나요?",
+            "저는 좀 아쉬웠는데 이 감상 보니까 다시 읽어보고 싶네요.",
+            "와 진짜 명문장 많은 책이죠. 저도 좋아해요!",
+            "결말이 너무 여운이 남지 않나요? ㅠㅠ",
+            "이 책 제가 가장 좋아하는 책이에요. 공감 백만 개!",
+            "추천해주셔서 감사해요. 꼭 읽어볼게요!",
+            "저도 비슷한 느낌 받았어요. 감상이 너무 잘 쓰여졌네요.",
+            "이 작가 팬이에요. 다른 작품들도 다 좋아요.",
+            "이 책 읽으면서 정말 많이 울었어요.",
+            "독서 모임에서 같이 읽었는데 다들 좋아했어요.",
+            "감상 너무 잘 썼다. 나도 이렇게 써보고 싶어.",
+            "저는 이 책을 두 번이나 읽었어요. 그만큼 좋아요!",
+            "공감 가는 부분이 너무 많아서 메모하면서 읽었어요.",
+            "처음엔 별로였는데 읽다보니 빠져들었어요.",
+            "이 책 덕분에 독서 습관이 생겼어요.",
+            "작가의 문체가 정말 독특하고 매력적이죠?",
+            "저도 같은 부분에서 감동받았어요!",
+            "이 책 완독하는 데 얼마나 걸리셨어요?",
+            "다음에 읽을 책 추천해주실 수 있나요?",
+            "이 감상 덕분에 책 고르는 데 도움이 됐어요!",
+    };
+
     private static final String[] QUOTES = {
             "우리는 우리가 반복적으로 하는 것들의 산물이다.",
             "삶이 있는 곳에 희망이 있다.",
@@ -238,6 +273,8 @@ public class DataSeeder implements ApplicationRunner {
         createLibraryAndReviews(members, books);
         createFollows(members);
         createMemberGenres(members);
+        createComments(members);
+        createReviewLikes(members);
         log.info("[DataSeeder] 테스트 데이터 생성 완료");
     }
 
@@ -392,6 +429,56 @@ public class DataSeeder implements ApplicationRunner {
             memberGenreRepository.saveAll(memberGenres);
         }
         log.info("[DataSeeder] 멤버 선호 장르 생성 완료");
+    }
+
+    private void createComments(List<Member> members) {
+        List<Review> publishedReviews = reviewRepository.findAllPublishedWithMember();
+        if (publishedReviews.isEmpty()) return;
+
+        Random random = new Random();
+        for (Review review : publishedReviews) {
+            List<Member> candidates = members.stream()
+                    .filter(m -> !m.getMemberUserId().equals(review.getMember().getMemberUserId()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            if (candidates.isEmpty()) continue;
+
+            int count = 5 + random.nextInt(26); // 5~30개
+            List<Comment> comments = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                Member commenter = candidates.get(random.nextInt(candidates.size()));
+                String content = COMMENT_CONTENTS[random.nextInt(COMMENT_CONTENTS.length)];
+                comments.add(Comment.createOriginComment(review, commenter, content));
+            }
+            commentRepository.saveAll(comments);
+            for (int i = 0; i < count; i++) {
+                reviewRepository.increaseCommentCount(review.getReviewId());
+            }
+        }
+        log.info("[DataSeeder] 댓글 생성 완료");
+    }
+
+    private void createReviewLikes(List<Member> members) {
+        List<Review> publishedReviews = reviewRepository.findAllPublishedWithMember();
+        if (publishedReviews.isEmpty()) return;
+
+        Random random = new Random();
+        for (Review review : publishedReviews) {
+            List<Member> candidates = members.stream()
+                    .filter(m -> !m.getMemberUserId().equals(review.getMember().getMemberUserId()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            if (candidates.isEmpty()) continue;
+
+            Collections.shuffle(candidates, random);
+            int count = 2 + random.nextInt(9); // 2~10개
+            List<Member> likers = candidates.subList(0, Math.min(count, candidates.size()));
+
+            List<ReviewLike> likes = likers.stream()
+                    .map(m -> ReviewLike.create(review, m))
+                    .toList();
+            reviewLikeRepository.saveAll(likes);
+            likes.forEach(l -> reviewRepository.increaseLikeCount(review.getReviewId()));
+        }
+        log.info("[DataSeeder] 감상 좋아요 생성 완료");
     }
 
     //출간일 없어도 서버 실행 중단 방지

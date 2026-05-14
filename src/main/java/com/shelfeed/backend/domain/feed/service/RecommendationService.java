@@ -39,7 +39,7 @@ public class RecommendationService {
     private static final long RECENT_DAYS       = 30L;
 
     public RecommendFeedResponse getRecommendedFeed(Long memberUserId, Integer cursorLike,
-                                                     Long cursorId, int limit) {
+                                                    Long cursorId, int limit) {
         if (limit <= 0) throw new BusinessException(ErrorCode.INVALID_INPUT);
         if ((cursorLike == null) != (cursorId == null)) throw new BusinessException(ErrorCode.INVALID_INPUT);
 
@@ -65,6 +65,7 @@ public class RecommendationService {
                 merged.sort(Comparator.comparingInt(Review::getLikeCount)
                         .thenComparing(Review::getReviewId)
                         .reversed());
+                if (merged.size() > limit + 1) merged = merged.subList(0, limit + 1);
                 reviews = merged;
                 recommendType = "MIXED";
             } else {

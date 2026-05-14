@@ -16,6 +16,9 @@ import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+    @Query("SELECT r FROM Review r JOIN FETCH r.member WHERE r.isDeleted = false AND r.reviewStatus = 'PUBLISHED'")
+    List<Review> findAllPublishedWithMember();
+
     boolean existsByMemberAndBook_BookIdAndIsDeletedFalse(Member member, Long bookId);//중복 감상 체크
     boolean existsByMember_MemberUserIdAndBook_BookIdAndIsDeletedFalse(Long memberUserId, Long bookId);//서재 도서 삭제 시 감상 존재 여부 체크
     Optional<Review> findByMemberAndBook_BookIdAndIsDeletedFalse(Member member, Long bookId);
@@ -64,9 +67,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         ORDER BY r.likeCount DESC, r.reviewId DESC
 """)
     List<Review> findBookReviewsPopular(@Param("bookId") Long bookId,
-                                       @Param("cursorLike") Integer cursorLike,
-                                       @Param("cursorId") Long cursorId,
-                                       Pageable pageable);
+                                        @Param("cursorLike") Integer cursorLike,
+                                        @Param("cursorId") Long cursorId,
+                                        Pageable pageable);
 
 
 
