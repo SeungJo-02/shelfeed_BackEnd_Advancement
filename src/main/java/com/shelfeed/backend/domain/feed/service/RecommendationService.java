@@ -58,9 +58,14 @@ public class RecommendationService {
                         me, cursorLike, cursorId, PageRequest.of(0, limit + 1));
                 Set<Long> seen = reviews.stream()
                         .map(Review::getReviewId).collect(Collectors.toSet());
+                List<Review> merged = new ArrayList<>(reviews);
                 social.stream()
                         .filter(r -> !seen.contains(r.getReviewId()))
-                        .forEach(reviews::add);
+                        .forEach(merged::add);
+                merged.sort(Comparator.comparingInt(Review::getLikeCount)
+                        .thenComparing(Review::getReviewId)
+                        .reversed());
+                reviews = merged;
                 recommendType = "MIXED";
             } else {
                 recommendType = "CONTENT_BASED";
@@ -104,7 +109,7 @@ public class RecommendationService {
                 .forEach(row -> scoreMap.merge(
                         (String) row[0], (Long) row[1] * LIBRARY_WEIGHT, Long::sum));
 
-        // TODO: 온보딩 프론트 연결 후 genres.category_pattern 값 채워야 추천에 반영됨
+        // data.sql에 category_pattern 채워져 있음. 온보딩 완료 회원에게 자동 반영됨.
         memberGenreRepository.findAllByMemberWithGenre(me)
                 .forEach(mg -> {
                     String pattern = mg.getGenre().getCategoryPattern();

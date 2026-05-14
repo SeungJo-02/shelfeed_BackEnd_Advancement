@@ -1,9 +1,14 @@
 package com.shelfeed.backend.domain.genre.repository;
 
 import com.shelfeed.backend.domain.genre.entity.Genre;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 
-//사용자의 프로필과 선호 장르를 영구 저장
 public interface GenreRepository extends JpaRepository<Genre, Long> {
+
+    @Override
+    @Cacheable("genres")
+    List<Genre> findAll();
 }

@@ -9,6 +9,10 @@ import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
 import com.shelfeed.backend.domain.follow.entity.Follow;
 import com.shelfeed.backend.domain.follow.repository.FollowRepository;
+import com.shelfeed.backend.domain.genre.entity.Genre;
+import com.shelfeed.backend.domain.genre.entity.MemberGenre;
+import com.shelfeed.backend.domain.genre.repository.GenreRepository;
+import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
@@ -46,6 +50,8 @@ public class DataSeeder implements ApplicationRunner {
     private final FeedRepository feedRepository;
     private final PasswordEncoder passwordEncoder;
     private final RedisService redisService;
+    private final GenreRepository genreRepository;
+    private final MemberGenreRepository memberGenreRepository;
 
     private static final List<String> KEYWORDS = List.of(
             "소설", "자기계발", "과학", "역사", "철학"
@@ -231,6 +237,7 @@ public class DataSeeder implements ApplicationRunner {
 
         createLibraryAndReviews(members, books);
         createFollows(members);
+        createMemberGenres(members);
         log.info("[DataSeeder] 테스트 데이터 생성 완료");
     }
 
@@ -367,6 +374,26 @@ public class DataSeeder implements ApplicationRunner {
         }
         log.info("[DataSeeder] 팔로우 관계 생성 완료");
     }
+    private void createMemberGenres(List<Member> members) {
+        List<Genre> allGenres = genreRepository.findAll();
+        if (allGenres.isEmpty()) {
+            log.warn("[DataSeeder] 장르 데이터 없음 — data.sql 실행 여부 확인");
+            return;
+        }
+        Random random = new Random();
+        for (Member member : members) {
+            List<Genre> shuffled = new ArrayList<>(allGenres);
+            Collections.shuffle(shuffled, random);
+            int count = 3 + random.nextInt(3); // 3~5개
+            List<MemberGenre> memberGenres = shuffled.subList(0, Math.min(count, shuffled.size()))
+                    .stream()
+                    .map(g -> MemberGenre.create(member, g))
+                    .toList();
+            memberGenreRepository.saveAll(memberGenres);
+        }
+        log.info("[DataSeeder] 멤버 선호 장르 생성 완료");
+    }
+
     //출간일 없어도 서버 실행 중단 방지
     private LocalDate parsePubDate(String pubDate) {
         if (pubDate == null || pubDate.isBlank()) return null;

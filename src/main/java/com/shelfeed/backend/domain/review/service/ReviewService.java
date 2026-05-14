@@ -138,6 +138,7 @@ public class ReviewService {
                 notifyFollowersOfNewReview(review.getMember(), review);
             }
         } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.DRAFT) {
+            memberRepository.decreaseReviewCount(review.getMember().getMemberUserId());
             feedRepository.deleteByReview(review);
         } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.PUBLISHED) {
             boolean wasPublic = prevVis == ReviewVisibility.PUBLIC;
