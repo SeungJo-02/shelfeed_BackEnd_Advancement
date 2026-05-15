@@ -3,15 +3,17 @@ package com.shelfeed.backend.domain.book.client;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 
-@Component//동기
+@Component
+@Profile("!mock-aladin")
 @RequiredArgsConstructor
-public class AladinApiClient {
+public class AladinApiClient implements AladinClient {
 
     private final RestTemplate restTemplate;
 

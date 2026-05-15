@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.book.service;
 
-import com.shelfeed.backend.domain.book.client.AladinApiClient;
+import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
@@ -53,7 +53,7 @@ public class BookService {
     private final LibraryRepository libraryRepository;
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
-    private final AladinApiClient aladinApiClient;
+    private final AladinClient aladinApiClient;
     private final BlockRepository blockRepository;
 
 

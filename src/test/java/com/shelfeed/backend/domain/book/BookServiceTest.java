@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.book;
 
-import com.shelfeed.backend.domain.book.client.AladinApiClient;
+import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
@@ -49,7 +49,7 @@ class BookServiceTest {
     @Mock LibraryRepository libraryRepository;
     @Mock ReviewRepository reviewRepository;
     @Mock ReviewLikeRepository reviewLikeRepository;
-    @Mock AladinApiClient aladinApiClient;
+    @Mock AladinClient aladinApiClient;
 
     @InjectMocks BookService bookService;
 

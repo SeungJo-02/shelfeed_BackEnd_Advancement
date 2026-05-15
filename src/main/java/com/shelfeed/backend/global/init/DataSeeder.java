@@ -1,6 +1,6 @@
 package com.shelfeed.backend.global.init;
 
-import com.shelfeed.backend.domain.book.client.AladinApiClient;
+import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.entity.Book;
@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DataSeeder implements ApplicationRunner {
 
-    private final AladinApiClient aladinApiClient;
+    private final AladinClient aladinApiClient;
     private final BookRepository bookRepository;
     private final MemberRepository memberRepository;
     private final LibraryRepository libraryRepository;
