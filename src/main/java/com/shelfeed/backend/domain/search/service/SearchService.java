@@ -19,6 +19,7 @@ import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,9 @@ public class SearchService {
     private final BlockRepository blockRepository;
     private final RedisService redisService;
 
+    @Value("${app.search.history-enabled:true}")
+    private boolean historyEnabled;
+
     private static final Set<String> VALID_SEARCH_TYPES = Set.of("all", "book", "user");
 
     //통합 검색
@@ -58,7 +62,7 @@ public class SearchService {
             throw new BusinessException(ErrorCode.INVALID_SEARCH_TYPE);
         }
         //로그인 시 검색 기록 저장 — 동일 키워드 재검색 시 createdAt 갱신(upsert)
-        if (memberUserId != null) {
+        if (memberUserId != null && historyEnabled) {
             Member member = memberLoader.getOrThrow(memberUserId);
             searchHistoryRepository.findByMemberAndKeyword(member, query.trim())
                     .ifPresentOrElse(SearchHistory::touch,

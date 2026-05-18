@@ -1,9 +1,9 @@
-version: '3.9'
-
 # 로컬 개발용 - 인프라 + 모니터링 전체 스택
+# AWS EC2 t3.medium (2 vCPU / 4 GiB) 환경 시뮬레이션
+# Spring Boot: JAVA_TOOL_OPTIONS="-Xmx1g -Xms512m" ./gradlew bootRun ...
 
 services:
-  # ── Database ─────────────────────────────────────────
+  # ── Database (개발용 / 3307) ────────────────────────────
   mysql:
     image: mysql:8.0
     environment:
@@ -20,8 +20,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
 
-  # ── Cache ─────────────────────────────────────────────
+  # ── Database (성능 테스트용 / 3308) ──────────────────────
+  mysql-perf:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: shelfeed
+      MYSQL_USER: shelfeed
+      MYSQL_PASSWORD: shelfeed
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-perf-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.6'      # Spring Boot 1.0 + mysql-perf 0.6 = 1.6 (나머지 0.4는 모니터링)
+          memory: 1536M
+
+  # ── Cache ──────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
@@ -31,8 +59,13 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 256M
 
-  # ── Monitoring ────────────────────────────────────────
+  # ── Monitoring ─────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v3.2.0
     volumes:
@@ -42,6 +75,11 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=7d'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 256M
 
   grafana:
     image: grafana/grafana:11.4.0
@@ -49,19 +87,54 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: false
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Editor
     ports:
       - "3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+      - influxdb
       - loki
+      - tempo
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 256M
+
+  # ── Distributed Tracing (Zipkin 프로토콜 수신) ─────────
+  tempo:
+    image: grafana/tempo:2.3.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    environment:
+      - GOMEMLIMIT=800MiB   # Go GC 강제 발동 임계치 — hard limit(1G) 도달 전 메모리 회수
+    volumes:
+      - ./docker/tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP API (Grafana 조회)
+      - "9411:9411"   # Zipkin 호환 수신 포트
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 1G
 
   loki:
     image: grafana/loki:3.3.2
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 128M
 
   promtail:
     image: grafana/promtail:3.3.2
@@ -72,16 +145,11 @@ services:
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    ports:
-      - "8081:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
 
   node-exporter:
     image: prom/node-exporter:v1.8.2
@@ -91,8 +159,13 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
 
-  # ── k6 결과 저장소 ───────────────────────────────────────────
+  # ── k6 결과 저장소 ─────────────────────────────────────
   influxdb:
     image: influxdb:1.8
     ports:
@@ -101,8 +174,15 @@ services:
       INFLUXDB_DB: k6
     volumes:
       - influxdb-data:/var/lib/influxdb
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 512M
 
 volumes:
   mysql-data:
+  mysql-perf-data:
   grafana-data:
   influxdb-data:
+  tempo-data:

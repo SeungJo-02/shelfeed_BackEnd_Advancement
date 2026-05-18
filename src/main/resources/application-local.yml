@@ -23,15 +23,3 @@ spring:
             port: ${MAIL_PORT:465}
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
-
-oauth2:
-  google:
-    client-id: ${GOOGLE_CLIENT_ID}
-    client-secret: ${GOOGLE_CLIENT_SECRET}
-    redirect-uri: ${GOOGLE_REDIRECT_URI}
-    token-uri: https://oauth2.googleapis.com/token
-    userinfo-uri: https://www.googleapis.com/oauth2/v3/userinfo
-
-aladin:
-  api:
-    ttbkey: ${ALADIN_API_KEY}

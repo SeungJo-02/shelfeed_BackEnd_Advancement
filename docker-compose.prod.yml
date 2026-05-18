@@ -1,5 +1,3 @@
-version: '3.9'
-
 # EC2 운영용 - 앱 + Redis + 모니터링 (DB는 RDS 사용)
 
 services:
@@ -50,17 +48,6 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
-    restart: unless-stopped
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    ports:
-      - "8081:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
     restart: unless-stopped
 
   node-exporter:

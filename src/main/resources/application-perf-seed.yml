@@ -1,9 +1,15 @@
 spring:
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${PERF_DB_URL:jdbc:mysql://localhost:3308/shelfeed?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    username: ${PERF_DB_USERNAME:shelfeed}
+    password: ${PERF_DB_PASSWORD:shelfeed}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10        # t3.medium 시뮬레이션 — 커넥션 고갈 재현
+      minimum-idle: 5
+      connection-timeout: 5000     # 5초 초과 대기 시 SQLTimeoutException → 현실적 사용자 포기 시점
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -15,6 +21,7 @@ spring:
           batch_size: 1000
         order_inserts: true
         order_updates: true
+        query_timeout: 5      # 쿼리 실행 5초 초과 시 강제 종료
 
   sql:
     init:
@@ -27,18 +34,28 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  access-expiration: ${JWT_ACCESS_EXPIRATION:3600000}
+  access-expiration: 18000000   # 5시간 — PERF TEST ONLY, 스테이징/운영 배포 금지
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 aladin:
   api:
     ttbkey: mock-key-not-used
-    version: 20131101
+    version: "20131101"
 
 management:
   info:
     env:
       enabled: true
+  tracing:
+    sampling:
+      probability: 0.05  # 5% 샘플링 — 블록 크기 줄여 Tempo compaction OOM 방지
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+app:
+  search:
+    history-enabled: false  # 검색 히스토리 락 경합 제거 — LIKE 풀스캔 병목만 순수 측정
 
 info:
   profile: mock-aladin,perf-seed

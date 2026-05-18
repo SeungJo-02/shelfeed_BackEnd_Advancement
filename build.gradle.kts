@@ -53,6 +53,11 @@ dependencies {
     // Prometheus 메트릭
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
+    // 분산 추적 (Zipkin 프로토콜 → Grafana Tempo)
+    // perf 테스트에서 구간별 latency 측정용. 샘플링 확률은 application-perf-seed.yml에서 제어.
+    implementation("io.micrometer:micrometer-tracing-bridge-brave")
+    implementation("io.zipkin.reporter2:zipkin-reporter-brave")
+
     // Caffeine 캐시 (L1 로컬 캐시)
     implementation("com.github.ben-manes.caffeine:caffeine")
 
