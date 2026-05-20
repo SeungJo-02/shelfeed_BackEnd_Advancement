@@ -254,19 +254,20 @@ public class DataSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         log.info("[DataSeeder] 테스트 데이터 생성 시작");
 
-        List<Book> books = fetchAndSaveBooks();
-        log.info("[DataSeeder] 저장된 도서 수: {}", books.size());
-
-        if (books.isEmpty()) {
-            log.warn("[DataSeeder] 알라딘 API에서 도서를 가져오지 못했습니다. 중단합니다.");
-            return;
-        }
-
+        // 멤버가 이미 존재하면 도서 로드 없이 조기 종료 — 100만건 findAll() OOM 방지
         List<Member> members = createMembers();
         log.info("[DataSeeder] 생성된 멤버 수: {}", members.size());
 
         if (members.isEmpty()) {
             log.info("[DataSeeder] 신규 생성된 멤버가 없습니다. 서재/팔로우 생성을 건너뜁니다.");
+            return;
+        }
+
+        List<Book> books = fetchAndSaveBooks();
+        log.info("[DataSeeder] 저장된 도서 수: {}", books.size());
+
+        if (books.isEmpty()) {
+            log.warn("[DataSeeder] 알라딘 API에서 도서를 가져오지 못했습니다. 중단합니다.");
             return;
         }
 
@@ -281,7 +282,7 @@ public class DataSeeder implements ApplicationRunner {
     private List<Book> fetchAndSaveBooks() {
         if (bookRepository.count() > 0) {
             log.info("[DataSeeder] 도서 데이터가 이미 존재합니다. 알라딘 API 호출을 건너뜁니다.");
-            return bookRepository.findAll();
+            return bookRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
         }
 
         List<Book> result = new ArrayList<>();

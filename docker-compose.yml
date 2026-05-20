@@ -78,8 +78,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.1'
-          memory: 256M
+          cpus: '0.2'
+          memory: 512M
 
   grafana:
     image: grafana/grafana:11.4.0
@@ -103,8 +103,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.1'
-          memory: 256M
+          cpus: '0.2'
+          memory: 512M
 
   # ── Distributed Tracing (Zipkin 프로토콜 수신) ─────────
   tempo:
@@ -133,8 +133,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.05'
-          memory: 128M
+          cpus: '0.1'
+          memory: 256M
 
   promtail:
     image: grafana/promtail:3.3.2
@@ -148,8 +148,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.05'
-          memory: 64M
+          cpus: '0.1'
+          memory: 128M
 
   node-exporter:
     image: prom/node-exporter:v1.8.2

@@ -1527,9 +1527,9 @@
       }
     },
     {
-      "id": 22,
+      "id": 30,
       "type": "row",
-      "title": "분산 트레이스 (Zipkin → Tempo)",
+      "title": "가용성 (Availability)",
       "gridPos": {
         "x": 0,
         "y": 70,
@@ -1540,13 +1540,125 @@
       "panels": []
     },
     {
-      "id": 23,
-      "type": "table",
-      "title": "느린 트레이스 목록 (> 300ms) — Trace ID 클릭 → Explore에서 스팬 분석",
-      "description": "bookRepository.searchBooks 스팬이 전체 시간 대부분을 차지하면 LIKE 풀스캔 증거. traces 패널은 단일 트레이스 뷰어라 목록 표시 불가 → table 패널로 교체",
+      "id": 31,
+      "type": "timeseries",
+      "title": "가용성 추이 (%)",
+      "description": "성공률 = (1 - 에러율) × 100. SLO 목표: 99% 이상",
       "gridPos": {
         "x": 0,
         "y": 71,
+        "w": 16,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-k6"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-k6"
+          },
+          "query": "SELECT (1 - mean(\"value\")) * 100 FROM \"search_error_rate\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "legendFormat": "가용성 %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 90,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 95   },
+              { "color": "green",  "value": 99   }
+            ]
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "현재 가용성 (Availability SLO: 99%)",
+      "description": "테스트 전체 구간 평균 가용성. 99% 미만이면 SLO 위반",
+      "gridPos": {
+        "x": 16,
+        "y": 71,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-k6"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-k6"
+          },
+          "query": "SELECT (1 - mean(\"value\")) * 100 FROM \"search_error_rate\" WHERE $timeFilter",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 95   },
+              { "color": "green",  "value": 99   }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["mean"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 22,
+      "type": "row",
+      "title": "분산 트레이스 (Zipkin → Tempo)",
+      "gridPos": {
+        "x": 0,
+        "y": 79,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 23,
+      "type": "table",
+      "title": "느린 트레이스 목록 (> 500ms) — Trace ID 클릭 → Explore에서 스팬 분석",
+      "description": "bookRepository.searchBooks 스팬이 전체 시간 대부분을 차지하면 LIKE 풀스캔 증거. traces 패널은 단일 트레이스 뷰어라 목록 표시 불가 → table 패널로 교체",
+      "gridPos": {
+        "x": 0,
+        "y": 80,
         "w": 24,
         "h": 10
       },
@@ -1562,7 +1674,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{ duration > 300ms }",
+          "query": "{ duration > 500ms }",
           "limit": 20,
           "tableType": "traces"
         }

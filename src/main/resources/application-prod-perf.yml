@@ -1,0 +1,49 @@
+# AWS 부하 테스트 전용 — prod 베이스 + 별도 RDS 분리
+#
+# 사용:
+#   SPRING_PROFILES_ACTIVE=prod,prod-perf,perf-seed
+#   - prod        : 운영 환경 베이스 (Redis, S3, Aladin 등)
+#   - prod-perf   : 부하 테스트용 RDS 분리 (datasource 덮어씀)
+#   - perf-seed   : 100만건 도서 시딩 (PerfBookSeeder)
+#
+# 필수 환경변수:
+#   PERF_DB_URL, PERF_DB_USERNAME, PERF_DB_PASSWORD
+#
+# ⚠️ 운영 RDS와 절대 같은 인스턴스 사용 금지 — 데이터 오염 방지
+
+spring:
+  datasource:
+    url: ${PERF_DB_URL}
+    username: ${PERF_DB_USERNAME}
+    password: ${PERF_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20            # application-prod.yml과 동일 — RDS max_connections=61의 33% 안전 마진
+      minimum-idle: 5
+      connection-timeout: 5000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000  # 풀스캔 같은 장기 점유 모니터링
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 1000
+        order_inserts: true
+        order_updates: true
+        query_timeout: 5
+
+  sql:
+    init:
+      mode: never
+
+app:
+  search:
+    history-enabled: false   # 검색 히스토리 락 경합 제거 — LIKE/ES 풀스캔 병목 순수 측정
+
+info:
+  profile: prod,prod-perf,perf-seed

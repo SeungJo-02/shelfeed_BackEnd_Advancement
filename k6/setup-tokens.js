@@ -1,5 +1,5 @@
 /**
- * 테스트 유저 500명 생성 및 JWT 토큰 수집
+ * 테스트 유저 50명 생성 및 JWT 토큰 수집
  *
  * 실행:
  *   k6 run k6/setup-tokens.js
@@ -7,7 +7,7 @@
  *
  * 옵션:
  *   BASE_URL=http://... k6 run k6/setup-tokens.js   (기본: localhost:8080)
- *   USER_COUNT=500      k6 run k6/setup-tokens.js   (기본: 500)
+ *   USER_COUNT=50       k6 run k6/setup-tokens.js   (기본: 50)
  *   BATCH_SIZE=20       k6 run k6/setup-tokens.js   (기본: 20, 병렬 처리 단위)
  *
  * 참고: k6 v2.0.0에서 setup()과 handleSummary()는 별도 JS 런타임으로 격리된다.
@@ -17,7 +17,7 @@
 import http from 'k6/http';
 
 const BASE_URL   = __ENV.BASE_URL  || 'http://localhost:8080';
-const USER_COUNT = Math.max(1, parseInt(__ENV.USER_COUNT || '500') || 500);
+const USER_COUNT = Math.max(1, parseInt(__ENV.USER_COUNT || '50') || 50);
 const BATCH_SIZE = Math.max(1, parseInt(__ENV.BATCH_SIZE || '20') || 20);
 const PASSWORD   = 'Perf@test1!';
 const HEADERS    = { 'Content-Type': 'application/json' };

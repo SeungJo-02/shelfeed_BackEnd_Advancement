@@ -5,11 +5,12 @@ spring:
     password: ${PERF_DB_PASSWORD:shelfeed}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 10        # t3.medium 시뮬레이션 — 커넥션 고갈 재현
+      maximum-pool-size: 20        # 운영(application-prod.yml)과 동일 — RDS max_connections=61의 33% 안전 마진
       minimum-idle: 5
-      connection-timeout: 5000     # 5초 초과 대기 시 SQLTimeoutException → 현실적 사용자 포기 시점
+      connection-timeout: 5000     # 운영과 동일 — 검색 즉시성, Retry Storm 방지
       idle-timeout: 600000
       max-lifetime: 1800000
+      leak-detection-threshold: 60000  # 60초 이상 커넥션 점유 시 경고 로그 (풀스캔 모니터링)
 
   jpa:
     hibernate:

@@ -39,6 +39,7 @@ import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
+import { KEYWORDS, pickQuery } from './keywords.js';
 
 const BASE_URL     = __ENV.BASE_URL     || 'http://localhost:8080';
 const CONSTANT_VUS = parseInt(__ENV.CONSTANT_VUS || '700');
@@ -66,18 +67,14 @@ function getToken(vuId) {
   return tokens.length > 0 ? tokens[vuId % tokens.length] : null;
 }
 
-// ── 검색 키워드 ────────────────────────────────────────────────────
-const KEYWORDS = [
-  '소설', '자기계발', '역사', '과학', '철학',
-  '에세이', '시집', '만화', '요리', '여행',
-  '심리학', '경제', '경영', '수학', '물리',
-  '국어', '영어', '일본어', '중국어', '코딩',
-];
+// ── 검색 키워드는 keywords.js 에서 import — 200개 풀 + 20% cache-buster ─────
 
-// ── VU 배분 계산 (book_auth 5/7, user 1/7, all 나머지) ────────────
-const VU_BOOK_AUTH = Math.max(1, Math.floor(CONSTANT_VUS * 5 / 7));
-const VU_USER      = Math.max(1, Math.floor(CONSTANT_VUS * 1 / 7));
-const VU_ALL       = Math.max(1, CONSTANT_VUS - VU_BOOK_AUTH - VU_USER);
+// ── VU 배분 계산 (book_auth 3/5, user 1/5, all 1/5) ────────────
+//   예: CONSTANT_VUS=50 → book_auth 30, user 10, all 10
+//   floor 사용으로 비율 유지 + 합계가 CONSTANT_VUS 초과하지 않도록 보장
+const VU_BOOK_AUTH = Math.floor(CONSTANT_VUS * 3 / 5);
+const VU_USER      = Math.floor(CONSTANT_VUS * 1 / 5);
+const VU_ALL       = CONSTANT_VUS - VU_BOOK_AUTH - VU_USER;
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
@@ -104,7 +101,7 @@ export const options = {
   // AS-IS 에서 실패 → ES 도입 후 동일 조건 재실행 시 통과 → 개선 증명
   thresholds: {
     http_req_failed:           ['rate<0.01'],
-    search_auth_duration:      ['p(95)<1000'],  // P95 1초 미만 (ES 전 실패 예상)
+    search_auth_duration:      ['p(95)<500'],  // P95 500ms 미만 (ES 전 실패 예상)
     search_error_rate:         ['rate<0.01'],
     search_book_error_rate:    ['rate<0.01'],   // 도서 에러율 (user보다 높으면 LIKE 풀스캔 증거)
     search_user_error_rate:    ['rate<0.005'],  // user는 더 엄격 (작은 테이블)
@@ -117,8 +114,10 @@ export function setup() {
   if (res.status !== 200) exec.test.abort(`[ABORT] /actuator/info 응답 실패: ${res.status}`);
 
   const info = JSON.parse(res.body);
-  if (!info.profile?.includes('mock-aladin') || !info.profile?.includes('perf-seed')) {
-    exec.test.abort('[ABORT] mock-aladin,perf-seed 프로파일 없음 — --spring.profiles.active=mock-aladin,perf-seed 로 재시작 필요');
+  if (__ENV.SKIP_PROFILE_CHECK !== '1') {
+    if (!info.profile?.includes('mock-aladin') || !info.profile?.includes('perf-seed')) {
+      exec.test.abort('[ABORT] mock-aladin,perf-seed 프로파일 없음 — --spring.profiles.active=mock-aladin,perf-seed 로 재시작 필요 (실서버는 SKIP_PROFILE_CHECK=1)');
+    }
   }
   if (tokens.length === 0) {
     exec.test.abort('[ABORT] tokens.local.json 없음 — k6 run k6/setup-tokens.js 를 먼저 실행하세요');
@@ -132,7 +131,7 @@ export function setup() {
 export default function () {
   const scenario = exec.scenario.name;
   const vuId     = exec.vu.idInTest - 1;
-  const query    = KEYWORDS[Math.floor(Math.random() * KEYWORDS.length)];
+  const query    = pickQuery();
 
   switch (scenario) {
     case 'book_auth': runSearch(query, 'book', getToken(vuId), searchAuthDuration, bookErrorRate); break;

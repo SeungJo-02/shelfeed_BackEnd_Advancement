@@ -16,6 +16,8 @@ import com.shelfeed.backend.domain.search.entity.SearchHistory;
 import com.shelfeed.backend.domain.search.repository.SearchHistoryRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import com.shelfeed.backend.global.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +46,7 @@ public class SearchService {
     private final SearchHistoryRepository searchHistoryRepository;
     private final BlockRepository blockRepository;
     private final RedisService redisService;
+    private final Tracer tracer;
 
     @Value("${app.search.history-enabled:true}")
     private boolean historyEnabled;
@@ -53,6 +56,8 @@ public class SearchService {
     //통합 검색
     @Transactional
     public SearchResponse search (String query, String type, Long cursor, int limit, Long memberUserId){
+        Span span = tracer.nextSpan().name("search").start();
+        try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
         //쿼리 여부 확인
         if (query == null || query.isBlank()) {
             throw new BusinessException(ErrorCode.SEARCH_QUERY_REQUIRED);
@@ -63,11 +68,16 @@ public class SearchService {
         }
         //로그인 시 검색 기록 저장 — 동일 키워드 재검색 시 createdAt 갱신(upsert)
         if (memberUserId != null && historyEnabled) {
-            Member member = memberLoader.getOrThrow(memberUserId);
-            searchHistoryRepository.findByMemberAndKeyword(member, query.trim())
-                    .ifPresentOrElse(SearchHistory::touch,
-                            () -> searchHistoryRepository.save(SearchHistory.create(member, query.trim()))
-                    );
+            Span histSpan = tracer.nextSpan().name("search.history").start();
+            try (Tracer.SpanInScope hs = tracer.withSpan(histSpan)) {
+                Member member = memberLoader.getOrThrow(memberUserId);
+                searchHistoryRepository.findByMemberAndKeyword(member, query.trim())
+                        .ifPresentOrElse(SearchHistory::touch,
+                                () -> searchHistoryRepository.save(SearchHistory.create(member, query.trim()))
+                        );
+            } finally {
+                histSpan.end();
+            }
         }
 
         SearchPageResponse<BookSearchResult> books = SearchPageResponse.empty();
@@ -80,10 +90,15 @@ public class SearchService {
                 .books(books)
                 .users(users)
                 .build();
+        } finally {
+            span.end();
+        }
     }
 
     // 도서 검색
-    private SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
+    public SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
+        Span span = tracer.nextSpan().name("search.books").start();
+        try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
         // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출
         // 알라딘 API 오류·타임아웃 시 DB 결과로 폴백 (검색 자체는 실패하지 않음)
         if (cursor == null && !redisService.isAladinQuerySynced(query)) {
@@ -136,11 +151,16 @@ public class SearchService {
                 .hasNext(hasNext)
                 .size(content.size())
                 .build();
+        } finally {
+            span.end();
+        }
     }
 
     // 유저 검색
-    private SearchPageResponse<UserSearchResult> searchUsers(String query, Long cursor,
-                                                             int limit, Long memberUserId) {
+    public SearchPageResponse<UserSearchResult> searchUsers(String query, Long cursor,
+                                                     int limit, Long memberUserId) {
+        Span span = tracer.nextSpan().name("search.users").start();
+        try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
         List<Member> members = memberRepository.searchMembers(query, cursor, PageRequest.of(0, limit + 1));
         //페이지네이션
         boolean hasNext = members.size() > limit;
@@ -174,6 +194,9 @@ public class SearchService {
                 .hasNext(hasNext)
                 .size(content.size())
                 .build();
+        } finally {
+            span.end();
+        }
     }
 
 }

@@ -4,6 +4,13 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20            # RDS(db.t3.micro) max_connections=61의 33% 안전 마진
+      minimum-idle: 5
+      connection-timeout: 5000         # 5초 — 검색 즉시성, Retry Storm 방지
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000  # 60초 이상 커넥션 점유 시 경고 로그 (풀스캔 모니터링)
 
   jpa:
     hibernate:
@@ -23,3 +30,9 @@ spring:
             port: ${MAIL_PORT:465}
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
+
+# 운영 환경엔 Tempo/Zipkin 인프라가 없으므로 트레이싱 비활성화 (로그 폭주 방지)
+management:
+  tracing:
+    sampling:
+      probability: 0

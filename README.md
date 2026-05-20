@@ -107,3 +107,34 @@ k6 run \
    - URL: `http://influxdb:8086`
    - Database: `k6`
 3. **Dashboards → Import** → ID `2587` 입력 (공식 k6 대시보드)
+
+---
+
+## DB 분리 구조 (운영 vs 부하 테스트)
+
+| 환경 | 일반 기능 테스트 | 부하 테스트 |
+|------|-----------------|-------------|
+| **로컬** | `mysql:3307` | `mysql-perf:3308` |
+| **AWS** | 운영 RDS | **별도 perf-RDS** (반드시 분리) |
+
+### 프로파일 매트릭스
+
+| 시나리오 | 프로파일 | DB |
+|---------|---------|-----|
+| 로컬 기능 테스트 | `local` | 3307 |
+| 로컬 부하 테스트 | `local,perf-seed` | 3308 |
+| AWS 운영 | `prod` | 운영 RDS (`DB_URL`) |
+| AWS 부하 테스트 | `prod,prod-perf,perf-seed` | perf-RDS (`PERF_DB_URL`) |
+
+### AWS 부하 테스트 서버 기동
+
+```bash
+# 부하 테스트용 EC2 (또는 운영 EC2 별도 인스턴스)
+SPRING_PROFILES_ACTIVE=prod,prod-perf,perf-seed \
+PERF_DB_URL=jdbc:mysql://<perf-rds>:3306/shelfeed \
+PERF_DB_USERNAME=shelfeed \
+PERF_DB_PASSWORD=*** \
+docker compose -f docker-compose.prod.yml up -d
+```
+
+> ⚠️ `prod-perf` 프로파일은 datasource를 `PERF_DB_URL`로 덮어씁니다. 운영 RDS와 다른 인스턴스를 가리키도록 반드시 환경변수를 분리하세요.
