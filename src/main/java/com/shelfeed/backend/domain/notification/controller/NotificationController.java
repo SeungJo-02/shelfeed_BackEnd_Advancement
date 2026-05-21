@@ -48,6 +48,16 @@ public class NotificationController {
         return ApiResponse.success(200, "알림을 읽음 처리했습니다.");
     }
 
+    // 전체 알림 읽음 처리  PATCH /api/v1/notifications/read-all
+    @PatchMapping("/read-all")
+    public ApiResponse<Void> markAllAsRead(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long memberUserId = userDetails.getMember().getMemberUserId();
+        notificationService.markAllAsRead(memberUserId);
+        return ApiResponse.success(200, "모든 알림을 읽음 처리했습니다.");
+    }
+
     // 미읽음 알림 개수 조회  GET /api/v1/notifications/unread-count
     @GetMapping("/unread-count")
     public ApiResponse<UnreadCountResponse> getUnreadCount(

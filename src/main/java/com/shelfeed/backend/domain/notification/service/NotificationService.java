@@ -64,6 +64,14 @@ public class NotificationService {
         notification.beReaded();
     }
 
+    // 전체 알림 읽음 처리 — 멱등 (이미 모두 읽음이면 0건 업데이트)
+    @Transactional
+    public void markAllAsRead(Long memberUserId) {
+        Member receiver = memberRepository.findByMemberUserId(memberUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        notificationRepository.markAllAsRead(receiver);
+    }
+
     public UnreadCountResponse getUnreadCount(Long memberUserId) {
         Member receiver = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
