@@ -61,6 +61,9 @@ dependencies {
     // Caffeine 캐시 (L1 로컬 캐시)
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // Elasticsearch (도서 검색 — 풀스캔 → 역인덱스)
+    implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
+
     // Database
     runtimeOnly("com.mysql:mysql-connector-j")
 

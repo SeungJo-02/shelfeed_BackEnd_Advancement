@@ -3,11 +3,13 @@ package com.shelfeed.backend.domain.book.service;
 import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
+import com.shelfeed.backend.domain.book.document.BookDocument;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
 import com.shelfeed.backend.domain.book.dto.response.*;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
+import com.shelfeed.backend.domain.book.repository.BookSearchRepository;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
@@ -25,10 +27,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -49,6 +53,8 @@ public class BookService {
     private EntityManager entityManager;
 
     private final BookRepository bookRepository;
+    private final BookSearchRepository bookSearchRepository;
+    private final ElasticsearchOperations elasticsearchOperations;
     private final MemberRepository memberRepository;
     private final LibraryRepository libraryRepository;
     private final ReviewRepository reviewRepository;
@@ -71,7 +77,7 @@ public class BookService {
             return BookSearchListResponse.of(List.of(), request.getLimit());
         }
 
-        Map<String, Book> allBooksMap = upsertAndGetBooks(items);
+        Map<String, Book> allBooksMap = upsertAndGetBooks(items).books();
         List<Book> allBooks = items.stream()
                 .map(item -> allBooksMap.get(item.getIsbn13()))
                 .filter(Objects::nonNull)
@@ -207,9 +213,30 @@ public class BookService {
     }
 
     // 알라딘 아이템 → DB Book (없으면 저장) - 단건 조회용 (getBookByIsbn 등)
+    // 신규 저장 시 ES에도 색인 (실패해도 무시 — BookIndexInitializer로 보강)
     private Book findOrCreateBook(AladinItem item) {
         return bookRepository.findByIsbn13(item.getIsbn13())
-                .orElseGet(() -> bookRepository.save(createBookFromItem(item)));
+                .orElseGet(() -> {
+                    Book saved = bookRepository.save(createBookFromItem(item));
+                    indexToElasticsearch(List.of(saved));
+                    return saved;
+                });
+    }
+
+    // ES 색인 — 실패해도 트랜잭션 영향 없음 (BookIndexInitializer로 재동기화 가능)
+    // refresh() 호출로 색인 즉시 검색 가능 상태로 전환 — 같은 요청에서 알라딘 캐싱 → 검색 사용 가능
+    private boolean indexToElasticsearch(List<Book> books) {
+        if (books.isEmpty()) return true;
+        try {
+            List<BookDocument> docs = books.stream().map(BookDocument::from).toList();
+            bookSearchRepository.saveAll(docs);
+            elasticsearchOperations.indexOps(BookDocument.class).refresh();
+            return true;
+        } catch (Exception e) {
+            log.warn("ES 색인 실패 (count={}), 검색에 즉시 반영 안 됨: error={}",
+                    books.size(), e.getMessage());
+            return false;
+        }
     }
     //맵버 찾거나 없으면 null
     private Member getMemberOrNull(Long memberUserId) {
@@ -227,11 +254,14 @@ public class BookService {
                 .values().stream().toList();
     }
 
+    // ES 색인 성공 여부와 isbn→Book 맵을 함께 반환 — 호출자가 색인 실패 시 Redis 마커 등을 스킵할 수 있도록 분리
+    private record UpsertResult(Map<String, Book> books, boolean indexed) {}
+
     /**
-     * DB에 없는 도서만 저장하고 전체 isbn→Book 맵을 반환한다.
+     * DB에 없는 도서만 저장하고 전체 isbn→Book 맵과 ES 색인 결과를 반환한다.
      * searchBooks()와 syncFromAladin() 모두 이 메서드를 통해 upsert 한다.
      */
-    private Map<String, Book> upsertAndGetBooks(List<AladinItem> items) {
+    private UpsertResult upsertAndGetBooks(List<AladinItem> items) {
         List<String> isbns = items.stream().map(AladinItem::getIsbn13).toList();
         Map<String, Book> existing = bookRepository.findByIsbn13In(isbns).stream()
                 .collect(Collectors.toMap(Book::getIsbn13, b -> b));
@@ -242,31 +272,39 @@ public class BookService {
                 .toList();
 
         Map<String, Book> all = new HashMap<>(existing);
+        List<Book> toIndex = new ArrayList<>();
         if (!newBooks.isEmpty()) {
             try {
                 // saveAllAndFlush로 즉시 flush — try 블록 내에서 unique 위반 발생하도록
                 bookRepository.saveAllAndFlush(newBooks);
                 newBooks.forEach(b -> all.put(b.getIsbn13(), b));
+                toIndex.addAll(newBooks);
             } catch (DataIntegrityViolationException e) {
                 // 동시 요청으로 인한 unique 위반 — Session에 null ID 엔티티가 남아있으므로
                 // clear() 후 재조회해야 AssertionFailure를 방지할 수 있다.
                 log.warn("도서 saveAll unique 위반 (동시 요청 추정), 재조회 진행: isbns={}", isbns);
                 entityManager.clear();
-                bookRepository.findByIsbn13In(isbns).forEach(b -> all.put(b.getIsbn13(), b));
+                List<Book> refetched = bookRepository.findByIsbn13In(isbns);
+                refetched.forEach(b -> all.put(b.getIsbn13(), b));
+                toIndex.addAll(refetched); // 멱등 — 이미 색인된 책도 동일 ID로 덮어쓰기
             }
         }
-        return all;
+        // ES 색인은 트랜잭션 외부 효과 — DB 저장 성공 후 best-effort 색인 (성공 여부 반환)
+        boolean indexed = indexToElasticsearch(toIndex);
+        return new UpsertResult(all, indexed);
     }
 
     /**
      * SearchService가 통합 검색 전 호출하는 알라딘 캐싱 메서드.
-     * DB에 없는 도서를 INSERT한 뒤 반환값 없이 종료한다.
+     * DB에 없는 도서를 INSERT 후 ES 색인까지 완료한다.
+     * @return ES 색인까지 모두 성공한 경우만 true — 색인 실패 시 false 반환하여 호출자가 Redis 마커를 찍지 않도록 함
      */
     @Transactional
-    public void syncFromAladin(String query, int maxResults) {
+    public boolean syncFromAladin(String query, int maxResults) {
         AladinSearchResponse response = aladinApiClient.search(query, 1, maxResults);
-        if (response == null || response.getItems() == null || response.getItems().isEmpty()) return;
+        if (response == null || response.getItems() == null || response.getItems().isEmpty()) return false;
         List<AladinItem> items = deduplicateByIsbn(response.getItems());
-        if (!items.isEmpty()) upsertAndGetBooks(items);
+        if (items.isEmpty()) return false;
+        return upsertAndGetBooks(items).indexed();
     }
 }

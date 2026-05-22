@@ -12,6 +12,11 @@ spring:
       max-lifetime: 1800000
       leak-detection-threshold: 60000  # 60초 이상 커넥션 점유 시 경고 로그 (풀스캔 모니터링)
 
+  elasticsearch:
+    uris: ${ES_URI:http://localhost:9200}
+    connection-timeout: 5s
+    socket-timeout: 5s
+
   jpa:
     hibernate:
       ddl-auto: update

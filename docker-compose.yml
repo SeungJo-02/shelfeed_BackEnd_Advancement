@@ -180,9 +180,61 @@ services:
           cpus: '0.2'
           memory: 512M
 
+  # ── Elasticsearch (도서 검색 색인 — 풀스캔 → 역인덱스) ────
+  #   Nori 플러그인 포함 (docker/elasticsearch/Dockerfile)
+  elasticsearch:
+    build:
+      context: .
+      dockerfile: docker/elasticsearch/Dockerfile
+    container_name: backend_project-elasticsearch-1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false        # 로컬 측정용 — 운영은 활성화 필수
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1.5G
+
+  # ── Kibana (ES 색인·검색 디버깅 UI) ────────────────────────
+  kibana:
+    image: kibana:8.11.3
+    container_name: backend_project-kibana-1
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_PUBLICBASEURL=http://localhost:5601
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 768M
+
 volumes:
   mysql-data:
   mysql-perf-data:
   grafana-data:
   influxdb-data:
   tempo-data:
+  elasticsearch-data:

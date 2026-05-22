@@ -1,8 +1,10 @@
 package com.shelfeed.backend.domain.search.service;
 
 import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.book.document.BookDocument;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
+import com.shelfeed.backend.domain.book.repository.BookSearchRepository;
 import com.shelfeed.backend.domain.book.service.BookService;
 import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -23,12 +25,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -41,6 +45,7 @@ public class SearchService {
     private final MemberRepository memberRepository;
     private final MemberLoader memberLoader;
     private final BookRepository bookRepository;
+    private final BookSearchRepository bookSearchRepository;
     private final BookService bookService;
     private final FollowRepository followRepository;
     private final SearchHistoryRepository searchHistoryRepository;
@@ -95,55 +100,64 @@ public class SearchService {
         }
     }
 
-    // 도서 검색
+    // 도서 검색 (ES 기반 — title/author 역인덱스, Nori 분석기)
     public SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
         Span span = tracer.nextSpan().name("search.books").start();
         try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
         // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출
-        // 알라딘 API 오류·타임아웃 시 DB 결과로 폴백 (검색 자체는 실패하지 않음)
+        // 알라딘이 책을 가져온 경우에만 Redis 마커 찍기 (빈 응답 시엔 다음 요청에서 재시도 가능)
         if (cursor == null && !redisService.isAladinQuerySynced(query)) {
             try {
-                bookService.syncFromAladin(query, limit);
-                redisService.markAladinQuerySynced(query, 5);
+                boolean fetched = bookService.syncFromAladin(query, limit);
+                if (fetched) {
+                    redisService.markAladinQuerySynced(query, 5);
+                }
             } catch (Exception e) {
-                log.warn("알라딘 캐싱 실패, DB 결과로 폴백: query={}, error={}", query, e.getMessage());
+                log.warn("알라딘 캐싱 실패, ES 결과로 폴백: query={}, error={}", query, e.getMessage());
             }
         }
-        List<Book> books = bookRepository.searchBooks(query, cursor, PageRequest.of(0, limit + 1));
-        // 페이지네이션 처리
-        boolean hasNext = books.size() > limit;
-        List<Book> result = hasNext ? books.subList(0, limit) : books;
 
-        // 결과가 비어있으면 불필요한 IN 쿼리를 날리지 않음
+        // ES 검색 — cursor 기반 무한 스크롤 (bookId DESC 정렬, cursor=null이면 Long.MAX_VALUE)
+        // 정렬을 bookId DESC로 고정해 cursor 페이징과 일관성 확보 (relevance score는 boost로만 반영)
+        Long effectiveCursor = (cursor == null) ? Long.MAX_VALUE : cursor;
+        List<BookDocument> docs = bookSearchRepository.searchByTitleOrAuthor(
+                query, effectiveCursor,
+                PageRequest.of(0, limit + 1, Sort.by(Sort.Direction.DESC, "bookId")));
+
+        boolean hasNext = docs.size() > limit;
+        List<BookDocument> result = hasNext ? docs.subList(0, limit) : docs;
+
         if (result.isEmpty()) {
             return SearchPageResponse.empty();
         }
 
-        //IN 절로 통계 데이터 한 번에 조회
-        List<Object[]> stats = bookRepository.findReviewStatsByBooks(result);
+        // ES에서 받은 bookId 순서를 보존하면서 DB에서 Book 엔티티 조회
+        List<Long> bookIds = result.stream().map(BookDocument::getBookId).toList();
+        Map<Long, Book> bookMap = bookRepository.findAllById(bookIds).stream()
+                .collect(Collectors.toMap(Book::getBookId, b -> b));
+        List<Book> orderedBooks = bookIds.stream()
+                .map(bookMap::get)
+                .filter(Objects::nonNull)
+                .toList();
 
-        // O(1) 조회를 위해 Map으로 변환
+        // DB 누락 시(ES/DB 정합성 깨짐) content가 limit 미만이면 hasNext도 false로 조정 — 응답 일관성 보장
+        hasNext = hasNext && orderedBooks.size() == limit;
+
+        // 통계는 여전히 DB에서 조회 (평점/리뷰수는 ES에 색인 안 함)
+        List<Object[]> stats = bookRepository.findReviewStatsByBooks(orderedBooks);
         Map<Long, Object[]> statsMap = stats.stream()
-                .collect(Collectors.toMap(
-                        stat -> (Long) stat[0], // 배열의 0번째 인덱스: bookId
-                        stat -> stat            // 배열 전체를 Value로 저장
-                ));
+                .collect(Collectors.toMap(s -> (Long) s[0], s -> s));
 
-        //메모리 내에서 매핑 작업 수행
-        List<BookSearchResult> content = result.stream().map(book -> {
-            Long bookId = book.getBookId();
-
-            // Map에서 해당 도서의 통계 데이터를 꺼냄 (리뷰가 아예 없는 책은 null일 수 있음)
-            Object[] stat = statsMap.get(bookId);
-
-            // DB에서 리뷰가 없어 통계 결과가 없는 경우 기본값 처리 (평점 0.0, 리뷰수 0)
+        List<BookSearchResult> content = orderedBooks.stream().map(book -> {
+            Object[] stat = statsMap.get(book.getBookId());
             Double avgRating = (stat != null && stat[1] != null) ? (Double) stat[1] : 0.0;
             Long reviewCount = (stat != null && stat[2] != null) ? (Long) stat[2] : 0L;
-
             return BookSearchResult.of(book, avgRating, reviewCount);
         }).toList();
 
-        Long nextCursor = hasNext ? result.get(result.size() - 1).getBookId() : null;
+        Long nextCursor = (hasNext && !orderedBooks.isEmpty())
+                ? orderedBooks.get(orderedBooks.size() - 1).getBookId()
+                : null;
 
         return SearchPageResponse.<BookSearchResult>builder()
                 .content(content)
