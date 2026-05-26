@@ -166,6 +166,8 @@ services:
           memory: 64M
 
   # ── k6 결과 저장소 ─────────────────────────────────────
+  # 부하 테스트(300+ VU) 시 메트릭 쓰기 + Grafana 쿼리 동시 처리 → 0.2 CPU / 512M로는 OOM 발생
+  # → 1.0 CPU / 2G로 증설 (k6 점진 부하 한계 측정 시 안정 동작 확보)
   influxdb:
     image: influxdb:1.8
     ports:
@@ -177,8 +179,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 512M
+          cpus: '1.0'
+          memory: 2G
 
   # ── Elasticsearch (도서 검색 색인 — 풀스캔 → 역인덱스) ────
   #   Nori 플러그인 포함 (docker/elasticsearch/Dockerfile)
