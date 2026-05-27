@@ -1,0 +1,97 @@
+name: CI
+
+# PR 시 빌드/테스트 자동 실행 — 현재 가장 큰 누락 워크플로
+# concurrency: 같은 PR에 새 푸시가 들어오면 이전 실행을 취소하여 GitHub Actions 사용량 30~50% 절감
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    name: Build & Test (Java 21)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root1234
+          MYSQL_DATABASE: shelfeed_test
+          MYSQL_USER: shelfeed
+          MYSQL_PASSWORD: shelfeed
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-retries=3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle with cache
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Validate gradle wrapper
+        # 외부 서비스(services.gradle.org) 의존 → Cloudflare 일시 장애로 timeout 발생 가능
+        # 실패해도 빌드/테스트는 계속 진행. 보안 검증은 best-effort.
+        continue-on-error: true
+        uses: gradle/actions/wrapper-validation@v3
+
+      - name: Build (no test)
+        run: ./gradlew build -x test --no-daemon
+
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+        env:
+          # 테스트 시 H2/Testcontainers 사용 - 위 services 의 MySQL 도 대체 가능
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Publish test report (sticky comment + check)
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          check_name: 'JUnit Test Report'
+          require_tests: false
+
+      - name: Upload build artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.run_id }}
+          path: |
+            **/build/reports/tests/
+            **/build/reports/jacoco/
+          retention-days: 7

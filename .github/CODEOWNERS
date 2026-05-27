@@ -1,0 +1,49 @@
+# ⚠️ 활성화 가이드 (현재는 모두 주석 처리되어 비활성 상태)
+#
+# 1) 아래 placeholder( @your-* )를 실제 팀원 GitHub 아이디로 교체하세요.
+#    예) @seungjo-bin → 본인 실제 핸들
+#    조직(Team) 단위로 묶고 싶으면 @org-name/team-slug 형식 사용.
+#
+# 2) 활성화하려는 라인의 맨 앞 `#` 를 제거하세요.
+#    주석 그대로 두면 GitHub 가 해당 라인을 무시하므로 PR 리뷰 요청이 실패하지 않습니다.
+#
+# 3) (선택) Settings → Branches → main 의 "Require review from Code Owners" 토글로 강제.
+#
+# 문법: <path-glob>  @owner1 @owner2
+# 마지막 매칭이 최우선 (위 → 아래 점차 구체화)
+#
+# ──────────────────────────────────────────────────────────────────
+
+# ── 전역 기본 (저장소 모든 변경) ─────────────────────────────────
+# *                                                  @your-team-lead
+
+# ── 인프라 / 배포 / CI ───────────────────────────────────────────
+# /.github/                                          @your-team-lead
+# /docker/                                           @your-team-lead
+# /docker-compose.yml                                @your-team-lead
+# /docker-compose.prod.yml                           @your-team-lead
+
+# ── 빌드 / 의존성 ────────────────────────────────────────────────
+# /build.gradle.kts                                  @your-team-lead
+# /settings.gradle.kts                               @your-team-lead
+# /gradle/                                           @your-team-lead
+
+# ── 보안 / 인증 ──────────────────────────────────────────────────
+# /src/main/java/**/security/**                      @your-security-owner
+# /src/main/java/**/jwt/**                           @your-security-owner
+# /src/main/java/**/config/Security*.java            @your-security-owner
+
+# ── 검색 (ES) ────────────────────────────────────────────────────
+# /src/main/java/**/domain/book/document/**          @your-search-owner
+# /src/main/java/**/domain/book/repository/BookSearchRepository.java @your-search-owner
+# /src/main/java/**/domain/search/**                 @your-search-owner
+
+# ── DB / 도메인 ──────────────────────────────────────────────────
+# /src/main/java/**/entity/**                        @your-backend-owner
+# /src/main/java/**/repository/**                    @your-backend-owner
+
+# ── 부하 테스트 / 관측성 ────────────────────────────────────────
+# /k6/                                               @your-perf-owner
+# /docker/prometheus/                                @your-perf-owner
+# /docker/grafana/                                   @your-perf-owner
+# /docker/tempo/                                     @your-perf-owner

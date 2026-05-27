@@ -58,7 +58,7 @@ class ReportServiceTest {
         owner    = Member.createLocal(2L, "owner@test.com",   "encoded", "작성자", "bio");
 
         book = Book.create("9791234567890", "테스트 책", "작가", "출판사",
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
 
         review = Review.create(owner, book, null, (byte) 5, "내용", null,
                 false, null, ReviewVisibility.PUBLIC, ReviewStatus.PUBLISHED);

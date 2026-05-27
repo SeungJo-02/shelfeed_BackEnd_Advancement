@@ -62,7 +62,7 @@ class BookServiceTest {
         member = Member.createLocal(1L, "me@test.com", "encoded", "me", "bio");
 
         book = Book.create("9781234567890", "Test Book", "Author", "Publisher",
-                "http://cover.url", "description", 300, null, "12345", "소설");
+                "http://cover.url", "description", 300, null, "12345", "소설", null);
         ReflectionTestUtils.setField(book, "bookId", 10L);
 
         review = mock(Review.class);
@@ -313,7 +313,7 @@ class BookServiceTest {
             request.setLimit(10);
 
             given(bookRepository.existsById(10L)).willReturn(true);
-            given(reviewRepository.findBookReviewsPopular(eq(10L), isNull(), any(PageRequest.class))).willReturn(List.of(review));
+            given(reviewRepository.findBookReviewsPopular(eq(10L), isNull(), isNull(), any(PageRequest.class))).willReturn(List.of(review));
             given(reviewLikeRepository.findLikedReviewIds(List.of(50L), 1L)).willReturn(Set.of());
 
             BookReviewListResponse response = bookService.getBookReviews(10L, request, 1L);
