@@ -80,6 +80,11 @@ aladin:
     ttbkey: ${ALADIN_API_KEY}
     version: "20131101"
 
+clova:
+  ocr:
+    secret-key: ${CLOVA_OCR_SECRET_KEY}
+    api-url: ${CLOVA_OCR_API_URL}
+
 admin:
   email: ${ADMIN_EMAIL}
   password: ${ADMIN_PASSWORD}

@@ -86,6 +86,9 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     ALREADY_BLOCKED(409, "BL002", "이미 차단된 사용자입니다."),
     BLOCK_NOT_FOUND(404, "BL003", "차단 관계를 찾을 수 없습니다."),
     BLOCKED_USER(403, "BL004", "차단된 사용자입니다."),
+    //OCR
+    OCR_PROCESSING_FAILED(502, "O001", "텍스트 추출에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    OCR_INVALID_IMAGE(400, "O002", "지원하지 않는 이미지 형식입니다."),
     ;
 
     private final int status;

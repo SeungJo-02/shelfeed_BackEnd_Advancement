@@ -11,4 +11,9 @@ public class BusinessException extends RuntimeException {
         super(errorCode.getMessage());//super : 부모클래스(RuntimeException) 실핼
         this.errorCode = errorCode;
     }
+
+    public BusinessException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
 }
