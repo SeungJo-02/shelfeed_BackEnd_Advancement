@@ -5,6 +5,11 @@ import lombok.Getter;
 
 import java.util.List;
 
+/**
+ * OCR 인식 텍스트 블록.
+ * 단일 텍스트 조각과 이미지 내 위치 좌표(vertices)를 담는다.
+ * lineBreak가 true이면 해당 블록 뒤에서 줄바꿈이 발생한다.
+ */
 @Getter
 @Builder
 public class OcrTextField {

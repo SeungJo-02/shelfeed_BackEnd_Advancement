@@ -18,6 +18,12 @@ import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Naver CLOVA OCR General V2 API를 호출하는 {@link ClovaOcrClient} 구현체.
+ *
+ * <p>외부 API 타임아웃으로 인한 스레드 풀 고갈을 방지하기 위해
+ * 공유 RestTemplate과 별도로 전용 인스턴스를 생성한다 (connect 5s, read 30s).</p>
+ */
 @Slf4j
 @Component
 public class ClovaOcrApiClient implements ClovaOcrClient {
@@ -38,6 +44,7 @@ public class ClovaOcrApiClient implements ClovaOcrClient {
         this.ocrRestTemplate = new RestTemplate(factory);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<OcrTextField> extractTextFields(String base64Image, String imageFormat) {
         HttpHeaders headers = new HttpHeaders();
@@ -84,7 +91,9 @@ public class ClovaOcrApiClient implements ClovaOcrClient {
                             .build())
                     .collect(Collectors.toList());
 
-        } catch (RestClientException e) {
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
             log.error("CLOVA OCR API 호출 실패", e);
             throw new BusinessException(ErrorCode.OCR_PROCESSING_FAILED, e);
         }

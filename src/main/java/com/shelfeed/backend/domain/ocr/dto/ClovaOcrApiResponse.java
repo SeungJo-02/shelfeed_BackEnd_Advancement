@@ -6,6 +6,10 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * CLOVA OCR General V2 API 응답 매핑 DTO.
+ * 외부 API 응답 구조를 그대로 매핑하며, 알 수 없는 필드는 무시한다.
+ */
 @Getter
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)

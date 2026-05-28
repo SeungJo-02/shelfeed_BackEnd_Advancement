@@ -5,6 +5,10 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * OCR 텍스트 추출 요청 DTO.
+ * Base64 인코딩된 이미지 데이터와 형식(jpg, png 등)을 전달받는다.
+ */
 @Getter
 @NoArgsConstructor
 public class OcrExtractRequest {
