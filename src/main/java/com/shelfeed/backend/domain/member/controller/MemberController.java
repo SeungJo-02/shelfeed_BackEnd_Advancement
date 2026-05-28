@@ -74,8 +74,11 @@ public class MemberController {
 
     // 4. 타 유저 프로필 조회  GET /api/v1/users/{userId}
     @GetMapping("/{userId}")
-    public ApiResponse<UserProfileResponse> getUserProfile(@PathVariable Long userId){
-        return ApiResponse.success(200, memberService.getUserProfile(userId));
+    public ApiResponse<UserProfileResponse> getUserProfile(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal CustomUserDetails userDetails){
+        Long memberUserId = userDetails != null ? userDetails.getMember().getMemberUserId() : null;
+        return ApiResponse.success(200, memberService.getUserProfile(userId, memberUserId));
     }
 
     // 5. 비밀번호 변경  PUT /api/v1/users/me/password

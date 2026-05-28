@@ -22,7 +22,7 @@ public class UserProfileResponse {
     @JsonProperty("isFollowedBy")
     private boolean isFollowedBy;  // Follow 도메인 구현 후 연결
 
-    public static UserProfileResponse of(Member member){
+    public static UserProfileResponse of(Member member, boolean isFollowing, boolean isFollowedBy){
         return UserProfileResponse.builder()
                 .userId(member.getMemberUserId())
                 .nickname(member.getNickname())
@@ -32,8 +32,8 @@ public class UserProfileResponse {
                 .followerCount(member.getFollowerCount())
                 .followingCount(member.getFollowingCount())
                 .reviewCount(member.getReviewCount())
-                .isFollowing(false)
-                .isFollowedBy(false)
+                .isFollowing(isFollowing)
+                .isFollowedBy(isFollowedBy)
                 .build();
     }
 }

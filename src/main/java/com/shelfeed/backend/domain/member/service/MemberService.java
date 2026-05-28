@@ -142,14 +142,24 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
         return UpdateProfileResponse.of(member);
     }
     // ── 4. 타 유저 프로필 조회
-    public UserProfileResponse getUserProfile(Long targetUserId){
+    public UserProfileResponse getUserProfile(Long targetUserId, Long memberUserId){
         Member member = memberRepository.findByMemberUserId(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new BusinessException(ErrorCode.WITHDRAWN_MEMBER);
         }
-        return UserProfileResponse.of(member);
+
+        boolean isFollowing = false;
+        boolean isFollowedBy = false;
+        // 로그인 사용자가 타인 프로필을 볼 때만 팔로우 관계 계산 (본인/비로그인은 false 유지)
+        if (memberUserId != null && !memberUserId.equals(targetUserId)) {
+            Member me = memberRepository.findByMemberUserId(memberUserId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+            isFollowing = followRepository.existsByFollowerAndFollowee(me, member);
+            isFollowedBy = followRepository.existsByFollowerAndFollowee(member, me);
+        }
+        return UserProfileResponse.of(member, isFollowing, isFollowedBy);
     }
     // ── 5. 비밀번호 변경
     @Transactional
