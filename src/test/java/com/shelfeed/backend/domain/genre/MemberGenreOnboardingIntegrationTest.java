@@ -76,9 +76,10 @@ class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
         memberRepository.deleteAllInBatch();
         genreRepository.deleteAllInBatch();
 
-        // 가입 시 bio 입력한 로컬 회원
-        member = memberRepository.save(
-                Member.createLocal(1001L, "onboard@test.com", "encoded", "초기닉", "가입때 입력한 소개글"));
+        // 가입 시 bio + 프로필 이미지를 가진 로컬 회원 (온보딩 시 bio/이미지 보존 검증용)
+        Member m = Member.createLocal(1001L, "onboard@test.com", "encoded", "초기닉", "가입때 입력한 소개글");
+        m.updateProfile(null, null, "https://img.example/origin.png"); // null-safe: 이미지만 설정
+        member = memberRepository.save(m);
         g1 = genreRepository.save(genre("소설"));
         g2 = genreRepository.save(genre("판타지"));
         g3 = genreRepository.save(genre("에세이"));
@@ -98,14 +99,16 @@ class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
     }
 
     @Test
-    @DisplayName("온보딩 시 bio 미전달(null)이면 가입 때 입력한 소개글이 유지된다")
+    @DisplayName("온보딩 시 bio·프로필이미지 미전달(null)이면 가입 때 값이 유지된다")
     void 온보딩_bio_null이면_기존값_유지() {
+        // onboarding 요청에 bio·profileImageUrl 모두 null — Member.onboard()가 null이면 기존값 유지해야 함
         OnboardingRequest request = onboarding("새닉네임", null, List.of(g1.getGenreId()));
 
         memberService.completeOnboarding(member.getMemberUserId(), request);
 
         Member reloaded = memberRepository.findByMemberUserId(member.getMemberUserId()).orElseThrow();
         assertThat(reloaded.getBio()).isEqualTo("가입때 입력한 소개글");
+        assertThat(reloaded.getProfileImageUrl()).isEqualTo("https://img.example/origin.png");
     }
 
     @Test

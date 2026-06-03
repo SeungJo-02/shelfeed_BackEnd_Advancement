@@ -148,9 +148,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);//페스워드 예외 처리
         }
-        if (member.getStatus() == MemberStatus.WITHDRAWN) {
-            throw new BusinessException(ErrorCode.WITHDRAWN_MEMBER);//탈퇴인 예외 처리
-        }
+        // 탈퇴/정지 계정 차단 — 구글 로그인(verifyLoginableStatus)과 동일 정책으로 통일.
+        // 비밀번호 검증 이후에 호출해 계정 상태가 비번 오류와 구분돼 노출되지 않게 한다.
+        verifyLoginableStatus(member);
 
         member.recordLogin();//로그인 시점 기록
 
