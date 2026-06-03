@@ -33,6 +33,8 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     INVALID_OAUTH_STATE(400,"A014", "유효하지 않은 OAuth state입니다."),
     OAUTH_PROVIDER_ERROR(502,"A015", "OAuth 제공자 연동 중 오류가 발생했습니다."),
     EMAIL_SEND_FAILED(502,"A016", "이메일 발송에 실패했습니다."),
+    OAUTH_EMAIL_NOT_VERIFIED(403,"A017", "구글 계정의 이메일이 인증되지 않아 로그인할 수 없습니다."),
+    SUSPENDED_MEMBER(403,"A018", "정지된 계정입니다."),
     //도서
     BOOK_NOT_FOUND(404, "B001", "존재하지 않는 도서입니다."),
     //장르

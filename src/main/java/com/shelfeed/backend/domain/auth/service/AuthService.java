@@ -187,9 +187,17 @@ public class AuthService {
         GoogleTokenResponse tokenResponse = exchangeGoogleCode(request.getCode(), request.getRedirectUri());
         GoogleUserInfo userInfo = getGoogleUserInfo(tokenResponse.accessToken());
 
+        // 이메일이 검증되지 않은 구글 계정(예: Workspace 관리자가 임의 이메일로 만든 계정)은
+        // 그 이메일의 소유를 보장하지 못하므로 거부한다. 미검증 이메일을 그대로 신뢰하면
+        // 동일 이메일의 기존(비밀번호) 계정에 자동 연동되어 계정 탈취/권한 상승이 가능하다.
+        if (!Boolean.TRUE.equals(userInfo.emailVerified())) {
+            throw new BusinessException(ErrorCode.OAUTH_EMAIL_NOT_VERIFIED);
+        }
+
         return socialAccountRepository.findByProviderAndProviderId("GOOGLE", userInfo.sub())
                 .map(socialAccount -> {
                     Member member = socialAccount.getMember();
+                    verifyLoginableStatus(member);
                     member.recordLogin();
                     String accessToken = jwtProvider.generateAccessToken(member);
                     String refreshToken = jwtProvider.generateRefreshToken(member);
@@ -201,23 +209,48 @@ public class AuthService {
                             refreshToken);
                 })
                 .orElseGet(() -> {
-                    // 신규 회원 생성
-                    Long memberUserId = redisService.generateMemberUserId();
-                    String nickname = "Google_" + memberUserId;
-                    Member member = Member.createOAuth(memberUserId, userInfo.email(),
-                            nickname, userInfo.picture());
-                    memberRepository.save(member);
+                    // 이 구글 sub로 연결된 소셜 계정이 없는 경우.
+                    // 같은 이메일로 이미 가입한 회원(이메일 가입 등)이 있으면 새 계정을 만들지 않고
+                    // 그 회원에 SocialAccount만 연결한다(계정 자동 연동). 구글은 이메일 검증
+                    // 제공자라 안전하며, 이를 생략하면 email unique 제약 위반으로 로그인이 실패한다.
+                    boolean[] created = {false};
+                    Member member = memberRepository.findByEmail(userInfo.email())
+                            .map(existing -> {
+                                // 기존 이메일 계정에 자동 연동하기 전 로그인 가능 상태인지 확인
+                                verifyLoginableStatus(existing);
+                                return existing;
+                            })
+                            .orElseGet(() -> {
+                                created[0] = true;
+                                Long memberUserId = redisService.generateMemberUserId();
+                                String nickname = "Google_" + memberUserId;
+                                return memberRepository.save(Member.createOAuth(memberUserId,
+                                        userInfo.email(), nickname, userInfo.picture()));
+                            });
                     socialAccountRepository.save(
                             SocialAccount.create(member, "GOOGLE", userInfo.sub()));
+                    member.recordLogin();
                     String accessToken = jwtProvider.generateAccessToken(member);
                     String refreshToken = jwtProvider.generateRefreshToken(member);
-                    redisService.saveRefreshToken(memberUserId, refreshToken,
+                    redisService.saveRefreshToken(member.getMemberUserId(), refreshToken,
                             jwtProvider.getRefreshTokenExpiresIn());
+                    // 기존 이메일 계정에 연동된 경우 isNewUser=false → 프론트가 onboardingCompleted
+                    // 기준으로 라우팅(온보딩 스킵). 진짜 신규 가입일 때만 true.
                     return new AuthTokenResult.GoogleLogin(
                             GoogleLoginResponse.of(member, accessToken,
-                                    jwtProvider.getAccessTokenExpiresIn(), true),
+                                    jwtProvider.getAccessTokenExpiresIn(), created[0]),
                             refreshToken);
                 });
+    }
+
+    // 로그인 가능 상태 검증 — 탈퇴/정지 계정은 OAuth 로그인도 차단(이메일 로그인 login()과 동일 정책)
+    private void verifyLoginableStatus(Member member) {
+        if (member.getStatus() == MemberStatus.WITHDRAWN) {
+            throw new BusinessException(ErrorCode.WITHDRAWN_MEMBER);
+        }
+        if (member.getStatus() == MemberStatus.SUSPENDED) {
+            throw new BusinessException(ErrorCode.SUSPENDED_MEMBER);
+        }
     }
 
     // Google code → token 교환
@@ -262,6 +295,7 @@ public class AuthService {
     private record GoogleUserInfo(
             String sub,
             String email,
+            @com.fasterxml.jackson.annotation.JsonProperty("email_verified") Boolean emailVerified,
             String name,
             String picture
     ) {}
