@@ -1,7 +1,6 @@
 package com.shelfeed.backend.domain.genre;
 
 import com.shelfeed.backend.domain.genre.entity.Genre;
-import com.shelfeed.backend.domain.genre.entity.MemberGenre;
 import com.shelfeed.backend.domain.genre.repository.GenreRepository;
 import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
 import com.shelfeed.backend.domain.member.dto.request.OnboardingRequest;
@@ -9,15 +8,22 @@ import com.shelfeed.backend.domain.member.dto.request.UpdateGenresRequest;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.member.service.MemberService;
+import com.shelfeed.backend.global.config.JpaConfig;
+import com.shelfeed.backend.global.jwt.JwtProvider;
 import com.shelfeed.backend.global.redis.RedisService;
 import com.shelfeed.backend.support.TestContainerSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -25,15 +31,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * 관심 장르 저장/수정 + 온보딩의 영속성 동작을 실제 DB(Testcontainers)로 검증하는 통합 테스트.
+ * 관심 장르 저장/수정 + 온보딩의 영속성 동작을 실제 DB(Testcontainers MySQL)로 검증한다.
  *
  * Mockito 단위 테스트(MemberServiceGenreTest)는 deleteAllByMember/saveAll의 실제 flush·clear
  * 동작을 재현하지 못해 아래 두 회귀(#198 코드리뷰 발견)를 잡지 못했다. 본 테스트가 그 갭을 메운다:
  *  - HIGH: deleteAllByMember의 clearAutomatically=true가 member를 detach시켜 completeOnboarding()의
  *          onboardingCompleted=true가 DB에 저장되지 않던 회귀
  *  - 409: delete가 saveAll INSERT보다 늦게 flush되어 member_genres 복합 unique 위반
+ *
+ * @DataJpaTest 슬라이스를 쓰는 이유: @SpringBootTest 풀 컨텍스트는 CLOVA/admin 등 외부 시크릿에
+ * 의존하는 빈까지 로드해 CI(시크릿 미설정)에서 컨텍스트 로딩이 실패한다. JPA 슬라이스 + 서비스만
+ * import해 그 의존을 끊는다. JPA 외 의존(Redis/JWT/PasswordEncoder)은 @MockBean으로 대체.
+ *
+ * @Transactional(NOT_SUPPORTED): @DataJpaTest 기본 트랜잭션을 끈다. 켜두면 서비스의 @Transactional이
+ * 테스트 트랜잭션에 합류해 flush/clear 타이밍이 실제 운영과 달라져 회귀를 재현하지 못한다.
+ * 대신 각 테스트가 독립 트랜잭션으로 커밋되므로 @BeforeEach에서 명시적으로 데이터를 비운다.
  */
-@SpringBootTest
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import({MemberService.class, JpaConfig.class}) // JpaConfig: @EnableJpaAuditing (created_at 자동 채움) + JPAQueryFactory
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DisplayName("관심 장르 + 온보딩 영속성 통합 테스트 (#198 회귀)")
 class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
 
@@ -42,9 +59,10 @@ class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
     @Autowired GenreRepository genreRepository;
     @Autowired MemberGenreRepository memberGenreRepository;
 
-    // 본 테스트의 검증 대상은 JPA 영속성(detach/flush)이라 Redis는 불필요.
-    // 로컬에 Redis가 없어도 컨텍스트가 뜨도록 mock으로 대체(검증 경로엔 Redis 호출 없음).
+    // MemberService의 비-JPA 의존성. 본 테스트 경로(온보딩/장르 수정)에선 호출되지 않으므로 mock으로 충분.
     @MockBean RedisService redisService;
+    @MockBean JwtProvider jwtProvider;
+    @MockBean PasswordEncoder passwordEncoder;
 
     private Member member;
     private Genre g1;
@@ -53,9 +71,7 @@ class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
 
     @BeforeEach
     void setUp() {
-        // ddl-auto=create-drop은 클래스당 1회만 스키마를 만들므로 테스트 간 데이터가 남는다.
-        // 각 테스트가 같은 memberUserId/email을 재사용하므로 매 테스트 시작 시 명시적으로 비워 격리한다.
-        // (이 테스트는 flush/detach 동작 검증이 목적이라 @Transactional 롤백 격리는 쓸 수 없음)
+        // NOT_SUPPORTED라 각 테스트가 독립 커밋되어 데이터가 누적된다. 매 테스트 시작 시 명시적으로 비워 격리.
         memberGenreRepository.deleteAllInBatch();
         memberRepository.deleteAllInBatch();
         genreRepository.deleteAllInBatch();
