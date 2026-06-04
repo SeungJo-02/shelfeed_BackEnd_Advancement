@@ -85,6 +85,10 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs("-javaagent:${configurations["mockitoAgent"].asPath}")
+    // Docker Engine v29(Docker Desktop 4.52+, API 1.52)는 docker-java의 기본 협상 API가
+    // 최소 요구치(1.44)보다 낮아 Testcontainers가 /info에서 400으로 실패한다.
+    // api.version을 1.44로 고정해 로컬/CI 모두 최신 Docker에서 Testcontainers가 동작하도록 한다.
+    systemProperty("api.version", "1.44")
 }
 
 // QueryDSL Q클래스 생성 경로

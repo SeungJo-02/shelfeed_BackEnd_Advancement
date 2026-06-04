@@ -102,10 +102,11 @@ public class Member extends BaseTimeEntity {
     }
 
     // 비즈니스 메서드
-    // 온보딩 전용: null 포함 값 그대로 설정 (초기 정보 주입)
+    // 온보딩 전용: nickname은 필수라 덮어쓰고, bio/이미지는 null이면 기존값 유지.
+    // (가입 시 입력한 소개글이 온보딩에서 bio 미전달(null)로 덮어써져 사라지던 문제 방지)
     public void onboard(String nickname, String bio, String profileImageUrl) {
         this.nickname = nickname;
-        this.bio = bio;
+        if (bio != null) this.bio = bio;
         if (profileImageUrl != null) this.profileImageUrl = profileImageUrl; // OAuth 기본 이미지 보호
     }
     // 프로필 수정 전용: null이면 기존 값 유지 (PATCH 의미)
