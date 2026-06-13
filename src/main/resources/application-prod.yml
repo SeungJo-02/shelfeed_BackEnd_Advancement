@@ -38,6 +38,12 @@ spring:
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
 
+# CORS 허용 오리진 — CORS_ALLOWED_ORIGIN 환경변수가 있으면 우선 사용하고,
+# 미주입 시에도 운영 프론트 도메인(apex+www)으로 동작하도록 기본값을 명시한다.
+# (환경변수 누락 시 localhost로 떨어져 전 API가 차단되던 문제 방지. 콤마 구분 다중 오리진.)
+cors:
+  allowed-origin: ${CORS_ALLOWED_ORIGIN:https://shelfeed.co.kr,https://www.shelfeed.co.kr}
+
 # 운영 환경엔 Tempo/Zipkin 인프라가 없으므로 트레이싱 비활성화 (로그 폭주 방지)
 management:
   tracing:
