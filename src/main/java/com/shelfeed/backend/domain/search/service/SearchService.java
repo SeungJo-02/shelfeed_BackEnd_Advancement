@@ -60,7 +60,7 @@ public class SearchService {
 
     //통합 검색
     @Transactional
-    public SearchResponse search (String query, String type, Long cursor, int limit, Long memberUserId){
+    public SearchResponse search (String query, String type, Long cursor, Long bookCursor, Long userCursor, int limit, Long memberUserId){
         Span span = tracer.nextSpan().name("search").start();
         try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
         //쿼리 여부 확인
@@ -88,8 +88,13 @@ public class SearchService {
         SearchPageResponse<BookSearchResult> books = SearchPageResponse.empty();
         SearchPageResponse<UserSearchResult> users = SearchPageResponse.empty();
 
-        if (type.equals("all") || type.equals("book")) { books = searchBooks(query, cursor, limit); }
-        if (type.equals("all") || type.equals("user")) { users = searchUsers(query, cursor, limit, memberUserId); }
+        // books 커서(bookId)와 users 커서(memberUserId)는 ID 공간이 다르므로 독립 커서로 페이징한다.
+        // type=all에선 bookCursor/userCursor를 각각 사용하고, 단일 타입 검색은 하위호환으로 cursor를 폴백한다.
+        Long effectiveBookCursor = bookCursor != null ? bookCursor : cursor;
+        Long effectiveUserCursor = userCursor != null ? userCursor : cursor;
+
+        if (type.equals("all") || type.equals("book")) { books = searchBooks(query, effectiveBookCursor, limit); }
+        if (type.equals("all") || type.equals("user")) { users = searchUsers(query, effectiveUserCursor, limit, memberUserId); }
 
         return SearchResponse.builder()
                 .books(books)
