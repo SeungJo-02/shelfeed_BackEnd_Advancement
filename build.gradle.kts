@@ -50,6 +50,9 @@ dependencies {
     // Spring Cloud AWS 3.x (S3 - Presigned URL)
     implementation("io.awspring.cloud:spring-cloud-aws-starter-s3:3.2.1")
 
+    // Spring Cloud AWS 3.x (SSM Parameter Store - 시크릿 관리)
+    implementation("io.awspring.cloud:spring-cloud-aws-starter-parameter-store:3.2.1")
+
     // Prometheus 메트릭
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 

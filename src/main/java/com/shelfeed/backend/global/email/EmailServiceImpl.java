@@ -3,12 +3,15 @@ package com.shelfeed.backend.global.email;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
@@ -30,8 +33,25 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @Async("mailExecutor")
+    public void sendVerificationEmailAsync(String email, String code) {
+        try {
+            send(email, "[Shelfeed] 이메일 인증 코드", buildVerificationBody(code));
+        } catch (EmailSendException e) {
+            log.warn("[EMAIL] 인증 이메일 비동기 발송 실패 — 재발송 API로 재시도 가능: {}",
+                    e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+        }
+    }
+
+    @Override
+    @Async("mailExecutor")
     public void sendPasswordResetEmail(String email, String token) {
-        send(email, "[Shelfeed] 비밀번호 재설정", buildPasswordResetBody(token));
+        try {
+            send(email, "[Shelfeed] 비밀번호 재설정", buildPasswordResetBody(token));
+        } catch (EmailSendException e) {
+            log.warn("[EMAIL] 비밀번호 재설정 이메일 비동기 발송 실패: {}",
+                    e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+        }
     }
 
     private void send(String to, String subject, String htmlBody) {

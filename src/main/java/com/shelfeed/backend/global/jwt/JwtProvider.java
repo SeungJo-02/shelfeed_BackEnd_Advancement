@@ -16,6 +16,11 @@ import java.util.Date;
 @Component
 public class JwtProvider {
 
+    // 토큰 타입 클레임 — access 토큰과 refresh 토큰을 구분해 혼용(refresh를 access로 사용 등)을 차단한다.
+    private static final String CLAIM_TYPE = "type";
+    private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_REFRESH = "refresh";
+
     private final SecretKey secretKey;
     private final long accessExpiration;
     private final long refreshExpiration;
@@ -35,6 +40,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(String.valueOf(member.getMemberUserId()))
                 .claim("role", member.getRole().name())
+                .claim(CLAIM_TYPE, TYPE_ACCESS)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessExpiration))
                 .signWith(secretKey)
@@ -45,6 +51,7 @@ public class JwtProvider {
     public String generateRefreshToken(Member member) {
         return Jwts.builder()
                 .subject(String.valueOf(member.getMemberUserId()))
+                .claim(CLAIM_TYPE, TYPE_REFRESH)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
                 .signWith(secretKey)
@@ -66,6 +73,16 @@ public class JwtProvider {
     // 토큰에서 memberUserId 추출
     public Long getMemberUserId(String token) {
         return Long.parseLong(getClaims(token).getSubject());
+    }
+
+    // access 토큰 여부 — 인증 필터가 refresh 토큰을 Bearer access로 받는 것을 차단하는 데 사용
+    public boolean isAccessToken(String token) {
+        return TYPE_ACCESS.equals(getClaims(token).get(CLAIM_TYPE, String.class));
+    }
+
+    // refresh 토큰 여부 — 토큰 갱신 시 access 토큰을 refresh로 쓰는 것을 차단하는 데 사용
+    public boolean isRefreshToken(String token) {
+        return TYPE_REFRESH.equals(getClaims(token).get(CLAIM_TYPE, String.class));
     }
 
     // 토큰 남은 만료 시간 (ms) - 로그아웃 시 Redis 블랙리스트 TTL 용도

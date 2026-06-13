@@ -38,6 +38,10 @@ spring:
       mail:
         smtp:
           auth: true
+          # SMTP 연결/응답/쓰기 타임아웃 — 메일 서버 지연이 요청 스레드를 무한 점유하는 것을 방지
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
           ssl:
             enable: ${MAIL_SSL_ENABLE:false}
             trust: ${MAIL_HOST:smtp.gmail.com}

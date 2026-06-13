@@ -35,7 +35,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (StringUtils.hasText(token)){
             try{
-                if (jwtProvider.validateToken(token) && !redisService.isBlacklisted(token)){// 인증된 토큰 and No 블랙
+                // validateToken(서명/만료) + access 타입 확인(refresh 토큰을 access로 사용 차단) + 블랙리스트 미등록
+                if (jwtProvider.validateToken(token) && jwtProvider.isAccessToken(token) && !redisService.isBlacklisted(token)){
                     Long memberUserId = jwtProvider.getMemberUserId(token); // 회원 번호 ID 꺼내기
                     UserDetails userDetails = userDetailsService.loadUserByUsername(String.valueOf(memberUserId)); //회원 찾기
 

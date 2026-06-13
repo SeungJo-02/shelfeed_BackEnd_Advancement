@@ -80,11 +80,8 @@ public class AuthService {
         // 이메일 인증 코드 생성 후 Redis에 저장 (5분 TTL)
         String code = generateSixDigitCode();
         redisService.saveEmailCode(request.getEmail(), code, 300);
-        try {
-            emailService.sendVerificationEmail(request.getEmail(), code);
-        } catch (EmailSendException e) {
-            log.warn("[EMAIL] 인증 이메일 발송 실패 — 재발송 API로 재시도 가능", e);
-        }
+        // 비동기 발송 — SMTP 지연이 회원가입 응답을 막지 않도록(발송 실패는 재발송 API로 복구). 발송 실패 로깅은 비동기 메서드 내부에서 처리.
+        emailService.sendVerificationEmailAsync(request.getEmail(), code);
 
         String accessToken = jwtProvider.generateAccessToken(member);//인증 토큰
         String refreshToken = jwtProvider.generateRefreshToken(member);// 재발급 토큰
@@ -307,7 +304,8 @@ public class AuthService {
         }
         Long memberUserId;
         try {
-            if (!jwtProvider.validateToken(refreshToken)) {
+            // 서명/만료 검증 + refresh 타입 확인(access 토큰을 refresh로 사용하는 것을 차단)
+            if (!jwtProvider.validateToken(refreshToken) || !jwtProvider.isRefreshToken(refreshToken)) {
                 throw new BusinessException(ErrorCode.INVALID_TOKEN);
             }
             memberUserId = jwtProvider.getMemberUserId(refreshToken);
@@ -346,11 +344,8 @@ public class AuthService {
         if (memberOpt.isPresent()) {
             String token = UUID.randomUUID().toString();
             redisService.savePasswordResetToken(token, request.getEmail(), 1800);
-            try {
-                emailService.sendPasswordResetEmail(request.getEmail(), token);
-            } catch (EmailSendException e) {
-                log.warn("[EMAIL] 비밀번호 재설정 이메일 발송 실패", e);
-            }
+            // 비동기 fire-and-forget — 발송 실패 로깅은 비동기 메서드 내부에서 처리(존재 여부 노출 방지 위해 호출자는 항상 무음)
+            emailService.sendPasswordResetEmail(request.getEmail(), token);
         }
     }
 
