@@ -13,6 +13,9 @@ public class ApiResponse<T> {
 
     private final String status;
     private final int code;
+    // 도메인 에러코드(예: "M001"). 비즈니스 예외 응답에만 채워지고, NON_NULL이라 성공/일반 응답엔 미포함.
+    // 프론트가 메시지 문구가 아닌 이 코드로 분기하도록 노출한다.
+    private final String errorCode;
     private final String message;
     private final T data;
     private final List<FieldError> errors;
@@ -60,6 +63,16 @@ public class ApiResponse<T> {
         return ApiResponse.<Void>builder()
                 .status("ERROR")
                 .code(code)
+                .message(message)
+                .build();
+    }
+
+    // 에러 (비즈니스 예외) - 도메인 errorCode("M001" 등) 포함하여 프론트가 코드로 분기 가능하게 함
+    public static ApiResponse<Void> error(int code, String errorCode, String message) {
+        return ApiResponse.<Void>builder()
+                .status("ERROR")
+                .code(code)
+                .errorCode(errorCode)
                 .message(message)
                 .build();
     }

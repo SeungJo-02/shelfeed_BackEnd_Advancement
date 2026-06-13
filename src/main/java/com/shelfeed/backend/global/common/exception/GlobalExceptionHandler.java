@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(ApiResponse.error(errorCode.getStatus(), errorCode.getMessage()));
+                .body(ApiResponse.error(errorCode.getStatus(), errorCode.getCode(), errorCode.getMessage()));
     }
 
     // @Valid 검증 실패 처리 - errors 배열로 반환
