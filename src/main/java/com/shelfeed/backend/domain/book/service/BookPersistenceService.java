@@ -59,13 +59,11 @@ public class BookPersistenceService {
                 .toList();
 
         Map<String, Book> all = new HashMap<>(existing);
-        List<Book> toIndex = new ArrayList<>();
         if (!newBooks.isEmpty()) {
             try {
                 // saveAllAndFlush로 즉시 flush — try 블록 내에서 unique 위반 발생하도록
                 bookRepository.saveAllAndFlush(newBooks);
                 newBooks.forEach(b -> all.put(b.getIsbn13(), b));
-                toIndex.addAll(newBooks);
             } catch (DataIntegrityViolationException e) {
                 // 동시 요청으로 인한 unique 위반 — Session에 null ID 엔티티가 남아있으므로
                 // clear() 후 재조회해야 AssertionFailure를 방지할 수 있다.
@@ -73,10 +71,13 @@ public class BookPersistenceService {
                 entityManager.clear();
                 List<Book> refetched = bookRepository.findByIsbn13In(isbns);
                 refetched.forEach(b -> all.put(b.getIsbn13(), b));
-                toIndex.addAll(refetched); // 멱등 — 이미 색인된 책도 동일 ID로 덮어쓰기
             }
         }
-        // ES 색인은 트랜잭션 외부 효과 — DB 저장 성공 후 best-effort 색인 (성공 여부 반환)
+        // [Fix A] 신규/기존 가리지 않고 이번 검색의 알라딘 결과 전체를 멱등 재색인한다.
+        // 신규 도서만 색인하면 "DB엔 있는데 ES엔 없는" 책(시드 데이터·과거 색인 실패분 등)이
+        // 통합검색에서 영영 안 잡힌다. 전체 재색인(동일 ID 덮어쓰기)으로 DB↔ES 드리프트를 자가치유한다.
+        // 재색인량은 검색 limit 크기로 바운드되어 부담이 작다.
+        List<Book> toIndex = new ArrayList<>(all.values());
         boolean indexed = indexToElasticsearch(toIndex);
         return new UpsertResult(all, indexed);
     }

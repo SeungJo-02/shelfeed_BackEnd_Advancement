@@ -10,6 +10,7 @@ import com.shelfeed.backend.domain.book.dto.response.BookReviewListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookSearchListResponse;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
+import com.shelfeed.backend.domain.book.service.BookPersistenceService;
 import com.shelfeed.backend.domain.book.service.BookService;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,6 +52,8 @@ class BookServiceTest {
     @Mock ReviewRepository reviewRepository;
     @Mock ReviewLikeRepository reviewLikeRepository;
     @Mock AladinClient aladinApiClient;
+    // #203 리팩터로 DB upsert/ES 색인이 BookPersistenceService로 분리됨 — BookService가 위임함
+    @Mock BookPersistenceService bookPersistenceService;
 
     @InjectMocks BookService bookService;
 
@@ -112,7 +116,8 @@ class BookServiceTest {
             request.setLimit(10);
 
             given(aladinApiClient.search("test", 1, 11)).willReturn(aladinResponse);
-            given(bookRepository.findByIsbn13In(List.of("9781234567890"))).willReturn(List.of(book));
+            given(bookPersistenceService.upsertAndGetBooks(anyList()))
+                    .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
             given(libraryRepository.findBookIdsByMemberAndBookIdIn(eq(member), anyList())).willReturn(Set.of(10L));
 
@@ -149,7 +154,8 @@ class BookServiceTest {
             request.setLimit(10);
 
             given(aladinApiClient.search("test", 1, 11)).willReturn(aladinResponse);
-            given(bookRepository.findByIsbn13In(List.of("9781234567890"))).willReturn(List.of(book));
+            given(bookPersistenceService.upsertAndGetBooks(anyList()))
+                    .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
 
             BookSearchListResponse response = bookService.searchBooks(request, null);
 
@@ -249,12 +255,12 @@ class BookServiceTest {
 
             given(bookRepository.findByIsbn13("9781234567890")).willReturn(Optional.empty());
             given(aladinApiClient.lookupByIsbn("9781234567890")).willReturn(aladinResponse);
-            given(bookRepository.save(any(Book.class))).willReturn(book);
+            given(bookPersistenceService.findOrCreateBook(any())).willReturn(book);
 
             BookDetailResponse response = bookService.getBookByIsbn("9781234567890", null);
 
             assertThat(response).isNotNull();
-            then(bookRepository).should().save(any(Book.class));
+            then(bookPersistenceService).should().findOrCreateBook(any());
         }
 
         @Test
