@@ -183,16 +183,25 @@ public class CommentService {
         if (!comment.getReview().getReviewId().equals(reviewId)) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
-        if (comment.getMember().getMemberUserId().equals(memberUserId)) {
+        Member commentOwner = comment.getMember();
+        if (commentOwner.getMemberUserId().equals(memberUserId)) {
             throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
+        }
+        // 차단 관계 확인 (양방향) — 감상 좋아요와 동일하게 차단 시 좋아요 자체를 막는다
+        if (blockRepository.existsByBlockerAndBlocked(commentOwner, member) ||
+            blockRepository.existsByBlockerAndBlocked(member, commentOwner)) {
+            throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
         if (commentLikeRepository.existsByComment_CommentIdAndMember_MemberUserId(commentId, memberUserId)){
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
         commentLikeRepository.save(CommentLike.create(member, comment));
-        notificationRepository.save(Notification.createCommentNotification(
-                comment.getMember(), member, NotificationType.COMMENT_LIKE, reviewId, comment.getCommentId()));
         commentRepository.increaseLikeCount(comment.getCommentId());
+        // 수신자가 좋아요 알림을 켠 경우에만 발송 (감상 좋아요와 동일 정책)
+        if (commentOwner.getNotificationPreferences().isLikeEnabled()) {
+            notificationRepository.save(Notification.createCommentNotification(
+                    commentOwner, member, NotificationType.COMMENT_LIKE, reviewId, comment.getCommentId()));
+        }
         return CommentLikeResponse.of(getComment(commentId));
     }
 
