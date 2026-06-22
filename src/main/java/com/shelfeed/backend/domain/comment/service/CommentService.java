@@ -20,6 +20,7 @@ import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -195,7 +196,12 @@ public class CommentService {
         if (commentLikeRepository.existsByComment_CommentIdAndMember_MemberUserId(commentId, memberUserId)){
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
-        commentLikeRepository.save(CommentLike.create(member, comment));
+        // 동시 요청 경쟁: exists 동시 통과 후 unique 위반을 409로 멱등 변환 (saveAndFlush로 즉시 검출)
+        try {
+            commentLikeRepository.saveAndFlush(CommentLike.create(member, comment));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
+        }
         commentRepository.increaseLikeCount(comment.getCommentId());
         // 수신자가 좋아요 알림을 켠 경우에만 발송 (감상 좋아요와 동일 정책)
         if (commentOwner.getNotificationPreferences().isLikeEnabled()) {

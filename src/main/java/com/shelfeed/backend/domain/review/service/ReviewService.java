@@ -31,6 +31,7 @@ import com.shelfeed.backend.domain.tag.entity.Tag;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -234,7 +235,13 @@ public class ReviewService {
         if (reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId,memberUserId)){
             throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
         }
-        reviewLikeRepository.save(ReviewLike.create(review,member));// 저장
+        // saveAndFlush로 INSERT를 즉시 실행해 동시 요청 경쟁(exists 동시 통과)에서 unique 위반을
+        // 이 지점에서 잡는다. 미적용 시 커밋 시점에 터져 500으로 노출됨 → 409로 멱등 변환.
+        try {
+            reviewLikeRepository.saveAndFlush(ReviewLike.create(review, member));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
+        }
         reviewRepository.increaseLikeCount(review.getReviewId());
         if (review.getMember().getNotificationPreferences().isLikeEnabled()) {
             notificationRepository.save(Notification.createUserNotification(

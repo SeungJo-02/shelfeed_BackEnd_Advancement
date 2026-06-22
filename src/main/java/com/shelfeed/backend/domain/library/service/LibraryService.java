@@ -17,6 +17,7 @@ import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +44,12 @@ public class LibraryService {
             throw new BusinessException(ErrorCode.ALREADY_IN_LIBRARY);
         }
         LibraryBook libraryBook = LibraryBook.create(member, book, request.getStatus());
-        libraryRepository.save(libraryBook);
+        // 동시 요청 경쟁: exists 동시 통과 후 unique 위반을 409로 멱등 변환 (saveAndFlush로 즉시 검출)
+        try {
+            libraryRepository.saveAndFlush(libraryBook);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.ALREADY_IN_LIBRARY);
+        }
         return LibraryBookAddResponse.of(libraryBook);
     }
 

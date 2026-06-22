@@ -21,6 +21,7 @@ import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +66,13 @@ public class FollowService {
             throw new BusinessException(ErrorCode.ALREADY_FOLLOWING);
         }
 
-        Follow follow = followRepository.save(Follow.create(follower,followee));
+        // 동시 요청 경쟁: exists 동시 통과 후 unique 위반을 409로 멱등 변환 (saveAndFlush로 즉시 검출)
+        Follow follow;
+        try {
+            follow = followRepository.saveAndFlush(Follow.create(follower, followee));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.ALREADY_FOLLOWING);
+        }
         // 카운트 업데이트
         memberRepository.increaseFollowingCount(follower.getMemberUserId());
         memberRepository.increaseFollowerCount(followee.getMemberUserId());
