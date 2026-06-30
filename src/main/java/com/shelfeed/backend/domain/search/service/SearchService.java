@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.search.service;
 
-import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.book.document.BookDocument;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
@@ -49,7 +49,7 @@ public class SearchService {
     private final BookService bookService;
     private final FollowRepository followRepository;
     private final SearchHistoryRepository searchHistoryRepository;
-    private final BlockRepository blockRepository;
+    private final BlockService blockService;
     private final RedisService redisService;
     private final Tracer tracer;
 
@@ -188,8 +188,7 @@ public class SearchService {
         Set<Long> followingIds = Set.of();
         if (memberUserId != null && !result.isEmpty()) {
             Member me = memberLoader.getOrThrow(memberUserId);
-            Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
-            blocked.addAll(blockRepository.findBlockingIds(me));
+            Set<Long> blocked = blockService.blockedIdSet(me);
             if (!blocked.isEmpty()) {
                 result = result.stream()
                         .filter(m -> !blocked.contains(m.getMemberUserId()))//차단 된놈 거르고 나머지를 모은다

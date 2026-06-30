@@ -19,7 +19,7 @@ import com.shelfeed.backend.domain.review.entity.ReviewLike;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
-import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.notification.entity.Notification;
 import com.shelfeed.backend.domain.notification.enums.NotificationType;
 import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
@@ -57,7 +57,7 @@ public class ReviewService {
     private final FeedRepository feedRepository;
     private final FollowRepository followRepository;
     private final NotificationRepository notificationRepository;
-    private final BlockRepository blockRepository;
+    private final BlockService blockService;
 
     // ── 1 감상 작성
     @Transactional
@@ -107,8 +107,7 @@ public class ReviewService {
         if (!isMine && memberUserId != null) {
             Member requester = memberLoader.getOrThrow(memberUserId);
             Member owner = review.getMember();
-            if (blockRepository.existsByBlockerAndBlocked(owner, requester) ||
-                blockRepository.existsByBlockerAndBlocked(requester, owner)) {
+            if (blockService.isBlockedBetween(owner, requester)) {
                 throw new BusinessException(ErrorCode.BLOCKED_USER);
             }
         }
@@ -194,8 +193,7 @@ public class ReviewService {
         Member member = memberLoader.getOrThrow(userId);
         if (requestingUserId != null && !requestingUserId.equals(userId)) {
             Member requester = memberLoader.getOrThrow(requestingUserId);
-            if (blockRepository.existsByBlockerAndBlocked(member, requester) ||
-                blockRepository.existsByBlockerAndBlocked(requester, member)) {
+            if (blockService.isBlockedBetween(member, requester)) {
                 throw new BusinessException(ErrorCode.BLOCKED_USER);
             }
         }
@@ -224,8 +222,7 @@ public class ReviewService {
         }
         // 차단 관계 확인
         Member owner = review.getMember();
-        if (blockRepository.existsByBlockerAndBlocked(owner, member) ||
-            blockRepository.existsByBlockerAndBlocked(member, owner)) {
+        if (blockService.isBlockedBetween(owner, member)) {
             throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
         if (review.getMember().getMemberUserId().equals(memberUserId)){

@@ -16,7 +16,7 @@ import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
-import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final AladinClient aladinApiClient;
-    private final BlockRepository blockRepository;
+    private final BlockService blockService;
     private final BookPersistenceService bookPersistenceService;
 
 
@@ -156,8 +156,7 @@ public class BookService {
         if (memberUserId != null && !reviews.isEmpty()) {
             Member me = getMemberOrNull(memberUserId);
             if (me != null) {
-                Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
-                blocked.addAll(blockRepository.findBlockingIds(me));
+                Set<Long> blocked = blockService.blockedIdSet(me);
                 if (!blocked.isEmpty()) {
                     reviews = reviews.stream()
                             .filter(r -> !blocked.contains(r.getMember().getMemberUserId()))
