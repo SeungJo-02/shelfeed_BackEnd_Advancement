@@ -4,6 +4,7 @@ import com.shelfeed.backend.domain.review.dto.request.ReviewCreateRequest;
 import com.shelfeed.backend.domain.review.dto.request.ReviewUpdateRequest;
 import com.shelfeed.backend.domain.review.dto.response.*;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
+import com.shelfeed.backend.domain.review.service.ReviewLikeService;
 import com.shelfeed.backend.domain.review.service.ReviewService;
 import com.shelfeed.backend.global.common.response.ApiResponse;
 import com.shelfeed.backend.global.security.CustomUserDetails;
@@ -21,6 +22,7 @@ import java.util.List;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final ReviewLikeService reviewLikeService;
 
     // 1. 감상 작성  POST /api/v1/reviews
     @PostMapping("/reviews")
@@ -89,7 +91,7 @@ public class ReviewController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long memberUserId = userDetails.getMember().getMemberUserId();
         return ApiResponse.success(201, "좋아요를 눌렀습니다.",
-                reviewService.likeReview(reviewId, memberUserId));
+                reviewLikeService.like(reviewId, memberUserId));
     }
 
     //8. 감상 좋아요 취소
@@ -99,6 +101,6 @@ public class ReviewController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long memberUserId = userDetails.getMember().getMemberUserId();
         return ApiResponse.success(200, "좋아요가 취소되었습니다.",
-                reviewService.unlikeReview(reviewId, memberUserId));
+                reviewLikeService.unlike(reviewId, memberUserId));
     }
 }
