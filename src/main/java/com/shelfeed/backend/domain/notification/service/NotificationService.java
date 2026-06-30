@@ -1,12 +1,16 @@
 package com.shelfeed.backend.domain.notification.service;
 
+import com.shelfeed.backend.domain.follow.entity.Follow;
+import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.notification.dto.response.NotificationItemResponse;
 import com.shelfeed.backend.domain.notification.dto.response.NotificationListResponse;
 import com.shelfeed.backend.domain.notification.dto.response.UnreadCountResponse;
 import com.shelfeed.backend.domain.notification.entity.Notification;
+import com.shelfeed.backend.domain.notification.enums.NotificationType;
 import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
+import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.util.CursorUtils;
@@ -24,7 +28,32 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final MemberRepository memberRepository;
+    private final FollowRepository followRepository;
     private final CursorUtils cursorUtils;
+
+    /**
+     * 새 공개 감상을 작성자의 팔로워들에게 알림한다.
+     * (팔로워 중 followingReviewEnabled 설정이 켜진 사람만 대상)
+     */
+    @Transactional
+    public void notifyFollowersOfNewReview(Member reviewer, Review review) {
+        List<Notification> notifications = followRepository.findAllFollowersWithMember(reviewer).stream()
+                .filter(follow -> follow.getFollower().getNotificationPreferences().isFollowingReviewEnabled())
+                .map(follow -> Notification.createUserNotification(
+                        follow.getFollower(), reviewer, NotificationType.FOLLOWING_REVIEW, review.getReviewId()))
+                .toList();
+        if (!notifications.isEmpty()) notificationRepository.saveAll(notifications);
+    }
+
+    /**
+     * 감상 좋아요 알림을 작성자에게 보낸다. (작성자의 likeEnabled 설정이 켜진 경우만)
+     */
+    @Transactional
+    public void notifyReviewLike(Member reviewOwner, Member liker, Long reviewId) {
+        if (!reviewOwner.getNotificationPreferences().isLikeEnabled()) return;
+        notificationRepository.save(Notification.createUserNotification(
+                reviewOwner, liker, NotificationType.REVIEW_LIKE, reviewId));
+    }
 
     public NotificationListResponse getMyNotifications(Long memberUserId, String cursor, int limit) {
          if (limit <= 0) {

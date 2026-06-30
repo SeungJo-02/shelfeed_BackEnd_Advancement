@@ -4,7 +4,10 @@ import com.shelfeed.backend.domain.feed.dto.response.FeedItemResponse;
 import com.shelfeed.backend.domain.feed.dto.response.FeedListResponse;
 import com.shelfeed.backend.domain.feed.entity.Feed;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
+import com.shelfeed.backend.domain.follow.entity.Follow;
+import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
+import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
@@ -27,8 +30,29 @@ public class FeedService {
 
     private final MemberLoader memberLoader;
     private final FeedRepository feedRepository;
+    private final FollowRepository followRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewTagRepository reviewTagRepository;
+
+    /**
+     * 감상을 작성자의 모든 팔로워 피드에 일괄 생성한다.
+     * (공개 감상이 게시될 때 호출)
+     */
+    @Transactional
+    public void publishToFollowers(Member reviewer, Review review) {
+        List<Feed> feeds = followRepository.findAllFollowersWithMember(reviewer).stream()
+                .map(follow -> Feed.create(follow.getFollower(), review))
+                .toList();
+        if (!feeds.isEmpty()) feedRepository.saveAll(feeds);
+    }
+
+    /**
+     * 감상이 비공개로 전환되거나 삭제될 때 모든 팔로워 피드에서 제거한다.
+     */
+    @Transactional
+    public void removeByReview(Review review) {
+        feedRepository.deleteByReview(review);
+    }
 
     //피드 조회
     public FeedListResponse getFollowingFeed(Long memberUserId, Long cursor, int limit) {
