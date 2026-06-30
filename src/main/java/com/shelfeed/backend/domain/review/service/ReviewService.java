@@ -12,7 +12,6 @@ import com.shelfeed.backend.domain.review.dto.request.ReviewCreateRequest;
 import com.shelfeed.backend.domain.review.dto.request.ReviewUpdateRequest;
 import com.shelfeed.backend.domain.review.dto.response.*;
 import com.shelfeed.backend.domain.review.entity.Review;
-import com.shelfeed.backend.domain.review.entity.ReviewLike;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
@@ -26,7 +25,6 @@ import com.shelfeed.backend.domain.tag.entity.Tag;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -204,49 +202,6 @@ public class ReviewService {
                         tagMap.getOrDefault(review.getReviewId(), Collections.emptyList()),
                         likedIds.contains(review.getReviewId())))
                 .toList();
-    }
-    //7. 감상 좋아요
-    @Transactional
-    public ReviewLikeResponse likeReview(Long reviewId, Long memberUserId){
-        Review review = getReviewOrThrow(reviewId);
-        Member member = memberLoader.getOrThrow(memberUserId);
-        // 비공개 감상은 좋아요 불가
-        if (review.getReviewVisibility() == ReviewVisibility.PRIVATE) {
-            throw new BusinessException(ErrorCode.PRIVATE_REVIEW);
-        }
-        // 차단 관계 확인
-        Member owner = review.getMember();
-        if (blockService.isBlockedBetween(owner, member)) {
-            throw new BusinessException(ErrorCode.BLOCKED_USER);
-        }
-        if (review.getMember().getMemberUserId().equals(memberUserId)){
-            throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
-        }
-        //감상 아이디랑 멤버아이디 있으면 중복 방지
-        if (reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId,memberUserId)){
-            throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
-        }
-        // saveAndFlush로 INSERT를 즉시 실행해 동시 요청 경쟁(exists 동시 통과)에서 unique 위반을
-        // 이 지점에서 잡는다. 미적용 시 커밋 시점에 터져 500으로 노출됨 → 409로 멱등 변환.
-        try {
-            reviewLikeRepository.saveAndFlush(ReviewLike.create(review, member));
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
-        }
-        reviewRepository.increaseLikeCount(review.getReviewId());
-        notificationService.notifyReviewLike(review.getMember(), member, review.getReviewId());
-        return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
-    }
-    //8. 감상 좋아요 취소
-    @Transactional
-    public ReviewLikeResponse unlikeReview(Long reviewId, Long memberUserId){
-        Review review = getReviewOrThrow(reviewId);
-        ReviewLike like = reviewLikeRepository.findByReview_ReviewIdAndMember_MemberUserId(reviewId, memberUserId)
-                .orElseThrow(()-> new BusinessException(ErrorCode.REVIEW_LIKE_NOT_FOUND));// 좋아요 확인
-
-        reviewLikeRepository.delete(like);
-        reviewRepository.decreaseLikeCount(review.getReviewId());
-        return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
 
     //헬퍼 메소드
