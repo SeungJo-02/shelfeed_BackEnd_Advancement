@@ -34,9 +34,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // JWT 0.12.x
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
     // QueryDSL 5.1 (Jakarta)
     implementation("com.querydsl:querydsl-jpa:5.1.0:jakarta")
