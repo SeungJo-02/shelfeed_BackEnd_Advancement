@@ -112,7 +112,7 @@ class AuthServiceTest {
             assertThat(result.refreshToken()).isEqualTo("refreshToken");
             assertThat(result.response().getAccessToken()).isEqualTo("accessToken");
             assertThat(result.response().getAccessTokenExpiresIn()).isEqualTo(3600L);
-            verify(emailService).sendVerificationEmail(eq("new@test.com"), anyString());
+            verify(emailService).sendVerificationEmailAsync(eq("new@test.com"), anyString());
             verify(redisService).saveRefreshToken(eq(10L), eq("refreshToken"), anyLong());
         }
     }
@@ -355,6 +355,7 @@ class AuthServiceTest {
         @DisplayName("Redis 저장 토큰과 다르면 TOKEN_REUSE_DETECTED 예외가 발생한다")
         void Redis_토큰_불일치_예외() {
             given(jwtProvider.validateToken("token")).willReturn(true);
+            given(jwtProvider.isRefreshToken("token")).willReturn(true);
             given(jwtProvider.getMemberUserId("token")).willReturn(1L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(activeMember));
             given(jwtProvider.generateAccessToken(any())).willReturn("newAccess");
@@ -372,6 +373,7 @@ class AuthServiceTest {
         @DisplayName("정상 갱신 시 새 토큰 쌍을 반환하고 Redis를 갱신한다")
         void 정상_토큰_갱신_성공() {
             given(jwtProvider.validateToken("validRefresh")).willReturn(true);
+            given(jwtProvider.isRefreshToken("validRefresh")).willReturn(true);
             given(jwtProvider.getMemberUserId("validRefresh")).willReturn(1L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(activeMember));
             given(jwtProvider.generateAccessToken(any())).willReturn("newAccess");
