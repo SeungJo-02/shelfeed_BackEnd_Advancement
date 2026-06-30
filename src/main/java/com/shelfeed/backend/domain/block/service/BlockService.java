@@ -17,8 +17,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -78,6 +80,25 @@ public class BlockService {
                 .toList();
 
         return BlockListResponse.of(content, limit);
+    }
+
+    /**
+     * 두 회원 사이에 (어느 방향으로든) 차단 관계가 존재하는지 확인한다.
+     * 감상/댓글/팔로우 등에서 차단 시 상호작용을 막는 양방향 검증에 사용.
+     */
+    public boolean isBlockedBetween(Member a, Member b) {
+        return blockRepository.existsByBlockerAndBlocked(a, b)
+                || blockRepository.existsByBlockerAndBlocked(b, a);
+    }
+
+    /**
+     * 내가 차단했거나(blocked) 나를 차단한(blocking) 회원 ID 집합.
+     * 검색/목록에서 차단 관계 회원을 일괄 필터링할 때 사용.
+     */
+    public Set<Long> blockedIdSet(Member member) {
+        Set<Long> ids = new HashSet<>(blockRepository.findBlockedIds(member));
+        ids.addAll(blockRepository.findBlockingIds(member));
+        return ids;
     }
 
     //팔로우 관계라면 카운트 해제

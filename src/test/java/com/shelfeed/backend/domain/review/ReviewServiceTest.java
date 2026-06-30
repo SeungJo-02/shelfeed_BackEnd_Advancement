@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.review;
 
-import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.feed.repository.FeedRepository;
@@ -61,7 +61,7 @@ class ReviewServiceTest {
     @Mock FeedRepository feedRepository;
     @Mock FollowRepository followRepository;
     @Mock NotificationRepository notificationRepository;
-    @Mock BlockRepository blockRepository;
+    @Mock BlockService blockService;
 
     @InjectMocks ReviewService reviewService;
 
@@ -210,7 +210,7 @@ class ReviewServiceTest {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
             given(memberLoader.getOrThrow(2L)).willReturn(liker);
-            given(blockRepository.existsByBlockerAndBlocked(author, liker)).willReturn(true);
+            given(blockService.isBlockedBetween(author, liker)).willReturn(true);
 
             assertThatThrownBy(() -> reviewService.likeReview(10L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -225,7 +225,7 @@ class ReviewServiceTest {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
             given(memberLoader.getOrThrow(1L)).willReturn(author);
-            given(blockRepository.existsByBlockerAndBlocked(author, author)).willReturn(false);
+            given(blockService.isBlockedBetween(author, author)).willReturn(false);
 
             assertThatThrownBy(() -> reviewService.likeReview(10L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -240,8 +240,7 @@ class ReviewServiceTest {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
             given(memberLoader.getOrThrow(2L)).willReturn(liker);
-            given(blockRepository.existsByBlockerAndBlocked(author, liker)).willReturn(false);
-            given(blockRepository.existsByBlockerAndBlocked(liker, author)).willReturn(false);
+            given(blockService.isBlockedBetween(author, liker)).willReturn(false);
             given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
                     .willReturn(true);
 
@@ -258,8 +257,7 @@ class ReviewServiceTest {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(publicReview));
             given(memberLoader.getOrThrow(2L)).willReturn(liker);
-            given(blockRepository.existsByBlockerAndBlocked(author, liker)).willReturn(false);
-            given(blockRepository.existsByBlockerAndBlocked(liker, author)).willReturn(false);
+            given(blockService.isBlockedBetween(author, liker)).willReturn(false);
             given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
                     .willReturn(false);
 

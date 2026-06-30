@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.comment.service;
 
-import com.shelfeed.backend.domain.block.repository.BlockRepository;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.comment.dto.request.CommentCreateRequest;
 import com.shelfeed.backend.domain.notification.entity.Notification;
 import com.shelfeed.backend.domain.notification.enums.NotificationType;
@@ -43,7 +43,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final NotificationRepository notificationRepository;
-    private final BlockRepository blockRepository;
+    private final BlockService blockService;
 
     //1. 댓글 작성
     @Transactional
@@ -63,8 +63,7 @@ public class CommentService {
         }
         // 차단 관계 확인 (양방향)
         if (!reviewOwner.getMemberUserId().equals(memberUserId) &&
-            (blockRepository.existsByBlockerAndBlocked(reviewOwner, member) ||
-             blockRepository.existsByBlockerAndBlocked(member, reviewOwner))) {
+            blockService.isBlockedBetween(reviewOwner, member)) {
             throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
         Comment comment;
@@ -109,9 +108,7 @@ public class CommentService {
         Set<Long> blockedIds = Set.of();
         if (memberUserId != null) {
             Member me = memberLoader.getOrThrow(memberUserId);
-            Set<Long> blocked = new HashSet<>(blockRepository.findBlockedIds(me));
-            blocked.addAll(blockRepository.findBlockingIds(me));
-            blockedIds = blocked;
+            blockedIds = blockService.blockedIdSet(me);
         }
         final Set<Long> finalBlockedIds = blockedIds;
         if (!finalBlockedIds.isEmpty()) {
@@ -189,8 +186,7 @@ public class CommentService {
             throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
         }
         // 차단 관계 확인 (양방향) — 감상 좋아요와 동일하게 차단 시 좋아요 자체를 막는다
-        if (blockRepository.existsByBlockerAndBlocked(commentOwner, member) ||
-            blockRepository.existsByBlockerAndBlocked(member, commentOwner)) {
+        if (blockService.isBlockedBetween(commentOwner, member)) {
             throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
         if (commentLikeRepository.existsByComment_CommentIdAndMember_MemberUserId(commentId, memberUserId)){
