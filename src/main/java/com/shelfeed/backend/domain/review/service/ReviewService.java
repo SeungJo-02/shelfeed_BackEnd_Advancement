@@ -2,10 +2,7 @@ package com.shelfeed.backend.domain.review.service;
 
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
-import com.shelfeed.backend.domain.feed.entity.Feed;
-import com.shelfeed.backend.domain.feed.repository.FeedRepository;
-import com.shelfeed.backend.domain.follow.entity.Follow;
-import com.shelfeed.backend.domain.follow.repository.FollowRepository;
+import com.shelfeed.backend.domain.feed.service.FeedService;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -20,9 +17,7 @@ import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.block.service.BlockService;
-import com.shelfeed.backend.domain.notification.entity.Notification;
-import com.shelfeed.backend.domain.notification.enums.NotificationType;
-import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
+import com.shelfeed.backend.domain.notification.service.NotificationService;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
@@ -54,10 +49,9 @@ public class ReviewService {
     private final TagRepository tagRepository;
     private final ReviewTagRepository reviewTagRepository;
     private final ReviewLikeRepository reviewLikeRepository;
-    private final FeedRepository feedRepository;
-    private final FollowRepository followRepository;
-    private final NotificationRepository notificationRepository;
     private final BlockService blockService;
+    private final FeedService feedService;
+    private final NotificationService notificationService;
 
     // ── 1 감상 작성
     @Transactional
@@ -90,8 +84,8 @@ public class ReviewService {
         if (request.getReviewStatus() == ReviewStatus.PUBLISHED) {
             memberRepository.increaseReviewCount(memberUserId);
             if (request.getReviewVisibility() == ReviewVisibility.PUBLIC) {
-                createFeedsForFollowers(member, review);
-                notifyFollowersOfNewReview(member, review);
+                feedService.publishToFollowers(member, review);
+                notificationService.notifyFollowersOfNewReview(member, review);
             }
         }
         return ReviewCreateResponse.of(review, tagNames);
@@ -134,19 +128,19 @@ public class ReviewService {
         if (prevStatus == ReviewStatus.DRAFT && nextStatus == ReviewStatus.PUBLISHED) {
             memberRepository.increaseReviewCount(review.getMember().getMemberUserId());
             if (nextVis == ReviewVisibility.PUBLIC) {
-                createFeedsForFollowers(review.getMember(), review);
-                notifyFollowersOfNewReview(review.getMember(), review);
+                feedService.publishToFollowers(review.getMember(), review);
+                notificationService.notifyFollowersOfNewReview(review.getMember(), review);
             }
         } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.DRAFT) {
             memberRepository.decreaseReviewCount(review.getMember().getMemberUserId());
-            feedRepository.deleteByReview(review);
+            feedService.removeByReview(review);
         } else if (prevStatus == ReviewStatus.PUBLISHED && nextStatus == ReviewStatus.PUBLISHED) {
             boolean wasPublic = prevVis == ReviewVisibility.PUBLIC;
             boolean willBePublic = nextVis == ReviewVisibility.PUBLIC;
             if (wasPublic && !willBePublic) {
-                feedRepository.deleteByReview(review);
+                feedService.removeByReview(review);
             } else if (!wasPublic && willBePublic) {
-                createFeedsForFollowers(review.getMember(), review);
+                feedService.publishToFollowers(review.getMember(), review);
             }
         }
         //업데이트
@@ -170,7 +164,7 @@ public class ReviewService {
         if (review.getReviewStatus() == ReviewStatus.PUBLISHED){
             memberRepository.decreaseReviewCount(review.getMember().getMemberUserId());
         }
-        feedRepository.deleteByReview(review);
+        feedService.removeByReview(review);
     }
     //5. 내 감상 목록
     public List<ReviewSummaryResponse> getMyReviews(Long memberUserId, ReviewStatus status, Long cursor, int limit){
@@ -240,10 +234,7 @@ public class ReviewService {
             throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
         }
         reviewRepository.increaseLikeCount(review.getReviewId());
-        if (review.getMember().getNotificationPreferences().isLikeEnabled()) {
-            notificationRepository.save(Notification.createUserNotification(
-                    review.getMember(), member, NotificationType.REVIEW_LIKE, review.getReviewId()));
-        }
+        notificationService.notifyReviewLike(review.getMember(), member, review.getReviewId());
         return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
     //8. 감상 좋아요 취소
@@ -305,24 +296,6 @@ public class ReviewService {
     private List<String> getTagNames(Review review) {
         return reviewTagRepository.findByReview(review).stream()
                 .map(reviewTag -> reviewTag.getTag().getTagName()).toList();
-    }
-
-    // 팔로워 전체 피드 일괄 생성
-    private void createFeedsForFollowers(Member reviewer, Review review) {
-        List<Feed> feeds = followRepository.findAllFollowersWithMember(reviewer).stream()
-                .map(follow -> Feed.create(follow.getFollower(), review))
-                .toList();
-        if (!feeds.isEmpty()) feedRepository.saveAll(feeds);
-    }
-
-    // 팔로워에게 새 감상 알림 (followingReviewEnabled 설정 확인)
-    private void notifyFollowersOfNewReview(Member reviewer, Review review) {
-        List<Notification> notifications = followRepository.findAllFollowersWithMember(reviewer).stream()
-                .filter(follow -> follow.getFollower().getNotificationPreferences().isFollowingReviewEnabled())
-                .map(follow -> Notification.createUserNotification(
-                        follow.getFollower(), reviewer, NotificationType.FOLLOWING_REVIEW, review.getReviewId()))
-                .toList();
-        if (!notifications.isEmpty()) notificationRepository.saveAll(notifications);
     }
 
     //태그 이름 목록 일괄 조회 (IN절 - N+1 방지)
