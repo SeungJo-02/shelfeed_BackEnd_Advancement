@@ -2,9 +2,7 @@ package com.shelfeed.backend.domain.comment.service;
 
 import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.comment.dto.request.CommentCreateRequest;
-import com.shelfeed.backend.domain.notification.entity.Notification;
-import com.shelfeed.backend.domain.notification.enums.NotificationType;
-import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
+import com.shelfeed.backend.domain.notification.service.NotificationService;
 import com.shelfeed.backend.domain.comment.dto.request.CommentUpdateRequest;
 import com.shelfeed.backend.domain.comment.dto.response.*;
 import com.shelfeed.backend.domain.comment.entity.Comment;
@@ -42,7 +40,7 @@ public class CommentService {
     private final ReviewRepository reviewRepository;
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final BlockService blockService;
 
     //1. 댓글 작성
@@ -82,11 +80,7 @@ public class CommentService {
         }
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());
-        if (!notifyTarget.getMemberUserId().equals(memberUserId)
-                && notifyTarget.getNotificationPreferences().isCommentEnabled()) {
-            notificationRepository.save(Notification.createCommentNotification(
-                    notifyTarget, member, NotificationType.COMMENT, review.getReviewId(), comment.getCommentId()));
-        }
+        notificationService.notifyComment(notifyTarget, member, review.getReviewId(), comment.getCommentId());
         return CommentCreateResponse.of(comment);
     }
 
@@ -199,11 +193,7 @@ public class CommentService {
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
         commentRepository.increaseLikeCount(comment.getCommentId());
-        // 수신자가 좋아요 알림을 켠 경우에만 발송 (감상 좋아요와 동일 정책)
-        if (commentOwner.getNotificationPreferences().isLikeEnabled()) {
-            notificationRepository.save(Notification.createCommentNotification(
-                    commentOwner, member, NotificationType.COMMENT_LIKE, reviewId, comment.getCommentId()));
-        }
+        notificationService.notifyCommentLike(commentOwner, member, reviewId, comment.getCommentId());
         return CommentLikeResponse.of(getComment(commentId));
     }
 

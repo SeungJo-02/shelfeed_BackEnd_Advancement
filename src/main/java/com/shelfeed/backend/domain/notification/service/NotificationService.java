@@ -55,6 +55,37 @@ public class NotificationService {
                 reviewOwner, liker, NotificationType.REVIEW_LIKE, reviewId));
     }
 
+    /**
+     * 팔로우 알림을 대상(followee)에게 보낸다. (followee의 followEnabled 설정이 켜진 경우만)
+     */
+    @Transactional
+    public void notifyFollow(Member followee, Member follower, Long followId) {
+        if (!followee.getNotificationPreferences().isFollowEnabled()) return;
+        notificationRepository.save(Notification.createUserNotification(
+                followee, follower, NotificationType.FOLLOW, followId));
+    }
+
+    /**
+     * 댓글 알림을 대상에게 보낸다. (본인 알림 제외 + 대상의 commentEnabled 설정이 켜진 경우만)
+     */
+    @Transactional
+    public void notifyComment(Member target, Member actor, Long reviewId, Long commentId) {
+        if (target.getMemberUserId().equals(actor.getMemberUserId())) return;
+        if (!target.getNotificationPreferences().isCommentEnabled()) return;
+        notificationRepository.save(Notification.createCommentNotification(
+                target, actor, NotificationType.COMMENT, reviewId, commentId));
+    }
+
+    /**
+     * 댓글 좋아요 알림을 댓글 작성자에게 보낸다. (작성자의 likeEnabled 설정이 켜진 경우만)
+     */
+    @Transactional
+    public void notifyCommentLike(Member commentOwner, Member liker, Long reviewId, Long commentId) {
+        if (!commentOwner.getNotificationPreferences().isLikeEnabled()) return;
+        notificationRepository.save(Notification.createCommentNotification(
+                commentOwner, liker, NotificationType.COMMENT_LIKE, reviewId, commentId));
+    }
+
     public NotificationListResponse getMyNotifications(Long memberUserId, String cursor, int limit) {
          if (limit <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);

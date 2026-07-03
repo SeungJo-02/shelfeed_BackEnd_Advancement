@@ -1,14 +1,8 @@
 package com.shelfeed.backend.domain.follow.service;
 
 import com.shelfeed.backend.domain.block.service.BlockService;
-import com.shelfeed.backend.domain.feed.entity.Feed;
-import com.shelfeed.backend.domain.feed.repository.FeedRepository;
-import com.shelfeed.backend.domain.notification.entity.Notification;
-import com.shelfeed.backend.domain.notification.enums.NotificationType;
-import com.shelfeed.backend.domain.notification.repository.NotificationRepository;
-import com.shelfeed.backend.domain.review.entity.Review;
-import com.shelfeed.backend.domain.review.repository.ReviewRepository;
-import org.springframework.data.domain.PageRequest;
+import com.shelfeed.backend.domain.feed.service.FeedService;
+import com.shelfeed.backend.domain.notification.service.NotificationService;
 import com.shelfeed.backend.domain.follow.dto.response.FollowListResponse;
 import com.shelfeed.backend.domain.follow.dto.response.FollowMemberResponse;
 import com.shelfeed.backend.domain.follow.dto.response.FollowResponse;
@@ -41,10 +35,9 @@ public class FollowService {
     private final MemberRepository memberRepository;
     private final MemberLoader memberLoader;
     private final FollowRepository followRepository;
-    private final FeedRepository feedRepository;
-    private final ReviewRepository reviewRepository;
-    private final NotificationRepository notificationRepository;
     private final BlockService blockService;
+    private final FeedService feedService;
+    private final NotificationService notificationService;
 
     //1. 팔로우
     @Transactional
@@ -75,15 +68,9 @@ public class FollowService {
         // 카운트 업데이트
         memberRepository.increaseFollowingCount(follower.getMemberUserId());
         memberRepository.increaseFollowerCount(followee.getMemberUserId());
-        if (followee.getNotificationPreferences().isFollowEnabled()) {
-            notificationRepository.save(Notification.createUserNotification(
-                    followee, follower, NotificationType.FOLLOW, follow.getFollowId()));
-        }
-        // 팔로우의 최근 PUBLISHED+PUBLIC 감상 최대 30개 소급 피드 생성
-        List<Review> recentReviews = reviewRepository.findUserReviews(followee, null, PageRequest.of(0, 30));
-        if (!recentReviews.isEmpty()) {
-            feedRepository.saveAll(recentReviews.stream().map(r -> Feed.create(follower, r)).toList());
-        }
+        notificationService.notifyFollow(followee, follower, follow.getFollowId());
+        // 팔로우 대상의 최근 감상을 팔로워 피드에 소급 생성
+        feedService.backfillOnFollow(follower, followee);
         // clearAutomatically=true 로 영속성 컨텍스트가 비워졌으므로 DB에서 최신 카운트를 재조회
         Member freshFollower = memberLoader.getOrThrow(memberUserId);
         Member freshFollowee = memberLoader.getOrThrow(targetUserId);
@@ -102,8 +89,8 @@ public class FollowService {
         // 카운트 업데이트
         memberRepository.decreaseFollowingCount(follower.getMemberUserId());
         memberRepository.decreaseFollowerCount(followee.getMemberUserId());
-        //엔팔한 멤버의 피드 내 피드화면에서 제거
-        feedRepository.deleteByMemberAndReview_Member(follower,followee);
+        //언팔한 멤버의 감상을 내 피드에서 제거
+        feedService.removeOnUnfollow(follower, followee);
         // clearAutomatically=true 로 영속성 컨텍스트가 비워졌으므로 DB에서 최신 카운트를 재조회
         Member freshFollower = memberLoader.getOrThrow(memberUserId);
         Member freshFollowee = memberLoader.getOrThrow(targetUserId);

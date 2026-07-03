@@ -10,6 +10,7 @@ import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.entity.ReviewTag;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
+import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +32,12 @@ public class FeedService {
     private final MemberLoader memberLoader;
     private final FeedRepository feedRepository;
     private final FollowRepository followRepository;
+    private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewTagRepository reviewTagRepository;
+
+    // 팔로우 시 소급 피드 생성 시 가져올 최근 감상 최대 개수
+    private static final int BACKFILL_LIMIT = 30;
 
     /**
      * 감상을 작성자의 모든 팔로워 피드에 일괄 생성한다.
@@ -52,6 +57,29 @@ public class FeedService {
     @Transactional
     public void removeByReview(Review review) {
         feedRepository.deleteByReview(review);
+    }
+
+    /**
+     * 팔로우 시 대상(followee)의 최근 감상을 팔로워 피드에 소급 생성한다.
+     * (findUserReviews는 PUBLISHED+PUBLIC 감상만 반환)
+     */
+    @Transactional
+    public void backfillOnFollow(Member follower, Member followee) {
+        List<Review> recentReviews =
+                reviewRepository.findUserReviews(followee, null, PageRequest.of(0, BACKFILL_LIMIT));
+        if (!recentReviews.isEmpty()) {
+            feedRepository.saveAll(recentReviews.stream()
+                    .map(r -> Feed.create(follower, r))
+                    .toList());
+        }
+    }
+
+    /**
+     * 언팔로우 시 대상(followee)의 감상을 팔로워 피드에서 제거한다.
+     */
+    @Transactional
+    public void removeOnUnfollow(Member follower, Member followee) {
+        feedRepository.deleteByMemberAndReview_Member(follower, followee);
     }
 
     //피드 조회
