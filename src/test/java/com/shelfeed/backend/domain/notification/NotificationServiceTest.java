@@ -107,4 +107,84 @@ class NotificationServiceTest {
             verify(notificationRepository, never()).save(any());
         }
     }
+
+    @Nested
+    @DisplayName("notifyFollow (팔로우 알림)")
+    class NotifyFollow {
+
+        @Test
+        @DisplayName("팔로우 알림이 켜져 있으면 대상에게 알림을 저장한다")
+        void 설정_켜짐_저장() {
+            notificationService.notifyFollow(reviewer, follower, 5L);
+
+            verify(notificationRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("팔로우 알림이 꺼져 있으면 저장하지 않는다")
+        void 설정_꺼짐_미저장() {
+            reviewer.updateNotificationPreferences(
+                    NotificationPreferences.builder().followEnabled(false).build());
+
+            notificationService.notifyFollow(reviewer, follower, 5L);
+
+            verify(notificationRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("notifyComment (댓글 알림)")
+    class NotifyComment {
+
+        @Test
+        @DisplayName("본인에게 가는 알림이면 저장하지 않는다")
+        void 본인_알림_미저장() {
+            notificationService.notifyComment(reviewer, reviewer, 10L, 100L);
+
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("대상의 댓글 알림이 꺼져 있으면 저장하지 않는다")
+        void 설정_꺼짐_미저장() {
+            follower.updateNotificationPreferences(
+                    NotificationPreferences.builder().commentEnabled(false).build());
+
+            notificationService.notifyComment(follower, reviewer, 10L, 100L);
+
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("본인이 아니고 댓글 알림이 켜져 있으면 저장한다")
+        void 정상_저장() {
+            notificationService.notifyComment(follower, reviewer, 10L, 100L);
+
+            verify(notificationRepository).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("notifyCommentLike (댓글 좋아요 알림)")
+    class NotifyCommentLike {
+
+        @Test
+        @DisplayName("댓글 작성자의 좋아요 알림이 켜져 있으면 저장한다")
+        void 설정_켜짐_저장() {
+            notificationService.notifyCommentLike(reviewer, follower, 10L, 100L);
+
+            verify(notificationRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("댓글 작성자의 좋아요 알림이 꺼져 있으면 저장하지 않는다")
+        void 설정_꺼짐_미저장() {
+            reviewer.updateNotificationPreferences(
+                    NotificationPreferences.builder().likeEnabled(false).build());
+
+            notificationService.notifyCommentLike(reviewer, follower, 10L, 100L);
+
+            verify(notificationRepository, never()).save(any());
+        }
+    }
 }
