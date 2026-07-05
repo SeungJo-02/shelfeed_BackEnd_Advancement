@@ -30,6 +30,7 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     INVALID_PASSWORD_RESET_TOKEN(400, "A011", "유효하지 않거나 만료된 비밀번호 재설정 토큰입니다."),
     SAME_PASSWORD(400,"A012", "기존 비밀번호와 동일합니다."),
     TOKEN_REUSE_DETECTED(401,"A013", "토큰 재사용이 감지되었습니다. 모든 세션이 로그아웃됩니다."),
+    LOGIN_ATTEMPTS_EXCEEDED(429,"A014", "로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
     INVALID_OAUTH_STATE(400,"A014", "유효하지 않은 OAuth state입니다."),
     OAUTH_PROVIDER_ERROR(502,"A015", "OAuth 제공자 연동 중 오류가 발생했습니다."),
     EMAIL_SEND_FAILED(502,"A016", "이메일 발송에 실패했습니다."),

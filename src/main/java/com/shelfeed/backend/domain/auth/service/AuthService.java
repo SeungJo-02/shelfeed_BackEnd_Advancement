@@ -62,6 +62,11 @@ public class AuthService {
     private String googleRedirectUri;
 
     private static final int MAX_EMAIL_VERIFY_ATTEMPTS = 5;
+    // 로그인 무차별 대입 방지: 15분 슬라이딩 윈도우 내 5회 실패 시 잠금
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOGIN_LOCK_SECONDS = 900;          // 15분
+    // 비밀번호 재설정 재발송 쿨다운 (이메일 폭탄·SES 비용 방지)
+    private static final long PW_RESET_COOLDOWN_SECONDS = 60;
 
     // ── 1. 이메일 회원가입
     @Transactional(noRollbackFor = EmailSendException.class)
@@ -139,16 +144,25 @@ public class AuthService {
     // ── 4. 이메일 로그인
     @Transactional
     public AuthTokenResult.Login login(LoginRequest request) {
-        Member member = memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD));
-
-        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw new BusinessException(ErrorCode.INVALID_PASSWORD);//페스워드 예외 처리
+        String email = request.getEmail();
+        // 무차별 대입 방지: 실패 누적이 임계치를 넘으면 잠금 (계정 존재 여부와 무관하게 먼저 차단)
+        if (redisService.isLoginLocked(email, MAX_LOGIN_ATTEMPTS)) {
+            throw new BusinessException(ErrorCode.LOGIN_ATTEMPTS_EXCEEDED);
         }
+
+        // 계정 미존재/비번 불일치를 동일하게 INVALID_PASSWORD로 처리(열거 방지)하고, 두 경우 모두 실패로 기록
+        Optional<Member> memberOpt = memberRepository.findByEmail(email);
+        if (memberOpt.isEmpty()
+                || !passwordEncoder.matches(request.getPassword(), memberOpt.get().getPassword())) {
+            redisService.recordLoginFailure(email, LOGIN_LOCK_SECONDS);
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+        }
+        Member member = memberOpt.get();
         // 탈퇴/정지 계정 차단 — 구글 로그인(verifyLoginableStatus)과 동일 정책으로 통일.
         // 비밀번호 검증 이후에 호출해 계정 상태가 비번 오류와 구분돼 노출되지 않게 한다.
         verifyLoginableStatus(member);
 
+        redisService.clearLoginFailures(email); // 로그인 성공 → 실패 카운터 초기화
         member.recordLogin();//로그인 시점 기록
 
         String accessToken = jwtProvider.generateAccessToken(member);
@@ -342,6 +356,11 @@ public class AuthService {
     public void sendPasswordReset(PasswordResetSendRequest request) {
         Optional<Member> memberOpt = memberRepository.findByEmail(request.getEmail());
         if (memberOpt.isPresent()) {
+            // 재발송 쿨다운: 최근 발송이 있으면 무음 스킵(이메일 폭탄·SES 비용 방지).
+            // 존재 여부 노출 방지를 위해 호출자에겐 항상 무음이므로 여기서도 조용히 반환.
+            if (!redisService.setPasswordResetCooldown(request.getEmail(), PW_RESET_COOLDOWN_SECONDS)) {
+                return;
+            }
             String token = UUID.randomUUID().toString();
             redisService.savePasswordResetToken(token, request.getEmail(), 1800);
             // 비동기 fire-and-forget — 발송 실패 로깅은 비동기 메서드 내부에서 처리(존재 여부 노출 방지 위해 호출자는 항상 무음)

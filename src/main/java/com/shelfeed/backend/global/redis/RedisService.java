@@ -19,6 +19,8 @@ public class RedisService {
     private static final String EMAIL_ATTEMPTS_PREFIX    = "auth:email:attempts:";
     private static final String EMAIL_COOLDOWN_PREFIX    = "auth:email:cooldown:";
     private static final String PW_RESET_PREFIX          = "auth:pwreset:";
+    private static final String PW_RESET_COOLDOWN_PREFIX  = "auth:pwreset:cooldown:";
+    private static final String LOGIN_ATTEMPTS_PREFIX     = "auth:login:attempts:";
     private static final String OAUTH_STATE_PREFIX       = "auth:oauth:state:";
     private static final String MEMBER_SEQ_KEY           = "seq:member";
     private static final String ALADIN_SYNC_PREFIX       = "search:aladin:";
@@ -66,6 +68,31 @@ public class RedisService {
     //재발송 쿨다운: 무한 재시도 막기 위함
     public boolean setResendCooldown(String email, long ttlSeconds) {
         return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(EMAIL_COOLDOWN_PREFIX + email,"1",ttlSeconds,TimeUnit.SECONDS));
+    }
+
+    // ── 로그인 무차별 대입 방지 ──────────────────────────────
+    // 이메일별 로그인 실패 1회 기록. 실패마다 윈도우(windowSeconds)를 갱신(슬라이딩 윈도우). 누적 실패 횟수 반환.
+    public long recordLoginFailure(String email, long windowSeconds) {
+        String key = LOGIN_ATTEMPTS_PREFIX + email;
+        Long count = redisTemplate.opsForValue().increment(key);
+        redisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
+        return count == null ? 0L : count;
+    }
+
+    // 현재 누적 실패 횟수가 maxAttempts 이상이면 잠금 상태로 본다.
+    public boolean isLoginLocked(String email, int maxAttempts) {
+        String v = redisTemplate.opsForValue().get(LOGIN_ATTEMPTS_PREFIX + email);
+        return v != null && Long.parseLong(v) >= maxAttempts;
+    }
+
+    // 로그인 성공 시 실패 카운터 초기화.
+    public void clearLoginFailures(String email) {
+        redisTemplate.delete(LOGIN_ATTEMPTS_PREFIX + email);
+    }
+
+    // 비밀번호 재설정 재발송 쿨다운: 쿨다운이 없어 새로 설정되면 true, 이미 쿨다운 중이면 false.
+    public boolean setPasswordResetCooldown(String email, long ttlSeconds) {
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(PW_RESET_COOLDOWN_PREFIX + email,"1",ttlSeconds,TimeUnit.SECONDS));
     }
 
     //비밀번호 재설정 토큰: UUID, TTL 30분
