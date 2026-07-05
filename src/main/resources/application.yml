@@ -13,6 +13,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: 6379
+      password: ${REDIS_PASSWORD:}   # 비어 있으면 인증 없음(로컬). 운영 redis는 requirepass와 짝을 맞춰 .env에 설정
 
   elasticsearch:
     uris: ${ES_URI:http://localhost:9200}
