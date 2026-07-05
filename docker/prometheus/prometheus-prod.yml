@@ -5,7 +5,7 @@ scrape_configs:
   - job_name: 'spring-boot'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['app:8080']
+      - targets: ['app:8081']   # 관리 포트 분리(app:8080→8081): 내부망에서만 스크랩
 
   - job_name: 'node-exporter'
     static_configs:
