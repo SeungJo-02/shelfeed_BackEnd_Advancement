@@ -31,7 +31,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_KEY }}
-          source: "docker-compose.prod.yml,docker/prometheus/prometheus-prod.yml,docker/promtail/config.yml"
+          source: "docker-compose.prod.yml,docker/nginx/nginx.conf,docker/prometheus/prometheus-prod.yml,docker/promtail/config.yml"
           target: /home/ec2-user/app
           strip_components: 0
 
@@ -45,7 +45,9 @@ jobs:
             cd /home/ec2-user/app
             mv docker/prometheus/prometheus-prod.yml prometheus.yml 2>/dev/null || true
             mv docker/promtail/config.yml promtail-config.yml 2>/dev/null || true
-            rm -rf docker
+            # nginx.conf는 compose가 ./docker/nginx/nginx.conf로 마운트하므로 그대로 둔다.
+            # 비워진 디렉터리만 정리(docker/nginx 보존 — 통째로 rm하면 nginx 설정 유실 → 재생성 시 기동 실패)
+            rm -rf docker/prometheus docker/promtail
             echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest" >> .env
             docker-compose -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.prod.yml up -d
