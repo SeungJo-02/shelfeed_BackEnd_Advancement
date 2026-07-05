@@ -28,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -289,6 +290,49 @@ class AuthServiceTest {
 
             assertThat(result.refreshToken()).isEqualTo("refreshToken");
             verify(redisService).saveRefreshToken(eq(1L), eq("refreshToken"), anyLong());
+            verify(redisService).clearLoginFailures("test@test.com"); // 성공 시 실패 카운터 초기화
+        }
+
+        @Test
+        @DisplayName("실패 누적이 임계치를 넘어 잠긴 상태면 LOGIN_ATTEMPTS_EXCEEDED 예외가 발생한다")
+        void 잠금상태_예외() {
+            LoginRequest request = loginRequest("test@test.com", "Pass1234!");
+            given(redisService.isLoginLocked(eq("test@test.com"), anyInt())).willReturn(true);
+
+            assertThatThrownBy(() -> authService.login(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.LOGIN_ATTEMPTS_EXCEEDED);
+            // 잠긴 상태에선 비밀번호 검증조차 하지 않는다
+            verify(memberRepository, never()).findByEmail(anyString());
+        }
+
+        @Test
+        @DisplayName("비밀번호가 틀리면 로그인 실패를 기록한다 (무차별 대입 카운팅)")
+        void 실패_기록() {
+            LoginRequest request = loginRequest("test@test.com", "WrongPass1!");
+            given(memberRepository.findByEmail("test@test.com"))
+                    .willReturn(Optional.of(activeMember));
+            given(passwordEncoder.matches(anyString(), anyString())).willReturn(false);
+
+            assertThatThrownBy(() -> authService.login(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_PASSWORD);
+            verify(redisService).recordLoginFailure(eq("test@test.com"), anyLong());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 이메일도 실패로 기록한다 (계정 열거+무차별 대입 방지)")
+        void 미존재_이메일_실패_기록() {
+            LoginRequest request = loginRequest("none@test.com", "Pass1234!");
+            given(memberRepository.findByEmail("none@test.com")).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> authService.login(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_PASSWORD);
+            verify(redisService).recordLoginFailure(eq("none@test.com"), anyLong());
         }
     }
 
@@ -442,11 +486,26 @@ class AuthServiceTest {
             PasswordResetSendRequest request = passwordResetSendRequest("test@test.com");
             given(memberRepository.findByEmail("test@test.com"))
                     .willReturn(Optional.of(activeMember));
+            given(redisService.setPasswordResetCooldown(eq("test@test.com"), anyLong())).willReturn(true);
 
             authService.sendPasswordReset(request);
 
             verify(redisService).savePasswordResetToken(anyString(), eq("test@test.com"), eq(1800L));
             verify(emailService).sendPasswordResetEmail(eq("test@test.com"), anyString());
+        }
+
+        @Test
+        @DisplayName("재발송 쿨다운 중이면 토큰 저장·메일 발송 없이 조용히 스킵한다 (이메일 폭탄 방지)")
+        void 쿨다운중_무음스킵() {
+            PasswordResetSendRequest request = passwordResetSendRequest("test@test.com");
+            given(memberRepository.findByEmail("test@test.com"))
+                    .willReturn(Optional.of(activeMember));
+            given(redisService.setPasswordResetCooldown(eq("test@test.com"), anyLong())).willReturn(false);
+
+            authService.sendPasswordReset(request);
+
+            verify(redisService, never()).savePasswordResetToken(anyString(), anyString(), anyLong());
+            verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
         }
     }
 
