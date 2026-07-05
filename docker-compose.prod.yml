@@ -40,9 +40,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # 호스트 포트 미노출 — 앱은 컴포즈 내부 네트워크(redis:6379)로만 접근. 외부 도달 차단.
+    # REDIS_PASSWORD가 비어 있으면 requirepass ""가 되어 인증 없음(기존 동작 유지). 운영에선 .env에 반드시 설정.
+    command: redis-server --requirepass "${REDIS_PASSWORD}" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}   # redis-cli가 명령줄 노출 없이 인증(healthcheck용)
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -65,11 +67,12 @@ services:
   grafana:
     image: grafana/grafana:11.4.0
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}   # 운영 .env에 강한 값 설정 권장
       GF_USERS_ALLOW_SIGN_UP: false
     ports:
-      - "3001:3000"
+      # localhost 바인딩이 C3의 실질 차단(외부 도달 불가). 접근은 SSH 터널 or nginx 경유만.
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
     depends_on:
@@ -79,7 +82,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.8.2
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"   # prometheus가 내부망으로 스크랩 — 외부 노출 불필요
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -89,7 +92,7 @@ services:
   loki:
     image: grafana/loki:3.3.2
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"   # promtail 푸시·grafana 조회 모두 내부망 — 외부 노출 불필요
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
 
