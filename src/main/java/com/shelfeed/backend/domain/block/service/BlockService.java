@@ -103,9 +103,9 @@ public class BlockService {
 
     //팔로우 관계라면 카운트 해제
     private void removeFollowIfExists(Member follower, Member followee) {
-        Optional<Follow> follow = followRepository.findByFollowerAndFollowee(follower, followee);
-        if (follow.isPresent()) {
-            followRepository.delete(follow.get());
+        // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 요청 시 팔로잉/팔로워 수 이중 감소(드리프트) 방지
+        int deleted = followRepository.deleteByFollowerAndFollowee(follower, followee);
+        if (deleted > 0) {
             memberRepository.decreaseFollowingCount(follower.getMemberUserId());
             memberRepository.decreaseFollowerCount(followee.getMemberUserId());
         }

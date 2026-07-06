@@ -30,7 +30,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -155,32 +157,30 @@ class ReviewLikeServiceTest {
     class Unlike {
 
         @Test
-        @DisplayName("좋아요한 적이 없으면 REVIEW_LIKE_NOT_FOUND 예외가 발생한다")
+        @DisplayName("좋아요한 적이 없으면(삭제 0행) REVIEW_LIKE_NOT_FOUND 예외 + 카운트 감소 없음")
         void 좋아요_없음_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
-            given(reviewLikeRepository.findByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
-                    .willReturn(Optional.empty());
+            given(reviewLikeRepository.deleteByReviewAndMember(10L, 2L)).willReturn(0);
 
             assertThatThrownBy(() -> reviewLikeService.unlike(10L, 2L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.REVIEW_LIKE_NOT_FOUND);
+            // 드리프트 방지 핵심: 삭제 0행이면 감소하지 않는다 (동시 중복 취소 시 이중 감소 차단)
+            verify(reviewRepository, never()).decreaseLikeCount(anyLong());
         }
 
         @Test
-        @DisplayName("정상 취소 시 좋아요를 삭제하고 카운트를 감소시킨다")
+        @DisplayName("정상 취소(삭제 1행) 시 카운트를 감소시킨다")
         void 정상_취소_성공() {
-            Review review = review(ReviewVisibility.PUBLIC);
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
-                    .willReturn(Optional.of(review));
-            given(reviewLikeRepository.findByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
-                    .willReturn(Optional.of(ReviewLike.create(review, liker)));
+                    .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
+            given(reviewLikeRepository.deleteByReviewAndMember(10L, 2L)).willReturn(1);
 
             ReviewLikeResponse response = reviewLikeService.unlike(10L, 2L);
 
             assertThat(response).isNotNull();
-            verify(reviewLikeRepository).delete(any());
             verify(reviewRepository).decreaseLikeCount(10L);
         }
     }

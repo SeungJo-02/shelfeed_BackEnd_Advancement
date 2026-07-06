@@ -18,10 +18,17 @@ import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.service.ReviewLikeService;
+import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import com.shelfeed.backend.global.common.util.CursorUtils;
 import com.shelfeed.backend.global.config.JpaConfig;
 import com.shelfeed.backend.support.TestContainerSupport;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -155,6 +162,54 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
         assertThat(reloaded.getLikeCount()).isEqualTo(1);
         // 댓글 작성자(actor)에게 댓글 좋아요 알림 1건
         assertThat(notificationRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("동시 중복 언라이크 시 좋아요 수가 정확히 1회만 감소한다 (카운터 드리프트 방지, #45)")
+    void 동시_중복_언라이크_드리프트_없음() throws Exception {
+        // liker2를 추가해 좋아요 2건(actor+liker2) → likeCount=2. 드리프트 발생 시 1이 아닌 0이 된다.
+        Member liker2 = memberRepository.save(
+                Member.createLocal(3L, "liker2@test.com", "encoded", "라이커2", "bio"));
+        reviewLikeService.like(review.getReviewId(), actor.getMemberUserId());
+        reviewLikeService.like(review.getReviewId(), liker2.getMemberUserId());
+
+        Long reviewId = review.getReviewId();
+        Long actorId = actor.getMemberUserId();
+
+        // actor의 언라이크를 2개 스레드가 '동시에' 호출 (더블클릭·재시도 재현). 각 스레드 = 독립 트랜잭션.
+        int threads = 2;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger success = new AtomicInteger();
+        AtomicInteger notFound = new AtomicInteger();
+        for (int i = 0; i < threads; i++) {
+            pool.submit(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    reviewLikeService.unlike(reviewId, actorId);
+                    success.incrementAndGet();
+                } catch (BusinessException e) {
+                    notFound.incrementAndGet(); // 진 쪽은 REVIEW_LIKE_NOT_FOUND (이미 취소됨)
+                } catch (Exception ignored) {
+                }
+            });
+        }
+        ready.await(5, TimeUnit.SECONDS);
+        start.countDown();                       // 두 스레드 동시 출발
+        pool.shutdown();
+        pool.awaitTermination(15, TimeUnit.SECONDS);
+
+        // 핵심 검증: actor의 좋아요만 1회 제거 → 카운트는 정확히 1 (liker2 좋아요 유지). 드리프트면 0이 됨.
+        Review reloaded = reviewRepository.findByReviewIdAndIsDeletedFalse(reviewId).orElseThrow();
+        assertThat(reloaded.getLikeCount()).isEqualTo(1);
+        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId, actorId)).isFalse();
+        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(
+                reviewId, liker2.getMemberUserId())).isTrue();
+        // 정확히 한 요청만 성공, 나머지는 NOT_FOUND (이중 성공/이중 감소 아님)
+        assertThat(success.get()).isEqualTo(1);
+        assertThat(notFound.get()).isEqualTo(1);
     }
 
     private CommentCreateRequest commentRequest(String content, Long parentCommentId) {

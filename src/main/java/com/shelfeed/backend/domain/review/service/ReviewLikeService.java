@@ -68,10 +68,11 @@ public class ReviewLikeService {
     @Transactional
     public ReviewLikeResponse unlike(Long reviewId, Long memberUserId) {
         Review review = getReviewOrThrow(reviewId);
-        ReviewLike like = reviewLikeRepository.findByReview_ReviewIdAndMember_MemberUserId(reviewId, memberUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_LIKE_NOT_FOUND));// 좋아요 확인
-
-        reviewLikeRepository.delete(like);
+        // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 중복 언라이크 시 한쪽만 1행 삭제·감소, 나머지는 0행
+        int deleted = reviewLikeRepository.deleteByReviewAndMember(reviewId, memberUserId);
+        if (deleted == 0) {
+            throw new BusinessException(ErrorCode.REVIEW_LIKE_NOT_FOUND);// 좋아요 없음(또는 동시 요청이 먼저 취소)
+        }
         reviewRepository.decreaseLikeCount(review.getReviewId());
         return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }

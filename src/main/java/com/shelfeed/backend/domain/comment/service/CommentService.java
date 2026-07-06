@@ -204,9 +204,11 @@ public class CommentService {
         if (!comment.getReview().getReviewId().equals(reviewId)) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
-        CommentLike commentLike = commentLikeRepository.findByComment_CommentIdAndMember_MemberUserId(commentId,memberUserId)
-                .orElseThrow(()->new BusinessException(ErrorCode.COMMENT_LIKE_NOT_FOUND));
-        commentLikeRepository.delete(commentLike);
+        // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 중복 취소 시 이중 감소(드리프트) 방지
+        int deleted = commentLikeRepository.deleteByCommentAndMember(commentId, memberUserId);
+        if (deleted == 0) {
+            throw new BusinessException(ErrorCode.COMMENT_LIKE_NOT_FOUND);
+        }
         commentRepository.decreaseLikeCount(comment.getCommentId());
         return CommentLikeResponse.of(getComment(commentId));
     }
