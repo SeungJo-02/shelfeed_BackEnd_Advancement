@@ -4,6 +4,7 @@ import com.shelfeed.backend.domain.follow.entity.Follow;
 import com.shelfeed.backend.domain.member.entity.Member;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +17,11 @@ public interface FollowRepository extends JpaRepository<Follow,Long> {
     boolean existsByFollowerAndFollowee(Member follower, Member followee);// 중복 팔로우 확인
 
     Optional<Follow> findByFollowerAndFollowee(Member follower, Member followee);// 삭제 대상 조회
+
+    // 언팔로우: 벌크 DELETE로 실제 삭제 행 수 반환 → 동시 중복 요청 시 팔로워/팔로잉 수 이중 감소(드리프트) 방지
+    @Modifying
+    @Query("DELETE FROM Follow f WHERE f.follower = :follower AND f.followee = :followee")
+    int deleteByFollowerAndFollowee(@Param("follower") Member follower, @Param("followee") Member followee);
 
     //팔로워 목록 페이지네이션
     @Query("""

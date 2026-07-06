@@ -82,11 +82,12 @@ public class FollowService {
         Map<Long, Member> members = memberLoader.getOrThrowAll(List.of(memberUserId, targetUserId));
         Member follower = members.get(memberUserId);
         Member followee = members.get(targetUserId);
-        //삭제 대상 조회
-        Follow follow = followRepository.findByFollowerAndFollowee(follower,followee)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FOLLOW_NOT_FOUND));
-        followRepository.delete(follow);
-        // 카운트 업데이트
+        // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 중복 언팔로우 시 팔로잉/팔로워 수 이중 감소(드리프트) 방지
+        int deleted = followRepository.deleteByFollowerAndFollowee(follower, followee);
+        if (deleted == 0) {
+            throw new BusinessException(ErrorCode.FOLLOW_NOT_FOUND);
+        }
+        // 카운트 업데이트 (실제 삭제된 경우에만)
         memberRepository.decreaseFollowingCount(follower.getMemberUserId());
         memberRepository.decreaseFollowerCount(followee.getMemberUserId());
         //언팔한 멤버의 감상을 내 피드에서 제거
