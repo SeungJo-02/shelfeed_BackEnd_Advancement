@@ -56,6 +56,11 @@ public class SearchService {
     @Value("${app.search.history-enabled:true}")
     private boolean historyEnabled;
 
+    // ES 사용 여부. false(또는 ES 예외)면 DB LIKE 검색으로 폴백한다.
+    // ES 복구 후 true로 되돌리면 다시 ES 역인덱스 검색을 사용한다. (ES 코드는 보존)
+    @Value("${app.search.es-enabled:true}")
+    private boolean esEnabled;
+
     private static final Set<String> VALID_SEARCH_TYPES = Set.of("all", "book", "user");
 
     //통합 검색
@@ -105,11 +110,12 @@ public class SearchService {
         }
     }
 
-    // 도서 검색 (ES 기반 — title/author 역인덱스, Nori 분석기)
+    // 도서 검색 — ES 역인덱스(title/author, Nori) 우선, ES 불가 시 DB LIKE 폴백.
+    // app.search.es-enabled=false 이거나 ES 호출 예외 시 자동으로 DB 검색으로 전환한다. (ES 코드는 보존)
     public SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
         Span span = tracer.nextSpan().name("search.books").start();
         try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
-        // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출
+        // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출 (DB에 upsert)
         // 알라딘이 책을 가져온 경우에만 Redis 마커 찍기 (빈 응답 시엔 다음 요청에서 재시도 가능)
         if (cursor == null && !redisService.isAladinQuerySynced(query)) {
             try {
@@ -118,12 +124,27 @@ public class SearchService {
                     redisService.markAladinQuerySynced(query, 5);
                 }
             } catch (Exception e) {
-                log.warn("알라딘 캐싱 실패, ES 결과로 폴백: query={}, error={}", query, e.getMessage());
+                log.warn("알라딘 캐싱 실패, 검색 결과로 폴백: query={}, error={}", query, e.getMessage());
             }
         }
 
-        // ES 검색 — cursor 기반 무한 스크롤 (bookId DESC 정렬, cursor=null이면 Long.MAX_VALUE)
-        // 정렬을 bookId DESC로 고정해 cursor 페이징과 일관성 확보 (relevance score는 boost로만 반영)
+        // ES 사용 가능하면 ES, 아니면(비활성 또는 예외 발생) DB LIKE 폴백 — 어느 경우든 유저 검색은 정상 동작
+        if (esEnabled) {
+            try {
+                return searchBooksViaEs(query, cursor, limit);
+            } catch (Exception e) {
+                log.warn("ES 도서 검색 실패, DB LIKE 폴백: query={}, error={}", query, e.getMessage());
+            }
+        }
+        return searchBooksViaDb(query, cursor, limit);
+        } finally {
+            span.end();
+        }
+    }
+
+    // [ES 경로] title/author 역인덱스 검색 — ES 복구 시 다시 사용된다(삭제 금지).
+    // cursor 기반 무한 스크롤 (bookId DESC 정렬, cursor=null이면 Long.MAX_VALUE)
+    private SearchPageResponse<BookSearchResult> searchBooksViaEs(String query, Long cursor, int limit) {
         Long effectiveCursor = (cursor == null) ? Long.MAX_VALUE : cursor;
         List<BookDocument> docs = bookSearchRepository.searchByTitleOrAuthor(
                 query, effectiveCursor,
@@ -131,7 +152,6 @@ public class SearchService {
 
         boolean hasNext = docs.size() > limit;
         List<BookDocument> result = hasNext ? docs.subList(0, limit) : docs;
-
         if (result.isEmpty()) {
             return SearchPageResponse.empty();
         }
@@ -145,10 +165,26 @@ public class SearchService {
                 .filter(Objects::nonNull)
                 .toList();
 
-        // DB 누락 시(ES/DB 정합성 깨짐) content가 limit 미만이면 hasNext도 false로 조정 — 응답 일관성 보장
+        // DB 누락 시(ES/DB 정합성 깨짐) content가 limit 미만이면 hasNext도 false로 조정
         hasNext = hasNext && orderedBooks.size() == limit;
+        return buildBookPage(orderedBooks, hasNext);
+    }
 
-        // 통계는 여전히 DB에서 조회 (평점/리뷰수는 ES에 색인 안 함)
+    // [DB 폴백 경로] title/author LIKE 검색 — ES 미가용 시 사용.
+    // bookId DESC + cursor 페이징으로 ES 경로와 동일한 응답 형태를 유지한다.
+    private SearchPageResponse<BookSearchResult> searchBooksViaDb(String query, Long cursor, int limit) {
+        List<Book> books = bookRepository.searchBooks(query, cursor, PageRequest.of(0, limit + 1));
+        boolean hasNext = books.size() > limit;
+        List<Book> orderedBooks = hasNext ? books.subList(0, limit) : books;
+        if (orderedBooks.isEmpty()) {
+            return SearchPageResponse.empty();
+        }
+        return buildBookPage(orderedBooks, hasNext);
+    }
+
+    // 공통: Book 목록에 통계(평점/리뷰수)를 결합해 커서 페이지 응답을 만든다. (ES/DB 경로 공유)
+    private SearchPageResponse<BookSearchResult> buildBookPage(List<Book> orderedBooks, boolean hasNext) {
+        // 통계는 항상 DB에서 조회 (평점/리뷰수는 ES에 색인 안 함)
         List<Object[]> stats = bookRepository.findReviewStatsByBooks(orderedBooks);
         Map<Long, Object[]> statsMap = stats.stream()
                 .collect(Collectors.toMap(s -> (Long) s[0], s -> s));
@@ -170,9 +206,6 @@ public class SearchService {
                 .hasNext(hasNext)
                 .size(content.size())
                 .build();
-        } finally {
-            span.end();
-        }
     }
 
     // 유저 검색
