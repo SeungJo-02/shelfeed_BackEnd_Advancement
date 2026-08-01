@@ -1,6 +1,5 @@
 package com.shelfeed.backend.domain.notification.entity;
 
-import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.notification.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -23,15 +22,14 @@ public class Notification {
     @Column(name = "notification_id")
     private Long notificationId;
 
-    // 알림 받는 사람
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member receiver;
+    // 알림 받는 사람 — 서비스 경계(notification → user)를 넘으므로 ID로 참조한다.
+    // members.member_id(PK)를 담는다.
+    @Column(name = "member_id", nullable = false)
+    private Long receiverId;
 
     // 알림 유발 행위자 (시스템 알림은 null)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "actor_member_id")
-    private Member actor;
+    @Column(name = "actor_member_id")
+    private Long actorId;
 
     // 약한 결합을 통해 유연성 확보
     @Column(name = "review_id")
@@ -67,13 +65,13 @@ public class Notification {
     private LocalDateTime createdAt;
 
     // 1. 정적메서드 유저 간의 알림 (REVIEW_LIKE, FOLLOW)
-    public static Notification createUserNotification(Member receiver, Member actor, NotificationType type, Long targetId) {
-        if (actor == null) {
+    public static Notification createUserNotification(Long receiverId, Long actorId, NotificationType type, Long targetId) {
+        if (actorId == null) {
             throw new IllegalArgumentException("유저 알림은 반드시 유저가 필요합니다.");
         }
         Notification noti = new Notification();
-        noti.receiver = receiver;
-        noti.actor = actor;
+        noti.receiverId = receiverId;
+        noti.actorId = actorId;
         noti.type = type;
         switch (type) {
             case REVIEW_LIKE, FOLLOWING_REVIEW -> noti.reviewId = targetId;
@@ -84,13 +82,13 @@ public class Notification {
     }
 
     // 2. 댓글 관련 알림 (COMMENT, COMMENT_LIKE) — reviewId + commentId 둘 다 필요
-    public static Notification createCommentNotification(Member receiver, Member actor, NotificationType type, Long reviewId, Long commentId) {
-        if (actor == null) {
+    public static Notification createCommentNotification(Long receiverId, Long actorId, NotificationType type, Long reviewId, Long commentId) {
+        if (actorId == null) {
             throw new IllegalArgumentException("유저 알림은 반드시 유저가 필요합니다.");
         }
         Notification noti = new Notification();
-        noti.receiver = receiver;
-        noti.actor = actor;
+        noti.receiverId = receiverId;
+        noti.actorId = actorId;
         noti.type = type;
         noti.reviewId = reviewId;
         noti.commentId = commentId;
@@ -98,9 +96,9 @@ public class Notification {
     }
 
     // 2. 정적메서스 시스템(푸시) 알림
-    public static Notification createSystemNotification(Member receiver, NotificationType type, String message) {
+    public static Notification createSystemNotification(Long receiverId, NotificationType type, String message) {
         Notification noti = new Notification();
-        noti.receiver = receiver;
+        noti.receiverId = receiverId;
         noti.type = type;
         noti.message = message;
         return noti;

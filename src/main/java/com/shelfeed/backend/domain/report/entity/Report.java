@@ -28,10 +28,10 @@ public class Report {
     @Column(name = "report_id")
     private Long reportId;
 
-    // 신고한 사람
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    // 신고한 사람 — 서비스 경계(review → user)를 넘으므로 ID로 참조한다.
+    // members.member_id(PK)를 담는다.
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
     // 신고 대상 — 감상 신고이면 reviewId만, 댓글 신고이면 commentId만 채워짐
     @Column(name = "review_id")
@@ -58,10 +58,10 @@ public class Report {
     private LocalDateTime resolvedAt;
 
     // 정적 메서드 감상 신고
-    public static Report createReviewReport(Member member, Long reviewId,
+    public static Report createReviewReport(Long memberId, Long reviewId,
                                             ReportReason reason, String detail) {
         Report report = new Report();
-        report.member = member;
+        report.memberId = memberId;
         report.reviewId = reviewId;
         report.reason = reason;
         report.detail = detail;
@@ -69,10 +69,10 @@ public class Report {
     }
 
     // 정적 메서드 댓글 신고
-    public static Report createCommentReport(Member member, Long commentId,
+    public static Report createCommentReport(Long memberId, Long commentId,
                                              ReportReason reason, String detail) {
         Report report = new Report();
-        report.member = member;
+        report.memberId = memberId;
         report.commentId = commentId;
         report.reason = reason;
         report.detail = detail;

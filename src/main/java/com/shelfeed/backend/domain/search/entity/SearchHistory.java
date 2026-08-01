@@ -1,6 +1,5 @@
 package com.shelfeed.backend.domain.search.entity;
 
-import com.shelfeed.backend.domain.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -22,9 +21,10 @@ public class SearchHistory {
     @Column(name = "search_history_id")
     private Long searchHistoryId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    // 서비스 경계(catalog → user)를 넘으므로 객체가 아닌 ID로 참조한다.
+    // members.member_id(PK)를 담는다 — 공개 식별자인 memberUserId가 아니다.
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
     @Column(nullable = false, length = 200)
     private String keyword;
@@ -38,9 +38,9 @@ public class SearchHistory {
     }
 
     // 정적 메서드
-    public static SearchHistory create(Member member, String keyword) {
+    public static SearchHistory create(Long memberId, String keyword) {
         SearchHistory searchHistory = new SearchHistory();
-        searchHistory.member = member;
+        searchHistory.memberId = memberId;
         searchHistory.keyword = keyword;
         return searchHistory;
     }

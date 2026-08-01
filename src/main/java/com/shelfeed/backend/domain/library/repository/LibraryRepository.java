@@ -2,7 +2,6 @@ package com.shelfeed.backend.domain.library.repository;
 
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
-import com.shelfeed.backend.domain.member.entity.Member;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,41 +11,39 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * member/book이 ID 참조로 바뀌면서 조인을 쓸 수 없다.
+ * 도서 정보가 필요한 조회는 호출측(LibraryService)이 bookId를 모아 IN 쿼리로 조립한다.
+ */
 public interface LibraryRepository extends JpaRepository<LibraryBook,Long> {
     //중복 확인
-    boolean existsByMemberAndBook_BookId(Member member, Long bookId);
-    // 서재 목록 공통 쿼리 (내 서재 / 타 유저 서재 공용, JOIN FETCH로 Book N+1 방지)
-    @Query("SELECT lb FROM LibraryBook lb JOIN FETCH lb.book WHERE lb.member = :member " +
+    boolean existsByMemberIdAndBookId(Long memberId, Long bookId);
+
+    // 서재 목록 공통 쿼리 (내 서재 / 타 유저 서재 공용)
+    @Query("SELECT lb FROM LibraryBook lb WHERE lb.memberId = :memberId " +
             "AND (:status IS NULL OR lb.status = :status) " +//전체 조회 + 필터링 조회
             "AND (:cursor IS NULL OR lb.libraryBookId < :cursor) " + // 커서 페이지 네이션
             "ORDER BY lb.libraryBookId DESC")
-    List<LibraryBook> findLibraryBooks(@Param("member") Member member, @Param("status") ReadingStatus status,
+    List<LibraryBook> findLibraryBooks(@Param("memberId") Long memberId, @Param("status") ReadingStatus status,
                                        @Param("cursor") Long cursor,
                                        Pageable pageable);
 
     //유저 본인의 서재인가 확인
-    Optional<LibraryBook> findByLibraryBookIdAndMember(Long libraryBookId, Member member);
-    Optional<LibraryBook> findByMemberAndBook_BookId(Member member, Long bookId);
+    Optional<LibraryBook> findByLibraryBookIdAndMemberId(Long libraryBookId, Long memberId);
+    Optional<LibraryBook> findByMemberIdAndBookId(Long memberId, Long bookId);
 
     // 서재에 담긴 도서 ID 목록 일괄 조회 (N+1 방지)
-    @Query("SELECT lb.book.bookId FROM LibraryBook lb WHERE lb.member = :member AND lb.book.bookId IN :bookIds")
-    Set<Long> findBookIdsByMemberAndBookIdIn(@Param("member") Member member, @Param("bookIds") List<Long> bookIds);
+    @Query("SELECT lb.bookId FROM LibraryBook lb WHERE lb.memberId = :memberId AND lb.bookId IN :bookIds")
+    Set<Long> findBookIdsByMemberAndBookIdIn(@Param("memberId") Long memberId, @Param("bookIds") List<Long> bookIds);
 
     // 지혜의 탑 — 완독 도서 목록 (완독일 최신순)
-    @Query("SELECT lb FROM LibraryBook lb JOIN FETCH lb.book WHERE lb.member = :member " +
+    @Query("SELECT lb FROM LibraryBook lb WHERE lb.memberId = :memberId " +
             "AND lb.status = 'FINISHED' ORDER BY lb.finishedAt DESC, lb.libraryBookId DESC")
-    List<LibraryBook> findFinishedBooksForTower(@Param("member") Member member);
+    List<LibraryBook> findFinishedBooksForTower(@Param("memberId") Long memberId);
 
-    // 추천용 — 읽은/읽는 중 도서의 장르 빈도 집계
-    @Query("""
-        SELECT b.genre, COUNT(lb) as cnt
-        FROM LibraryBook lb JOIN lb.book b
-        WHERE lb.member = :member
-        AND lb.status IN ('READING', 'FINISHED')
-        AND b.genre IS NOT NULL
-        GROUP BY b.genre
-        ORDER BY cnt DESC
-    """)
-    List<Object[]> findTopGenresByMember(@Param("member") Member member, Pageable pageable);
+    // 추천용 — 읽은/읽는 중 도서 ID. 장르 집계는 book을 소유한 catalog 쪽(BookRepository)에서 이어서 한다.
+    // (기존엔 lb.book 조인 한 방이었으나, 경계를 넘는 조인이라 2단계로 분리했다.)
+    @Query("SELECT lb.bookId FROM LibraryBook lb WHERE lb.memberId = :memberId " +
+            "AND lb.status IN ('READING', 'FINISHED')")
+    List<Long> findReadBookIdsByMember(@Param("memberId") Long memberId);
 }
-

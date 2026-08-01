@@ -129,10 +129,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 팔로우 유저 서재 기반 추천 (Social-based)
     @Query("""
         SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book b
-        WHERE b IN (
-            SELECT lb.book FROM LibraryBook lb
-            WHERE lb.member IN (
-                SELECT f.followee FROM Follow f WHERE f.follower = :me
+        WHERE b.bookId IN (
+            SELECT lb.bookId FROM LibraryBook lb
+            WHERE lb.memberId IN (
+                SELECT f.followee.memberId FROM Follow f WHERE f.follower = :me
             )
             AND lb.status = 'FINISHED'
         )

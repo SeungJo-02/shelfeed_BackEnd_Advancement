@@ -355,8 +355,8 @@ public class DataSeeder implements ApplicationRunner {
                         ? (random.nextBoolean() ? ReadingStatus.FINISHED : ReadingStatus.READING)
                         : statuses[random.nextInt(statuses.length)];
 
-                if (libraryRepository.existsByMemberAndBook_BookId(member, book.getBookId())) continue;
-                LibraryBook lb = libraryRepository.save(LibraryBook.create(member, book, status));
+                if (libraryRepository.existsByMemberIdAndBookId(member.getMemberId(), book.getBookId())) continue;
+                LibraryBook lb = libraryRepository.save(LibraryBook.create(member.getMemberId(), book.getBookId(), status));
                 // FINISHED/READING 중 95% 감상 작성 → 멤버당 최소 10개 보장
                 boolean shouldReview = (status == ReadingStatus.FINISHED || status == ReadingStatus.READING)
                         && random.nextInt(20) < 19;
@@ -448,7 +448,7 @@ public class DataSeeder implements ApplicationRunner {
             for (int i = 0; i < count; i++) {
                 Member commenter = candidates.get(random.nextInt(candidates.size()));
                 String content = COMMENT_CONTENTS[random.nextInt(COMMENT_CONTENTS.length)];
-                comments.add(Comment.createOriginComment(review, commenter, content));
+                comments.add(Comment.createOriginComment(review, commenter.getMemberId(), content));
             }
             commentRepository.saveAll(comments);
             for (int i = 0; i < count; i++) {
@@ -474,7 +474,7 @@ public class DataSeeder implements ApplicationRunner {
             List<Member> likers = candidates.subList(0, Math.min(count, candidates.size()));
 
             List<ReviewLike> likes = likers.stream()
-                    .map(m -> ReviewLike.create(review, m))
+                    .map(m -> ReviewLike.create(review, m.getMemberId()))
                     .toList();
             reviewLikeRepository.saveAll(likes);
             likes.forEach(l -> reviewRepository.increaseLikeCount(review.getReviewId()));
