@@ -47,6 +47,10 @@ class ReportServiceTest {
 
     @InjectMocks ReportService reportService;
 
+    // 공개 ID(memberUserId)와 PK(memberId)를 일부러 다른 값으로 둔다 —
+    // 둘을 혼동해 잘못된 값을 저장하면 테스트가 깨지도록.
+    private static final Long REPORTER_MEMBER_ID = 100L;
+
     private Member reporter;
     private Member owner;
     private Book book;
@@ -55,6 +59,7 @@ class ReportServiceTest {
     @BeforeEach
     void setUp() {
         reporter = Member.createLocal(1L, "reporter@test.com", "encoded", "신고자", "bio");
+        ReflectionTestUtils.setField(reporter, "memberId", REPORTER_MEMBER_ID);
         owner    = Member.createLocal(2L, "owner@test.com",   "encoded", "작성자", "bio");
 
         book = Book.create("9791234567890", "테스트 책", "작가", "출판사",
@@ -111,7 +116,7 @@ class ReportServiceTest {
         @DisplayName("이미 신고한 감상이면 REPORT_ALREADY_EXISTS 예외가 발생한다")
         void 중복_감상_신고_예외() {
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndReviewId(reporter, 10L)).willReturn(true);
+            given(reportRepository.existsByMemberIdAndReviewId(REPORTER_MEMBER_ID, 10L)).willReturn(true);
 
             assertThatThrownBy(() -> reportService.createReport(1L, reviewRequest(10L, ReportReason.SPAM)))
                     .isInstanceOf(BusinessException.class)
@@ -123,7 +128,7 @@ class ReportServiceTest {
         @DisplayName("존재하지 않는 감상이면 REPORT_TARGET_NOT_FOUND 예외가 발생한다")
         void 감상_없음_예외() {
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndReviewId(reporter, 10L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndReviewId(REPORTER_MEMBER_ID, 10L)).willReturn(false);
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> reportService.createReport(1L, reviewRequest(10L, ReportReason.SPAM)))
@@ -140,7 +145,7 @@ class ReportServiceTest {
             ReflectionTestUtils.setField(ownReview, "reviewId", 20L);
 
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndReviewId(reporter, 20L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndReviewId(REPORTER_MEMBER_ID, 20L)).willReturn(false);
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(20L)).willReturn(Optional.of(ownReview));
 
             assertThatThrownBy(() -> reportService.createReport(1L, reviewRequest(20L, ReportReason.SPAM)))
@@ -152,11 +157,11 @@ class ReportServiceTest {
         @Test
         @DisplayName("감상 신고에 성공하면 reportId, targetType, targetId, reason을 반환한다")
         void 감상_신고_성공() {
-            Report saved = Report.createReviewReport(reporter, 10L, ReportReason.SPAM, null);
+            Report saved = Report.createReviewReport(REPORTER_MEMBER_ID, 10L, ReportReason.SPAM, null);
             ReflectionTestUtils.setField(saved, "reportId", 100L);
 
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndReviewId(reporter, 10L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndReviewId(REPORTER_MEMBER_ID, 10L)).willReturn(false);
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L)).willReturn(Optional.of(review));
             given(reportRepository.save(any())).willReturn(saved);
 
@@ -180,7 +185,7 @@ class ReportServiceTest {
         @DisplayName("이미 신고한 댓글이면 REPORT_ALREADY_EXISTS 예외가 발생한다")
         void 중복_댓글_신고_예외() {
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndCommentId(reporter, 50L)).willReturn(true);
+            given(reportRepository.existsByMemberIdAndCommentId(REPORTER_MEMBER_ID, 50L)).willReturn(true);
 
             assertThatThrownBy(() -> reportService.createReport(1L, commentRequest(50L, ReportReason.INAPPROPRIATE)))
                     .isInstanceOf(BusinessException.class)
@@ -192,7 +197,7 @@ class ReportServiceTest {
         @DisplayName("존재하지 않는 댓글이면 REPORT_TARGET_NOT_FOUND 예외가 발생한다")
         void 댓글_없음_예외() {
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndCommentId(reporter, 50L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndCommentId(REPORTER_MEMBER_ID, 50L)).willReturn(false);
             given(commentRepository.findByCommentIdAndIsDeletedFalse(50L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> reportService.createReport(1L, commentRequest(50L, ReportReason.INAPPROPRIATE)))
@@ -205,10 +210,10 @@ class ReportServiceTest {
         @DisplayName("본인 댓글을 신고하면 REPORT_SELF_NOT_ALLOWED 예외가 발생한다")
         void 본인_댓글_신고_예외() {
             Comment ownComment = mock(Comment.class);
-            given(ownComment.getMember()).willReturn(reporter);
+            given(ownComment.getMemberId()).willReturn(REPORTER_MEMBER_ID);
 
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndCommentId(reporter, 50L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndCommentId(REPORTER_MEMBER_ID, 50L)).willReturn(false);
             given(commentRepository.findByCommentIdAndIsDeletedFalse(50L)).willReturn(Optional.of(ownComment));
 
             assertThatThrownBy(() -> reportService.createReport(1L, commentRequest(50L, ReportReason.INAPPROPRIATE)))
@@ -221,13 +226,13 @@ class ReportServiceTest {
         @DisplayName("댓글 신고에 성공하면 reportId, targetType, targetId, reason을 반환한다")
         void 댓글_신고_성공() {
             Comment otherComment = mock(Comment.class);
-            given(otherComment.getMember()).willReturn(owner);
+            given(otherComment.getMemberId()).willReturn(200L);
 
-            Report saved = Report.createCommentReport(reporter, 50L, ReportReason.INAPPROPRIATE, null);
+            Report saved = Report.createCommentReport(REPORTER_MEMBER_ID, 50L, ReportReason.INAPPROPRIATE, null);
             ReflectionTestUtils.setField(saved, "reportId", 200L);
 
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(reporter));
-            given(reportRepository.existsByMemberAndCommentId(reporter, 50L)).willReturn(false);
+            given(reportRepository.existsByMemberIdAndCommentId(REPORTER_MEMBER_ID, 50L)).willReturn(false);
             given(commentRepository.findByCommentIdAndIsDeletedFalse(50L)).willReturn(Optional.of(otherComment));
             given(reportRepository.save(any())).willReturn(saved);
 
