@@ -91,7 +91,7 @@ public class FeedService {
         // 리뷰 아이디만 뽑기(in절에 사용하려고)
         List<Long> reviewIds = feeds.stream().map(feed -> feed.getReview().getReviewId()).toList();
         //in절로 좋아요 조회
-        Set<Long> likedReviewIds = reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId);
+        Set<Long> likedReviewIds = reviewLikeRepository.findLikedReviewIds(reviewIds, member.getMemberId());
         //태그 목록 in 절
         List<ReviewTag> allTags = reviewTagRepository.findByReviewIdIn(reviewIds);
         Map<Long, List<String>> tagMap = allTags.stream()

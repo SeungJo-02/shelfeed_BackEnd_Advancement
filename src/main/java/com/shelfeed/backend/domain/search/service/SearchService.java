@@ -80,10 +80,12 @@ public class SearchService {
         if (memberUserId != null && historyEnabled) {
             Span histSpan = tracer.nextSpan().name("search.history").start();
             try (Tracer.SpanInScope hs = tracer.withSpan(histSpan)) {
-                Member member = memberLoader.getOrThrow(memberUserId);
-                searchHistoryRepository.findByMemberAndKeyword(member, query.trim())
+                // 공개 ID(memberUserId) → PK(memberId) 해석에는 아직 user 도메인 조회가 필요하다.
+                // 서비스 분리 후에는 토큰 클레임에서 memberId를 직접 받아 이 조회를 없앤다.
+                Long memberId = memberLoader.getOrThrow(memberUserId).getMemberId();
+                searchHistoryRepository.findByMemberIdAndKeyword(memberId, query.trim())
                         .ifPresentOrElse(SearchHistory::touch,
-                                () -> searchHistoryRepository.save(SearchHistory.create(member, query.trim()))
+                                () -> searchHistoryRepository.save(SearchHistory.create(memberId, query.trim()))
                         );
             } finally {
                 histSpan.end();

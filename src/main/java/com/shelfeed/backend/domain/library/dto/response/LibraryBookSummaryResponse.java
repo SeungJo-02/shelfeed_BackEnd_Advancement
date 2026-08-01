@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.library.dto.response;
 
+import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import lombok.Builder;
@@ -27,15 +28,15 @@ public class LibraryBookSummaryResponse {
         private String coverImageUrl;
     }
 
-    public static LibraryBookSummaryResponse of(LibraryBook lb){
+    public static LibraryBookSummaryResponse of(LibraryBook lb, Book book){
         return LibraryBookSummaryResponse.builder()
                 .libraryBookId(lb.getLibraryBookId())
                 .book(BookSummary.builder()
-                        .bookId(lb.getBook().getBookId())
-                        .isbn13(lb.getBook().getIsbn13())
-                        .title(lb.getBook().getTitle())
-                        .author(lb.getBook().getAuthor())
-                        .coverImageUrl(lb.getBook().getCoverImageUrl())
+                        .bookId(book.getBookId())
+                        .isbn13(book.getIsbn13())
+                        .title(book.getTitle())
+                        .author(book.getAuthor())
+                        .coverImageUrl(book.getCoverImageUrl())
                         .build())
                 .status(lb.getStatus())
                 .startedAt(lb.getStartedAt())

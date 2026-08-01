@@ -1,6 +1,7 @@
 package com.shelfeed.backend.domain.comment.dto.response;
 
 import com.shelfeed.backend.domain.comment.entity.Comment;
+import com.shelfeed.backend.domain.member.entity.Member;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -31,15 +32,15 @@ public class CommentResponse {
         private String profileImageUrl;
     }
 
-    public static CommentResponse of(Comment comment, boolean isMine,boolean isLiked ,List<ReplyResponse> replies) {
+    public static CommentResponse of(Comment comment, Member author, boolean isMine,boolean isLiked ,List<ReplyResponse> replies) {
         boolean deleted = comment.isDeleted();
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
                 .user(deleted ? null : UserInfo.builder()
-                        .userId(comment.getMember().getMemberUserId())
-                        .nickname(comment.getMember().getNickname())
-                        .profileImageUrl(comment.getMember().getProfileImageUrl())
+                        .userId(author.getMemberUserId())
+                        .nickname(author.getNickname())
+                        .profileImageUrl(author.getProfileImageUrl())
                         .build())
                 .content(deleted ? "삭제된 댓글입니다" : comment.getContent())
                 .parentCommentId(comment.getParentComment() != null

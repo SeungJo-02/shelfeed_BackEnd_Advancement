@@ -77,7 +77,7 @@ public class BookService {
         Set<Long> myLibraryBookIds = Set.of();
         if (member != null && !allBooks.isEmpty()) {
             List<Long> bookIds = allBooks.stream().map(Book::getBookId).toList();
-            myLibraryBookIds = libraryRepository.findBookIdsByMemberAndBookIdIn(member, bookIds);
+            myLibraryBookIds = libraryRepository.findBookIdsByMemberAndBookIdIn(member.getMemberId(), bookIds);
         }
 
         final Set<Long> finalMyLibraryBookIds = myLibraryBookIds;
@@ -102,7 +102,7 @@ public class BookService {
         if (memberUserId != null) {
             Member member = getMemberOrNull(memberUserId);
             if (member != null) {
-                Optional<LibraryBook> libraryBook = libraryRepository.findByMemberAndBook_BookId(member, bookId);
+                Optional<LibraryBook> libraryBook = libraryRepository.findByMemberIdAndBookId(member.getMemberId(), bookId);
                 if (libraryBook.isPresent()) {
                     myLibraryStatus = libraryBook.get().getStatus();
                     myLibraryBookId = libraryBook.get().getLibraryBookId();
@@ -133,7 +133,7 @@ public class BookService {
         if (memberUserId != null) {
             Member member = getMemberOrNull(memberUserId);
             if (member != null) {
-                inMyLibrary = libraryRepository.existsByMemberAndBook_BookId(member, book.getBookId());
+                inMyLibrary = libraryRepository.existsByMemberIdAndBookId(member.getMemberId(), book.getBookId());
             }
         }
         return BookDetailResponse.ofIsbn(book, inMyLibrary);
@@ -153,9 +153,10 @@ public class BookService {
             case "rating_low"  -> reviewRepository.findBookReviewsRatingLow(bookId, request.getCursorRating(), request.getCursor(), PageRequest.of(0, pageSize));
             default            -> reviewRepository.findBookReviewsLatest(bookId, request.getCursor(), PageRequest.of(0, pageSize));
         };
-        if (memberUserId != null && !reviews.isEmpty()) {
-            Member me = getMemberOrNull(memberUserId);
-            if (me != null) {
+        // 좋아요 조회에도 PK가 필요하므로 me를 블록 밖에서 한 번만 로드해 재사용한다.
+        Member me = memberUserId != null ? getMemberOrNull(memberUserId) : null;
+        if (me != null && !reviews.isEmpty()) {
+            {
                 Set<Long> blocked = blockService.blockedIdSet(me);
                 if (!blocked.isEmpty()) {
                     reviews = reviews.stream()
@@ -165,7 +166,7 @@ public class BookService {
             }
         }
         List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
-        Set<Long> likedIds = memberUserId != null ? reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId) : Set.of();
+        Set<Long> likedIds = me != null ? reviewLikeRepository.findLikedReviewIds(reviewIds, me.getMemberId()) : Set.of();
         //set으로 하는게 성능이 더 좋으니깐 사용
         List<BookReviewResponse> content = reviews.stream()
                 .map(review -> BookReviewResponse.of(review, likedIds.contains(review.getReviewId())))

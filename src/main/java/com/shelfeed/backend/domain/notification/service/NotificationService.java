@@ -20,6 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +44,8 @@ public class NotificationService {
         List<Notification> notifications = followRepository.findAllFollowersWithMember(reviewer).stream()
                 .filter(follow -> follow.getFollower().getNotificationPreferences().isFollowingReviewEnabled())
                 .map(follow -> Notification.createUserNotification(
-                        follow.getFollower(), reviewer, NotificationType.FOLLOWING_REVIEW, review.getReviewId()))
+                        follow.getFollower().getMemberId(), reviewer.getMemberId(),
+                        NotificationType.FOLLOWING_REVIEW, review.getReviewId()))
                 .toList();
         if (!notifications.isEmpty()) notificationRepository.saveAll(notifications);
     }
@@ -52,7 +57,7 @@ public class NotificationService {
     public void notifyReviewLike(Member reviewOwner, Member liker, Long reviewId) {
         if (!reviewOwner.getNotificationPreferences().isLikeEnabled()) return;
         notificationRepository.save(Notification.createUserNotification(
-                reviewOwner, liker, NotificationType.REVIEW_LIKE, reviewId));
+                reviewOwner.getMemberId(), liker.getMemberId(), NotificationType.REVIEW_LIKE, reviewId));
     }
 
     /**
@@ -62,7 +67,7 @@ public class NotificationService {
     public void notifyFollow(Member followee, Member follower, Long followId) {
         if (!followee.getNotificationPreferences().isFollowEnabled()) return;
         notificationRepository.save(Notification.createUserNotification(
-                followee, follower, NotificationType.FOLLOW, followId));
+                followee.getMemberId(), follower.getMemberId(), NotificationType.FOLLOW, followId));
     }
 
     /**
@@ -73,7 +78,7 @@ public class NotificationService {
         if (target.getMemberUserId().equals(actor.getMemberUserId())) return;
         if (!target.getNotificationPreferences().isCommentEnabled()) return;
         notificationRepository.save(Notification.createCommentNotification(
-                target, actor, NotificationType.COMMENT, reviewId, commentId));
+                target.getMemberId(), actor.getMemberId(), NotificationType.COMMENT, reviewId, commentId));
     }
 
     /**
@@ -83,7 +88,7 @@ public class NotificationService {
     public void notifyCommentLike(Member commentOwner, Member liker, Long reviewId, Long commentId) {
         if (!commentOwner.getNotificationPreferences().isLikeEnabled()) return;
         notificationRepository.save(Notification.createCommentNotification(
-                commentOwner, liker, NotificationType.COMMENT_LIKE, reviewId, commentId));
+                commentOwner.getMemberId(), liker.getMemberId(), NotificationType.COMMENT_LIKE, reviewId, commentId));
     }
 
     public NotificationListResponse getMyNotifications(Long memberUserId, String cursor, int limit) {
@@ -95,13 +100,17 @@ public class NotificationService {
 
         Long cursorId = cursorUtils.decode(cursor);
         List<Notification> notifications = notificationRepository.findMyNotifications(
-                receiver,
+                receiver.getMemberId(),
                 cursorId,
                 PageRequest.of(0, limit + 1)
         );
 
+        // actor는 연관관계가 아니므로 JOIN FETCH 대신 ID를 모아 IN 쿼리 한 번으로 조회한다.
+        // (조인을 애플리케이션 조립으로 대체 — 서비스 분리 후에는 이 조회가 user-service 호출이 된다)
+        Map<Long, Member> actors = loadActors(notifications);
+
         List<NotificationItemResponse> all = notifications.stream()
-                .map(NotificationItemResponse::of)
+                .map(n -> NotificationItemResponse.of(n, actors.get(n.getActorId())))
                 .toList();
         boolean hasNext = all.size() > limit;
         List<NotificationItemResponse> content = hasNext ? all.subList(0, limit) : all;
@@ -112,12 +121,30 @@ public class NotificationService {
         return NotificationListResponse.of(content, limit, nextCursor);
     }
 
+    /** 알림 목록의 actorId를 모아 한 번의 IN 쿼리로 조회한다. 탈퇴 등으로 없는 행위자는 결과에서 빠진다. */
+    private Map<Long, Member> loadActors(List<Notification> notifications) {
+        Set<Long> actorIds = notifications.stream()
+                .map(Notification::getActorId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (actorIds.isEmpty()) return Map.of();
+
+        return memberRepository.findAllById(actorIds).stream()
+                .collect(Collectors.toMap(Member::getMemberId, m -> m));
+    }
+
     @Transactional
     public void markAsRead(Long memberUserId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
-        if (!notification.getReceiver().getMemberUserId().equals(memberUserId)) {
+        // 서비스 분리 후에는 토큰 클레임의 memberId를 그대로 비교해 이 조회를 없앤다.
+        Long callerMemberId = memberRepository.findByMemberUserId(memberUserId)
+                .map(Member::getMemberId)
+                .orElse(null);
+
+        if (callerMemberId == null || !notification.getReceiverId().equals(callerMemberId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -129,14 +156,14 @@ public class NotificationService {
     public void markAllAsRead(Long memberUserId) {
         Member receiver = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        notificationRepository.markAllAsRead(receiver);
+        notificationRepository.markAllAsRead(receiver.getMemberId());
     }
 
     public UnreadCountResponse getUnreadCount(Long memberUserId) {
         Member receiver = memberRepository.findByMemberUserId(memberUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
-        long unreadCount = notificationRepository.countUnread(receiver);
+        long unreadCount = notificationRepository.countUnread(receiver.getMemberId());
         return UnreadCountResponse.of(unreadCount);
     }
 

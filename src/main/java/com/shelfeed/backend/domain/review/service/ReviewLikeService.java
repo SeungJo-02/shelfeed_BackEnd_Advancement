@@ -49,13 +49,13 @@ public class ReviewLikeService {
             throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
         }
         // 감상 아이디랑 멤버아이디 있으면 중복 방지
-        if (reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId, memberUserId)) {
+        if (reviewLikeRepository.existsByReview_ReviewIdAndMemberId(reviewId, member.getMemberId())) {
             throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
         }
         // saveAndFlush로 INSERT를 즉시 실행해 동시 요청 경쟁(exists 동시 통과)에서 unique 위반을
         // 이 지점에서 잡는다. 미적용 시 커밋 시점에 터져 500으로 노출됨 → 409로 멱등 변환.
         try {
-            reviewLikeRepository.saveAndFlush(ReviewLike.create(review, member));
+            reviewLikeRepository.saveAndFlush(ReviewLike.create(review, member.getMemberId()));
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
         }
@@ -69,7 +69,9 @@ public class ReviewLikeService {
     public ReviewLikeResponse unlike(Long reviewId, Long memberUserId) {
         Review review = getReviewOrThrow(reviewId);
         // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 중복 언라이크 시 한쪽만 1행 삭제·감소, 나머지는 0행
-        int deleted = reviewLikeRepository.deleteByReviewAndMember(reviewId, memberUserId);
+        // memberId(PK)가 필요해 회원 조회가 한 번 늘었다. 서비스 분리 후엔 토큰 클레임에서 받아 없앤다.
+        Long memberId = memberLoader.getOrThrow(memberUserId).getMemberId();
+        int deleted = reviewLikeRepository.deleteByReviewAndMember(reviewId, memberId);
         if (deleted == 0) {
             throw new BusinessException(ErrorCode.REVIEW_LIKE_NOT_FOUND);// 좋아요 없음(또는 동시 요청이 먼저 취소)
         }

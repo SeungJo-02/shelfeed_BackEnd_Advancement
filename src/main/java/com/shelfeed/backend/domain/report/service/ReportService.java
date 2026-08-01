@@ -36,18 +36,18 @@ public class ReportService {
         Long targetId = request.getTargetId();
 
         Report report = switch (targetType) {
-            case REVIEW -> createReviewReport(reporter, memberUserId, request);
-            case COMMENT -> createCommentReport(reporter, memberUserId, request);
+            case REVIEW -> createReviewReport(reporter.getMemberId(), memberUserId, request);
+            case COMMENT -> createCommentReport(reporter.getMemberId(), memberUserId, request);
         };
 
         Report saved = reportRepository.save(report);
         return ReportResponse.of(saved, targetType, targetId);
     }
 
-    private Report createReviewReport(Member reporter, Long memberUserId, ReportRequest request) {
+    private Report createReviewReport(Long reporterMemberId, Long memberUserId, ReportRequest request) {
         Long reviewId = request.getTargetId();
 
-        if (reportRepository.existsByMemberAndReviewId(reporter, reviewId)) {
+        if (reportRepository.existsByMemberIdAndReviewId(reporterMemberId, reviewId)) {
             throw new BusinessException(ErrorCode.REPORT_ALREADY_EXISTS);
         }
 
@@ -58,24 +58,25 @@ public class ReportService {
             throw new BusinessException(ErrorCode.REPORT_SELF_NOT_ALLOWED);
         }
 
-        return Report.createReviewReport(reporter, reviewId, request.getReason(), request.getDescription());
+        return Report.createReviewReport(reporterMemberId, reviewId, request.getReason(), request.getDescription());
     }
 
-    private Report createCommentReport(Member reporter, Long memberUserId, ReportRequest request) {
+    private Report createCommentReport(Long reporterMemberId, Long memberUserId, ReportRequest request) {
         Long commentId = request.getTargetId();
 
-        if (reportRepository.existsByMemberAndCommentId(reporter, commentId)) {
+        if (reportRepository.existsByMemberIdAndCommentId(reporterMemberId, commentId)) {
             throw new BusinessException(ErrorCode.REPORT_ALREADY_EXISTS);
         }
 
         Comment comment = commentRepository.findByCommentIdAndIsDeletedFalse(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND));
 
-        if (comment.getMember().getMemberUserId().equals(memberUserId)) {
+        // 댓글이 PK를 들고 있으므로 신고자 PK와 직접 비교한다(추가 조회 불필요).
+        if (comment.getMemberId().equals(reporterMemberId)) {
             throw new BusinessException(ErrorCode.REPORT_SELF_NOT_ALLOWED);
         }
 
-        return Report.createCommentReport(reporter, commentId, request.getReason(), request.getDescription());
+        return Report.createCommentReport(reporterMemberId, commentId, request.getReason(), request.getDescription());
     }
 }
 
