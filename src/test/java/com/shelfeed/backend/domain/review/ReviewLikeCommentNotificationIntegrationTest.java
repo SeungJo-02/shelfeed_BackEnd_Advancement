@@ -118,8 +118,8 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
                 .doesNotThrowAnyException();
 
         // 좋아요 행 + 카운트는 DB에서 다시 읽어 검증 (롤백됐다면 0)
-        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(
-                review.getReviewId(), actor.getMemberUserId())).isTrue();
+        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMemberId(
+                review.getReviewId(), actor.getMemberId())).isTrue();
         Review reloaded = reviewRepository.findByReviewIdAndIsDeletedFalse(review.getReviewId()).orElseThrow();
         assertThat(reloaded.getLikeCount()).isEqualTo(1);
         // 작성자에게 좋아요 알림 1건
@@ -156,8 +156,8 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
                 review.getReviewId(), comment.getCommentId(), author.getMemberUserId()))
                 .doesNotThrowAnyException();
 
-        assertThat(commentLikeRepository.existsByComment_CommentIdAndMember_MemberUserId(
-                comment.getCommentId(), author.getMemberUserId())).isTrue();
+        assertThat(commentLikeRepository.existsByComment_CommentIdAndMemberId(
+                comment.getCommentId(), author.getMemberId())).isTrue();
         Comment reloaded = commentRepository.findByCommentIdAndIsDeletedFalse(comment.getCommentId()).orElseThrow();
         assertThat(reloaded.getLikeCount()).isEqualTo(1);
         // 댓글 작성자(actor)에게 댓글 좋아요 알림 1건
@@ -174,7 +174,8 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
         reviewLikeService.like(review.getReviewId(), liker2.getMemberUserId());
 
         Long reviewId = review.getReviewId();
-        Long actorId = actor.getMemberUserId();
+        Long actorId = actor.getMemberUserId();      // 서비스 호출용(공개 ID)
+        Long actorMemberId = actor.getMemberId();    // 좋아요 행 조회용(PK)
 
         // actor의 언라이크를 2개 스레드가 '동시에' 호출 (더블클릭·재시도 재현). 각 스레드 = 독립 트랜잭션.
         int threads = 2;
@@ -204,9 +205,9 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
         // 핵심 검증: actor의 좋아요만 1회 제거 → 카운트는 정확히 1 (liker2 좋아요 유지). 드리프트면 0이 됨.
         Review reloaded = reviewRepository.findByReviewIdAndIsDeletedFalse(reviewId).orElseThrow();
         assertThat(reloaded.getLikeCount()).isEqualTo(1);
-        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId, actorId)).isFalse();
-        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(
-                reviewId, liker2.getMemberUserId())).isTrue();
+        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMemberId(reviewId, actorMemberId)).isFalse();
+        assertThat(reviewLikeRepository.existsByReview_ReviewIdAndMemberId(
+                reviewId, liker2.getMemberId())).isTrue();
         // 정확히 한 요청만 성공, 나머지는 NOT_FOUND (이중 성공/이중 감소 아님)
         assertThat(success.get()).isEqualTo(1);
         assertThat(notFound.get()).isEqualTo(1);

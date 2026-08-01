@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class CommentService {
         Comment comment;
         Member notifyTarget;
         if (request.getParentCommentId() == null) {//새 댓글이면 새 댓글 생성
-            comment = Comment.createOriginComment(review, member, request.getContent());
+            comment = Comment.createOriginComment(review, member.getMemberId(), request.getContent());
             notifyTarget = reviewOwner;
         } else {// 댓글이면 부모 댓글에 생성 그것도 아니면 예외
             Comment parentComment = commentRepository.findByCommentIdAndIsDeletedFalse(request.getParentCommentId())
@@ -75,13 +76,13 @@ public class CommentService {
             if (parentComment.getParentComment() != null){ //부모 댓글이 이미 답글 이면 예외
                 throw new BusinessException(ErrorCode.NESTED_REPLY_NOT_ALLOWED);
             }
-            comment = Comment.createReply(review, member, parentComment, request.getContent());// 대댓글 작성
-            notifyTarget = memberLoader.getOrThrow(parentComment.getMember().getMemberUserId());
+            comment = Comment.createReply(review, member.getMemberId(), parentComment, request.getContent());// 대댓글 작성
+            notifyTarget = memberLoader.getByMemberIdOrThrow(parentComment.getMemberId());
         }
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());
         notificationService.notifyComment(notifyTarget, member, review.getReviewId(), comment.getCommentId());
-        return CommentCreateResponse.of(comment);
+        return CommentCreateResponse.of(comment, member);
     }
 
     //2. 댓글 조회
@@ -100,14 +101,19 @@ public class CommentService {
 
         // 차단 유저 댓글 필터링
         Set<Long> blockedIds = Set.of();
-        if (memberUserId != null) {
-            Member me = memberLoader.getOrThrow(memberUserId);
+        // 좋아요 IN절 조회에도 PK가 필요하므로 me를 블록 밖에서 한 번만 로드해 재사용한다.
+        Member me = memberUserId != null ? memberLoader.getOrThrow(memberUserId) : null;
+        if (me != null) {
             blockedIds = blockService.blockedIdSet(me);
         }
         final Set<Long> finalBlockedIds = blockedIds;
+
+        // 작성자는 연관관계가 아니므로 JOIN FETCH 대신 memberId를 모아 IN 쿼리로 조회해 조립한다.
+        // 차단 필터가 작성자의 공개 ID를 보기 때문에 필터 이전에 먼저 조회해야 한다.
+        Map<Long, Member> authors = new HashMap<>(loadAuthors(parentComments));
         if (!finalBlockedIds.isEmpty()) {
             parentComments = parentComments.stream()
-                    .filter(c -> !finalBlockedIds.contains(c.getMember().getMemberUserId()))
+                    .filter(c -> !isBlocked(authors.get(c.getMemberId()), finalBlockedIds))
                     .collect(Collectors.toList());
         }
 
@@ -115,9 +121,10 @@ public class CommentService {
         List<Comment> allReplies = parentComments.isEmpty()
                 ? List.of()
                 : commentRepository.findRepliesByParents(parentComments);
+        authors.putAll(loadAuthors(allReplies));
         if (!finalBlockedIds.isEmpty() && !allReplies.isEmpty()) {
             allReplies = allReplies.stream()
-                    .filter(r -> !finalBlockedIds.contains(r.getMember().getMemberUserId()))
+                    .filter(r -> !isBlocked(authors.get(r.getMemberId()), finalBlockedIds))
                     .collect(Collectors.toList());
         }
         Map<Long, List<Comment>> repliesMap = allReplies.stream()
@@ -125,27 +132,28 @@ public class CommentService {
 
         // 좋아요 IN절 일괄 조회 (부모 댓글 + 대댓글 한번에)
         Set<Long> likedIds = Set.of();
-        if (memberUserId != null) {
+        if (me != null) {
             List<Long> allCommentIds = new ArrayList<>();
             parentComments.forEach(c -> allCommentIds.add(c.getCommentId()));
             allReplies.forEach(r -> allCommentIds.add(r.getCommentId()));
             if (!allCommentIds.isEmpty()) {
-                likedIds = commentLikeRepository.findLikedCommentIds(allCommentIds, memberUserId);
+                likedIds = commentLikeRepository.findLikedCommentIds(allCommentIds, me.getMemberId());
             }
         }
 
         final Set<Long> finalLikedIds = likedIds;
+        final Long myMemberId = me != null ? me.getMemberId() : null;
         List<CommentResponse> content = parentComments.stream().map(comment -> {
-            boolean isMine = memberUserId != null && comment.getMember().getMemberUserId().equals(memberUserId);
+            boolean isMine = comment.getMemberId().equals(myMemberId);
             boolean isLiked = finalLikedIds.contains(comment.getCommentId());
 
             List<ReplyResponse> replies = repliesMap.getOrDefault(comment.getCommentId(), List.of()).stream()
                     .map(reply -> {
-                        boolean replyIsMine = memberUserId != null && reply.getMember().getMemberUserId().equals(memberUserId);
+                        boolean replyIsMine = reply.getMemberId().equals(myMemberId);
                         boolean replyIsLiked = finalLikedIds.contains(reply.getCommentId());
-                        return ReplyResponse.of(reply, replyIsMine, replyIsLiked);
+                        return ReplyResponse.of(reply, authors.get(reply.getMemberId()), replyIsMine, replyIsLiked);
                     }).toList();
-            return CommentResponse.of(comment, isMine, isLiked, replies);
+            return CommentResponse.of(comment, authors.get(comment.getMemberId()), isMine, isLiked, replies);
         }).toList();
         return CommentListResponse.of(content, limit);
     }
@@ -175,7 +183,8 @@ public class CommentService {
         if (!comment.getReview().getReviewId().equals(reviewId)) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
-        Member commentOwner = comment.getMember();
+        // 작성자가 ID 참조로 바뀌어 PK로 다시 조회한다. 서비스 분리 후엔 user-service 호출이 된다.
+        Member commentOwner = memberLoader.getByMemberIdOrThrow(comment.getMemberId());
         if (commentOwner.getMemberUserId().equals(memberUserId)) {
             throw new BusinessException(ErrorCode.SELF_LIKE_NOT_ALLOWED);
         }
@@ -183,12 +192,12 @@ public class CommentService {
         if (blockService.isBlockedBetween(commentOwner, member)) {
             throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
-        if (commentLikeRepository.existsByComment_CommentIdAndMember_MemberUserId(commentId, memberUserId)){
+        if (commentLikeRepository.existsByComment_CommentIdAndMemberId(commentId, member.getMemberId())){
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
         // 동시 요청 경쟁: exists 동시 통과 후 unique 위반을 409로 멱등 변환 (saveAndFlush로 즉시 검출)
         try {
-            commentLikeRepository.saveAndFlush(CommentLike.create(member, comment));
+            commentLikeRepository.saveAndFlush(CommentLike.create(member.getMemberId(), comment));
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.ALREADY_COMMENT_LIKED);
         }
@@ -205,7 +214,9 @@ public class CommentService {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
         // 벌크 DELETE의 실제 삭제 행 수로 감소를 게이팅 — 동시 중복 취소 시 이중 감소(드리프트) 방지
-        int deleted = commentLikeRepository.deleteByCommentAndMember(commentId, memberUserId);
+        // memberId(PK)가 필요해 회원 조회가 한 번 늘었다. 서비스 분리 후엔 토큰 클레임에서 받아 없앤다.
+        Long memberId = memberLoader.getOrThrow(memberUserId).getMemberId();
+        int deleted = commentLikeRepository.deleteByCommentAndMember(commentId, memberId);
         if (deleted == 0) {
             throw new BusinessException(ErrorCode.COMMENT_LIKE_NOT_FOUND);
         }
@@ -217,9 +228,22 @@ public class CommentService {
         if (!comment.getReview().getReviewId().equals(reviewId)) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
-        if (!comment.getMember().getMemberUserId().equals(memberUserId)) {
+        // 댓글이 PK를 들고 있으므로 소유자 비교도 PK로 한다.
+        Long callerMemberId = memberLoader.getOrThrow(memberUserId).getMemberId();
+        if (!comment.getMemberId().equals(callerMemberId)) {
             throw new BusinessException(ErrorCode.NOT_COMMENT_OWNER);
         }
+    }
+
+    /** 댓글 묶음의 작성자를 IN 쿼리 한 번으로 조회한다(조인 대체). */
+    private Map<Long, Member> loadAuthors(List<Comment> comments) {
+        return memberLoader.findAllByMemberIds(
+                comments.stream().map(Comment::getMemberId).collect(Collectors.toSet()));
+    }
+
+    /** 차단 목록은 공개 ID 기준이므로 작성자를 거쳐 비교한다. */
+    private boolean isBlocked(Member author, Set<Long> blockedUserIds) {
+        return author != null && blockedUserIds.contains(author.getMemberUserId());
     }
 
     private Review getReview(Long reviewId) {

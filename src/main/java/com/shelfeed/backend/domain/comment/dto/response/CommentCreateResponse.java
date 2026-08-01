@@ -1,6 +1,7 @@
 package com.shelfeed.backend.domain.comment.dto.response;
 
 import com.shelfeed.backend.domain.comment.entity.Comment;
+import com.shelfeed.backend.domain.member.entity.Member;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -26,14 +27,14 @@ public class CommentCreateResponse {
         private String profileImageUrl;
     }
 
-    public static CommentCreateResponse of(Comment comment){
+    public static CommentCreateResponse of(Comment comment, Member author){
         return CommentCreateResponse.builder()
                 .commentId(comment.getCommentId())
                 .reviewId(comment.getReview().getReviewId())
                 .user(UserInfo.builder()
-                        .userId(comment.getMember().getMemberUserId())
-                        .nickname(comment.getMember().getNickname())
-                        .profileImageUrl(comment.getMember().getProfileImageUrl())
+                        .userId(author.getMemberUserId())
+                        .nickname(author.getNickname())
+                        .profileImageUrl(author.getProfileImageUrl())
                         .build())
                 .content(comment.getContent())
                 .parentCommentId(comment.getParentComment() != null ? comment.getParentComment().getCommentId(): null )

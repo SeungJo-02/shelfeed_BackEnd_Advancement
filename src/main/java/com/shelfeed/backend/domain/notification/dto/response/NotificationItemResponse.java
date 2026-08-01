@@ -42,13 +42,17 @@ public class NotificationItemResponse {
         }
     }
 
-    public static NotificationItemResponse of(Notification n) {
+    /**
+     * actor는 더 이상 Notification의 연관관계가 아니므로 호출측이 별도 조회해 넘긴다.
+     * (시스템 알림이거나 행위자가 탈퇴한 경우 null)
+     */
+    public static NotificationItemResponse of(Notification n, Member actor) {
         return NotificationItemResponse.builder()
                 .notificationId(n.getNotificationId())
                 .type(n.getType())
                 .message(n.getMessage())
                 .isRead(n.isRead())
-                .actor(ActorResponse.of(n.getActor()))
+                .actor(ActorResponse.of(actor))
                 .reviewId(n.getReviewId())
                 .commentId(n.getCommentId())
                 .followId(n.getFollowId())

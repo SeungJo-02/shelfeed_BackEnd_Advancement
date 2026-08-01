@@ -48,6 +48,10 @@ class NotificationServiceTest {
     void setUp() {
         reviewer = Member.createLocal(1L, "reviewer@test.com", "encoded", "작성자", "bio");
         follower = Member.createLocal(2L, "follower@test.com", "encoded", "팔로워", "bio");
+        // 알림은 이제 Member 객체가 아닌 PK(memberId)를 저장하므로 픽스처에도 PK가 있어야 한다.
+        // 공개 ID(memberUserId)와 다른 값을 넣어 둘을 혼동하면 드러나게 한다.
+        ReflectionTestUtils.setField(reviewer, "memberId", 101L);
+        ReflectionTestUtils.setField(follower, "memberId", 102L);
         Book book = Book.create("9791234567890", "테스트 책", "작가", "출판사",
                 null, null, null, null, null, null, null);
         review = Review.create(reviewer, book, null, (byte) 5, "내용", null,

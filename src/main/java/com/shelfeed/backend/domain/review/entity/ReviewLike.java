@@ -1,6 +1,5 @@
 package com.shelfeed.backend.domain.review.entity;
 
-import com.shelfeed.backend.domain.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -22,9 +21,9 @@ public class ReviewLike {
     @Column(name = "review_like_id")
     private Long reviewLikeId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    // 서비스 경계(review → user)를 넘으므로 ID로 참조한다. members.member_id(PK)를 담는다.
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "review_id", nullable = false)
@@ -35,10 +34,10 @@ public class ReviewLike {
     private LocalDateTime createdAt;
 
     //정적 메서드
-    public static ReviewLike create(Review review, Member member) {
+    public static ReviewLike create(Review review, Long memberId) {
         ReviewLike like = new ReviewLike();
         like.review = review;
-        like.member = member;
+        like.memberId = memberId;
         return like;
     }
 

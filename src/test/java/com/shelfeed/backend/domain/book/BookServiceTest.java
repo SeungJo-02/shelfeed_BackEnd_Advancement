@@ -9,6 +9,7 @@ import com.shelfeed.backend.domain.book.dto.response.BookDetailResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookReviewListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookSearchListResponse;
 import com.shelfeed.backend.domain.book.entity.Book;
+import com.shelfeed.backend.domain.block.service.BlockService;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.book.service.BookPersistenceService;
 import com.shelfeed.backend.domain.book.service.BookService;
@@ -54,6 +55,8 @@ class BookServiceTest {
     @Mock AladinClient aladinApiClient;
     // #203 리팩터로 DB upsert/ES 색인이 BookPersistenceService로 분리됨 — BookService가 위임함
     @Mock BookPersistenceService bookPersistenceService;
+    // 좋아요 조회에 PK가 필요해져 회원을 실제로 로드하게 되면서 차단 필터 경로도 함께 타게 됐다.
+    @Mock BlockService blockService;
 
     @InjectMocks BookService bookService;
 
@@ -64,6 +67,8 @@ class BookServiceTest {
     @BeforeEach
     void setUp() {
         member = Member.createLocal(1L, "me@test.com", "encoded", "me", "bio");
+        // 좋아요 조회가 공개 ID가 아닌 PK를 쓰므로 픽스처에도 PK가 필요하다.
+        ReflectionTestUtils.setField(member, "memberId", 101L);
 
         book = Book.create("9781234567890", "Test Book", "Author", "Publisher",
                 "http://cover.url", "description", 300, null, "12345", "소설", null);
@@ -119,7 +124,7 @@ class BookServiceTest {
             given(bookPersistenceService.upsertAndGetBooks(anyList()))
                     .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findBookIdsByMemberAndBookIdIn(eq(member), anyList())).willReturn(Set.of(10L));
+            given(libraryRepository.findBookIdsByMemberAndBookIdIn(eq(101L), anyList())).willReturn(Set.of(10L));
 
             BookSearchListResponse response = bookService.searchBooks(request, 1L);
 
@@ -194,7 +199,7 @@ class BookServiceTest {
             given(bookRepository.findAverageRatingByBookId(10L)).willReturn(4.0);
             given(bookRepository.countReviewsByBookId(10L)).willReturn(10L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByMemberAndBook_BookId(member, 10L)).willReturn(Optional.of(lb));
+            given(libraryRepository.findByMemberIdAndBookId(101L, 10L)).willReturn(Optional.of(lb));
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.of(review));
 
             BookDetailResponse response = bookService.getBook(10L, 1L);
@@ -211,7 +216,7 @@ class BookServiceTest {
             given(bookRepository.findAverageRatingByBookId(10L)).willReturn(null);
             given(bookRepository.countReviewsByBookId(10L)).willReturn(0L);
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.findByMemberAndBook_BookId(member, 10L)).willReturn(Optional.empty());
+            given(libraryRepository.findByMemberIdAndBookId(101L, 10L)).willReturn(Optional.empty());
             given(reviewRepository.findByMemberAndBook_BookIdAndIsDeletedFalse(member, 10L)).willReturn(Optional.empty());
 
             BookDetailResponse response = bookService.getBook(10L, 1L);
@@ -282,7 +287,7 @@ class BookServiceTest {
         void 성공_로그인_서재_확인() {
             given(bookRepository.findByIsbn13("9781234567890")).willReturn(Optional.of(book));
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
-            given(libraryRepository.existsByMemberAndBook_BookId(member, 10L)).willReturn(true);
+            given(libraryRepository.existsByMemberIdAndBookId(101L, 10L)).willReturn(true);
 
             BookDetailResponse response = bookService.getBookByIsbn("9781234567890", 1L);
 
@@ -303,7 +308,9 @@ class BookServiceTest {
 
             given(bookRepository.existsById(10L)).willReturn(true);
             given(reviewRepository.findBookReviewsLatest(eq(10L), isNull(), any(PageRequest.class))).willReturn(List.of(review));
-            given(reviewLikeRepository.findLikedReviewIds(List.of(50L), 1L)).willReturn(Set.of(50L));
+            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(blockService.blockedIdSet(member)).willReturn(Set.of());
+            given(reviewLikeRepository.findLikedReviewIds(List.of(50L), 101L)).willReturn(Set.of(50L));
 
             BookReviewListResponse response = bookService.getBookReviews(10L, request, 1L);
 
@@ -320,7 +327,9 @@ class BookServiceTest {
 
             given(bookRepository.existsById(10L)).willReturn(true);
             given(reviewRepository.findBookReviewsPopular(eq(10L), isNull(), isNull(), any(PageRequest.class))).willReturn(List.of(review));
-            given(reviewLikeRepository.findLikedReviewIds(List.of(50L), 1L)).willReturn(Set.of());
+            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(blockService.blockedIdSet(member)).willReturn(Set.of());
+            given(reviewLikeRepository.findLikedReviewIds(List.of(50L), 101L)).willReturn(Set.of());
 
             BookReviewListResponse response = bookService.getBookReviews(10L, request, 1L);
 

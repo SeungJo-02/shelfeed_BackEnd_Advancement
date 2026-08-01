@@ -3,6 +3,7 @@ package com.shelfeed.backend.domain.feed.service;
 import com.shelfeed.backend.domain.feed.dto.response.RecommendFeedResponse;
 import com.shelfeed.backend.domain.feed.dto.response.RecommendItemResponse;
 import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
+import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.review.entity.Review;
@@ -28,6 +29,7 @@ public class RecommendationService {
 
     private final MemberLoader memberLoader;
     private final LibraryRepository libraryRepository;
+    private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewTagRepository reviewTagRepository;
@@ -85,7 +87,7 @@ public class RecommendationService {
 
         List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
 
-        Set<Long> likedIds = reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId);
+        Set<Long> likedIds = reviewLikeRepository.findLikedReviewIds(reviewIds, me.getMemberId());
 
         Map<Long, List<String>> tagMap = reviewTagRepository.findByReviewIdIn(reviewIds).stream()
                 .collect(Collectors.groupingBy(
@@ -106,9 +108,14 @@ public class RecommendationService {
     private List<String> buildTopCategories(Member me) {
         Map<String, Long> scoreMap = new LinkedHashMap<>();
 
-        libraryRepository.findTopGenresByMember(me, PageRequest.of(0, 20))
-                .forEach(row -> scoreMap.merge(
-                        (String) row[0], (Long) row[1] * LIBRARY_WEIGHT, Long::sum));
+        // 서재↔도서 조인이 서비스 경계를 넘게 되어 2단계로 나눴다.
+        // 1) 서재에서 읽은 도서 ID → 2) catalog에서 장르 빈도 집계
+        List<Long> readBookIds = libraryRepository.findReadBookIdsByMember(me.getMemberId());
+        if (!readBookIds.isEmpty()) {
+            bookRepository.countGenresByBookIds(readBookIds, PageRequest.of(0, 20))
+                    .forEach(row -> scoreMap.merge(
+                            (String) row[0], (Long) row[1] * LIBRARY_WEIGHT, Long::sum));
+        }
 
         // data.sql에 category_pattern 채워져 있음. 온보딩 완료 회원에게 자동 반영됨.
         memberGenreRepository.findAllByMemberWithGenre(me)

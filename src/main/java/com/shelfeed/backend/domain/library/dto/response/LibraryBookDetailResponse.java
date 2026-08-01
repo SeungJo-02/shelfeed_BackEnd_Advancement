@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.library.dto.response;
 
+import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.review.entity.Review;
@@ -42,17 +43,17 @@ public class LibraryBookDetailResponse {
         private LocalDateTime createdAt;
     }
 
-    public static LibraryBookDetailResponse of(LibraryBook lb, Review review) {
+    public static LibraryBookDetailResponse of(LibraryBook lb, Book book, Review review) {
         return LibraryBookDetailResponse.builder()
                 .libraryBookId(lb.getLibraryBookId())
                 .book(BookDetail.builder()
-                        .bookId(lb.getBook().getBookId())
-                        .isbn13(lb.getBook().getIsbn13())
-                        .title(lb.getBook().getTitle())
-                        .author(lb.getBook().getAuthor())
-                        .publisher(lb.getBook().getPublisher())
-                        .coverImageUrl(lb.getBook().getCoverImageUrl())
-                        .totalPages(lb.getBook().getTotalPages())
+                        .bookId(book.getBookId())
+                        .isbn13(book.getIsbn13())
+                        .title(book.getTitle())
+                        .author(book.getAuthor())
+                        .publisher(book.getPublisher())
+                        .coverImageUrl(book.getCoverImageUrl())
+                        .totalPages(book.getTotalPages())
                         .build())
                 .status(lb.getStatus())
                 .startedAt(lb.getStartedAt())

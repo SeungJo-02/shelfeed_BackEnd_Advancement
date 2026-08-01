@@ -68,7 +68,7 @@ public class ReviewService {
         LibraryBook libraryBook = null;
         if (request.getLibraryBookId() != null) {
             libraryBook = libraryRepository
-                    .findByLibraryBookIdAndMember(request.getLibraryBookId(), member)
+                    .findByLibraryBookIdAndMemberId(request.getLibraryBookId(), member.getMemberId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.LIBRARY_BOOK_NOT_FOUND));
         }
         //감상 저장
@@ -96,15 +96,17 @@ public class ReviewService {
         if (!isMine && review.getReviewVisibility() == ReviewVisibility.PRIVATE){//비공개 거나 게시물 주인이 아니면
             throw new BusinessException(ErrorCode.PRIVATE_REVIEW);//비공개 감상
         }
-        if (!isMine && memberUserId != null) {
-            Member requester = memberLoader.getOrThrow(memberUserId);
+        // 좋아요 여부 조회에도 PK가 필요하므로 requester를 한 번만 로드해 차단 확인과 함께 재사용한다.
+        Member requester = memberUserId != null ? memberLoader.getOrThrow(memberUserId) : null;
+        if (!isMine && requester != null) {
             Member owner = review.getMember();
             if (blockService.isBlockedBetween(owner, requester)) {
                 throw new BusinessException(ErrorCode.BLOCKED_USER);
             }
         }
         List<String> tags = getTagNames(review);
-        boolean isLiked = memberUserId != null && reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(reviewId, memberUserId);
+        boolean isLiked = requester != null
+                && reviewLikeRepository.existsByReview_ReviewIdAndMemberId(reviewId, requester.getMemberId());
         return ReviewDetailResponse.of(review, tags, isMine, isLiked);
     }
 
@@ -172,7 +174,7 @@ public class ReviewService {
         if (hasNext) reviews = reviews.subList(0, limit);
 
         List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
-        Set<Long> likedIds = reviews.isEmpty() ? Set.of() : reviewLikeRepository.findLikedReviewIds(reviewIds, memberUserId);
+        Set<Long> likedIds = reviews.isEmpty() ? Set.of() : reviewLikeRepository.findLikedReviewIds(reviewIds, member.getMemberId());
         Map<Long, List<String>> tagMap = getTagNamesByReviews(reviews);
         return reviews.stream()
                 .map(review -> ReviewSummaryResponse.of(review,
@@ -183,19 +185,19 @@ public class ReviewService {
     //6. 타 유저 감상 목록
     public List<ReviewSummaryResponse> getUserReviews(Long userId, Long requestingUserId, Long cursor, int limit) {
         Member member = memberLoader.getOrThrow(userId);
-        if (requestingUserId != null && !requestingUserId.equals(userId)) {
-            Member requester = memberLoader.getOrThrow(requestingUserId);
-            if (blockService.isBlockedBetween(member, requester)) {
-                throw new BusinessException(ErrorCode.BLOCKED_USER);
-            }
+        Member requester = requestingUserId == null ? null
+                : requestingUserId.equals(userId) ? member : memberLoader.getOrThrow(requestingUserId);
+        if (requester != null && !requestingUserId.equals(userId)
+                && blockService.isBlockedBetween(member, requester)) {
+            throw new BusinessException(ErrorCode.BLOCKED_USER);
         }
         List<Review> reviews = reviewRepository.findUserReviews(member, cursor, PageRequest.of(0, limit + 1));
         boolean hasNext = reviews.size() > limit;// 다음 페이지 확인
         if (hasNext) reviews = reviews.subList(0, limit);// 한 개 빼기
 
         List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
-        Set<Long> likedIds = (requestingUserId != null && !reviews.isEmpty())
-                ? reviewLikeRepository.findLikedReviewIds(reviewIds, requestingUserId) : Set.of();
+        Set<Long> likedIds = (requester != null && !reviews.isEmpty())
+                ? reviewLikeRepository.findLikedReviewIds(reviewIds, requester.getMemberId()) : Set.of();
         Map<Long, List<String>> tagMap = getTagNamesByReviews(reviews);
         return reviews.stream()
                 .map(review -> ReviewSummaryResponse.of(review,

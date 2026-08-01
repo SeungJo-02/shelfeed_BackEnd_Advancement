@@ -6,12 +6,27 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
     Optional<Book> findByIsbn13(String isbn13); //isbn바코드 조회 확인
+
+    /**
+     * 주어진 도서들의 장르 빈도 집계 (내림차순).
+     * 서재↔도서 조인이 서비스 경계를 넘게 되어, 서재에서 bookId를 먼저 뽑고 여기서 집계하는 2단계로 나눴다.
+     */
+    @Query("""
+        SELECT b.genre, COUNT(b) as cnt
+        FROM Book b
+        WHERE b.bookId IN :bookIds
+        AND b.genre IS NOT NULL
+        GROUP BY b.genre
+        ORDER BY cnt DESC
+    """)
+    List<Object[]> countGenresByBookIds(@Param("bookIds") Collection<Long> bookIds, Pageable pageable);
     //도서의 평균 평점 쿼리
     @Query("""
 SELECT AVG(r.rating) FROM Review r WHERE r.book.bookId = :bookId AND r.isDeleted = false

@@ -55,6 +55,9 @@ class ReviewLikeServiceTest {
     void setUp() {
         author = Member.createLocal(1L, "author@test.com", "encoded", "작성자", "bio");
         liker  = Member.createLocal(2L, "liker@test.com",  "encoded", "좋아요누른이", "bio");
+        // 좋아요는 이제 PK(memberId)를 저장한다. 공개 ID(memberUserId)와 다른 값을 넣어 혼동을 드러낸다.
+        ReflectionTestUtils.setField(author, "memberId", 101L);
+        ReflectionTestUtils.setField(liker, "memberId", 102L);
         book = Book.create("9791234567890", "테스트 책", "작가", "출판사",
                 null, null, null, null, null, null, null);
     }
@@ -121,7 +124,7 @@ class ReviewLikeServiceTest {
                     .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
             given(memberLoader.getOrThrow(2L)).willReturn(liker);
             given(blockService.isBlockedBetween(author, liker)).willReturn(false);
-            given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
+            given(reviewLikeRepository.existsByReview_ReviewIdAndMemberId(10L, 102L))
                     .willReturn(true);
 
             assertThatThrownBy(() -> reviewLikeService.like(10L, 2L))
@@ -137,7 +140,7 @@ class ReviewLikeServiceTest {
                     .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
             given(memberLoader.getOrThrow(2L)).willReturn(liker);
             given(blockService.isBlockedBetween(author, liker)).willReturn(false);
-            given(reviewLikeRepository.existsByReview_ReviewIdAndMember_MemberUserId(10L, 2L))
+            given(reviewLikeRepository.existsByReview_ReviewIdAndMemberId(10L, 102L))
                     .willReturn(false);
 
             ReviewLikeResponse response = reviewLikeService.like(10L, 2L);
@@ -161,7 +164,8 @@ class ReviewLikeServiceTest {
         void 좋아요_없음_예외() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
-            given(reviewLikeRepository.deleteByReviewAndMember(10L, 2L)).willReturn(0);
+            given(memberLoader.getOrThrow(2L)).willReturn(liker);
+            given(reviewLikeRepository.deleteByReviewAndMember(10L, 102L)).willReturn(0);
 
             assertThatThrownBy(() -> reviewLikeService.unlike(10L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -176,7 +180,8 @@ class ReviewLikeServiceTest {
         void 정상_취소_성공() {
             given(reviewRepository.findByReviewIdAndIsDeletedFalse(10L))
                     .willReturn(Optional.of(review(ReviewVisibility.PUBLIC)));
-            given(reviewLikeRepository.deleteByReviewAndMember(10L, 2L)).willReturn(1);
+            given(memberLoader.getOrThrow(2L)).willReturn(liker);
+            given(reviewLikeRepository.deleteByReviewAndMember(10L, 102L)).willReturn(1);
 
             ReviewLikeResponse response = reviewLikeService.unlike(10L, 2L);
 
