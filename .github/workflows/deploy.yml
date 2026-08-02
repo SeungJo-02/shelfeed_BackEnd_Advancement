@@ -35,7 +35,7 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest
 
       - name: EC2에 설정 파일 복사
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
