@@ -82,7 +82,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
 
     // ArchUnit — MSA 분리를 위한 서비스 경계 규칙을 테스트로 강제한다.
-    testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.4.2")
     testImplementation("org.testcontainers:mysql:1.21.4")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     add("mockitoAgent", "org.mockito:mockito-core") { isTransitive = false }
