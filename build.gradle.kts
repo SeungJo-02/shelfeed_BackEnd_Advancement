@@ -45,7 +45,7 @@ dependencies {
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
     // SpringDoc OpenAPI (Swagger UI)
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.4")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.0")
 
     // Spring Cloud AWS 3.x (S3 - Presigned URL)
     implementation("io.awspring.cloud:spring-cloud-aws-starter-s3:3.4.2")
