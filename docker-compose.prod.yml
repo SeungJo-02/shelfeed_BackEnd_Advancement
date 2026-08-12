@@ -42,7 +42,17 @@ services:
     image: redis:7-alpine
     # 호스트 포트 미노출 — 앱은 컴포즈 내부 네트워크(redis:6379)로만 접근. 외부 도달 차단.
     # REDIS_PASSWORD가 비어 있으면 requirepass ""가 되어 인증 없음(기존 동작 유지). 운영에선 .env에 반드시 설정.
-    command: redis-server --requirepass "${REDIS_PASSWORD}" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # maxmemory-policy: 저장하는 키가 전부 만료 시간을 갖고 있으므로 volatile-lru면 충분하다.
+    #   allkeys-lru는 만료 없는 키까지 정리 대상으로 삼는데, 예전에 회원 번호 시퀀스가 그렇게
+    #   evict되어 회원가입이 통째로 막힌 적이 있다(현재 시퀀스는 DB로 이전).
+    # appendonly: 리프레시 토큰·이메일 인증 코드가 재배포마다 사라지면 전원 로그아웃되고
+    #   진행 중인 인증이 끊긴다. AOF로 컨테이너 교체를 넘겨 살린다.
+    command: >
+      redis-server --requirepass "${REDIS_PASSWORD}"
+      --maxmemory 256mb --maxmemory-policy volatile-lru
+      --appendonly yes --appendfsync everysec
+    volumes:
+      - redis-data:/data
     environment:
       REDISCLI_AUTH: ${REDIS_PASSWORD}   # redis-cli가 명령줄 노출 없이 인증(healthcheck용)
     healthcheck:
@@ -124,6 +134,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis-data:
   prometheus-data:
   grafana-data:
   influxdb-data:

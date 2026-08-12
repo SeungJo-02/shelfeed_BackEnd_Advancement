@@ -22,7 +22,6 @@ public class RedisService {
     private static final String PW_RESET_COOLDOWN_PREFIX  = "auth:pwreset:cooldown:";
     private static final String LOGIN_ATTEMPTS_PREFIX     = "auth:login:attempts:";
     private static final String OAUTH_STATE_PREFIX       = "auth:oauth:state:";
-    private static final String MEMBER_SEQ_KEY           = "seq:member";
     private static final String ALADIN_SYNC_PREFIX       = "search:aladin:";
 
     // Refresh Token : JWT는 서버 강제 무효화 불가하기에 로그인,갱신,로그아웃 시 저장·검증·삭제 형식으로 만들기
@@ -46,6 +45,25 @@ public class RedisService {
         return redisTemplate.hasKey(BLACKLIST_PREFIX + accessToken);
     }
 
+    /**
+     * 카운터를 1 올리면서 만료 시간을 같이 건다.
+     *
+     * <p>INCR과 EXPIRE를 따로 호출하면 그 사이에 앱이 죽었을 때 만료 없는 키가 영구히 남는다.
+     * Redis의 eviction 정책이 {@code volatile-lru}(만료 설정된 키만 정리 대상)라 그런 키는
+     * 메모리에서 끝까지 빠지지 않는다. 한 스크립트로 묶어 그 틈을 없앤다.
+     *
+     * <p>호출할 때마다 만료 시간을 새로 걸어 슬라이딩 윈도우로 동작한다(기존 동작과 동일).
+     */
+    private static final RedisScript<Long> INCR_WITH_TTL_SCRIPT = RedisScript.of(
+        "local v = redis.call('INCR', KEYS[1]) " +
+        "redis.call('EXPIRE', KEYS[1], ARGV[1]) " +
+        "return v",
+        Long.class);
+
+    private Long incrementWithTtl(String key, long ttlSeconds) {
+        return redisTemplate.execute(INCR_WITH_TTL_SCRIPT, List.of(key), String.valueOf(ttlSeconds));
+    }
+
     //이메일 인증 코드: TTL 5분, 시도 횟수 관리 (5회 초과 시 코드 삭제)
     public void saveEmailCode(String email, String code, long ttlSeconds){
         redisTemplate.opsForValue().set(
@@ -60,8 +78,7 @@ public class RedisService {
         redisTemplate.delete(EMAIL_ATTEMPTS_PREFIX + email);
     }
     public long incrementEmailVerifyAttempts(String email){
-        Long count = redisTemplate.opsForValue().increment(EMAIL_ATTEMPTS_PREFIX + email);
-        redisTemplate.expire(EMAIL_ATTEMPTS_PREFIX + email, 5, TimeUnit.MINUTES);
+        Long count = incrementWithTtl(EMAIL_ATTEMPTS_PREFIX + email, TimeUnit.MINUTES.toSeconds(5));
         return count == null ? 1 : count;
     }
 
@@ -73,9 +90,7 @@ public class RedisService {
     // ── 로그인 무차별 대입 방지 ──────────────────────────────
     // 이메일별 로그인 실패 1회 기록. 실패마다 윈도우(windowSeconds)를 갱신(슬라이딩 윈도우). 누적 실패 횟수 반환.
     public long recordLoginFailure(String email, long windowSeconds) {
-        String key = LOGIN_ATTEMPTS_PREFIX + email;
-        Long count = redisTemplate.opsForValue().increment(key);
-        redisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
+        Long count = incrementWithTtl(LOGIN_ATTEMPTS_PREFIX + email, windowSeconds);
         return count == null ? 0L : count;
     }
 
@@ -138,11 +153,6 @@ public class RedisService {
         String key = REFRESH_PREFIX + memberUserId;
         Long result = redisTemplate.execute(ROTATE_SCRIPT, List.of(key), oldToken, newToken, String.valueOf(ttlSeconds));
         return Long.valueOf(1L).equals(result);
-    }
-
-    //memberUserId 시퀀스: INCR 명령으로 동시성 없는 증가 ID 생성
-    public Long generateMemberUserId() {
-        return redisTemplate.opsForValue().increment(MEMBER_SEQ_KEY);
     }
 
     // 알라딘 검색 캐싱 여부 확인
