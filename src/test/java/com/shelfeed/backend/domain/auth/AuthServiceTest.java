@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthService 단위 테스트")
@@ -42,6 +43,7 @@ class AuthServiceTest {
     @Mock SocialAccountRepository socialAccountRepository;
     @Mock JwtProvider jwtProvider;
     @Mock RedisService redisService;
+    @Mock MemberUserIdGenerator memberUserIdGenerator;
     @Mock PasswordEncoder passwordEncoder;
     @Mock EmailService emailService;
 
@@ -100,7 +102,7 @@ class AuthServiceTest {
             SignupRequest request = signupRequest("new@test.com", "Pass1234!", "새닉네임");
             given(memberRepository.existsByEmail(anyString())).willReturn(false);
             given(memberRepository.existsByNickname(anyString())).willReturn(false);
-            given(redisService.generateMemberUserId()).willReturn(10L);
+            given(memberUserIdGenerator.next()).willReturn(10L);
             given(passwordEncoder.encode(anyString())).willReturn("encodedPw");
             given(memberRepository.save(any())).willReturn(activeMember);
             given(jwtProvider.generateAccessToken(any())).willReturn("accessToken");

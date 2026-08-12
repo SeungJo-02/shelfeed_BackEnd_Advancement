@@ -11,6 +11,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
 
 @Slf4j
 @Component
@@ -21,6 +22,7 @@ public class AdminInitializer implements ApplicationRunner {//run 메서드를 �
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final RedisService redisService;
+    private final MemberUserIdGenerator memberUserIdGenerator;
 
     @Value("${admin.email}")
     private String adminEmail;
@@ -45,7 +47,7 @@ public class AdminInitializer implements ApplicationRunner {//run 메서드를 �
             return;
         }
 
-        Long userId = redisService.generateMemberUserId();
+        Long userId = memberUserIdGenerator.next();
         Member admin = Member.createLocal(userId, adminEmail,
                 passwordEncoder.encode(adminPassword), "관리자", "Shelfeed 관리자 계정");
         admin.verifyEmail();

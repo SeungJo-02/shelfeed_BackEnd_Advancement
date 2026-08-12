@@ -39,6 +39,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
 
 @Slf4j
 @Component
@@ -59,6 +60,7 @@ public class DataSeeder implements ApplicationRunner {
     private final MemberGenreRepository memberGenreRepository;
     private final CommentRepository commentRepository;
     private final ReviewLikeRepository reviewLikeRepository;
+    private final MemberUserIdGenerator memberUserIdGenerator;
 
     private static final List<String> KEYWORDS = List.of(
             "소설", "자기계발", "과학", "역사", "철학"
@@ -330,7 +332,7 @@ public class DataSeeder implements ApplicationRunner {
             String email = info[0], nickname = info[1], bio = info[2];
             if (memberRepository.existsByEmail(email)) continue;
 
-            Long userId = redisService.generateMemberUserId();
+            Long userId = memberUserIdGenerator.next();
             Member member = Member.createLocal(userId, email, encodedPw, nickname, bio);
             member.verifyEmail();
             member.completeOnboarding();

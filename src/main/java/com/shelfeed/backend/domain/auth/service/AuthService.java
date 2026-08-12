@@ -32,6 +32,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
 
 @Slf4j
 @Service
@@ -46,6 +47,7 @@ public class AuthService {
     private final EmailService emailService;
 
     private final RestClient restClient = buildRestClient();
+    private final MemberUserIdGenerator memberUserIdGenerator;
 
     private static RestClient buildRestClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -78,7 +80,7 @@ public class AuthService {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS);
         }
 
-        Long memberUserId = redisService.generateMemberUserId();//중복되지 않게 redis에서 부여한 ID
+        Long memberUserId = memberUserIdGenerator.next();//중복되지 않게 redis에서 부여한 ID
         Member member = Member.createLocal(memberUserId, request.getEmail(), passwordEncoder.encode(request.getPassword()), request.getNickname(), request.getBio());
         memberRepository.save(member); // 저장
 
@@ -233,7 +235,7 @@ public class AuthService {
                             })
                             .orElseGet(() -> {
                                 created[0] = true;
-                                Long memberUserId = redisService.generateMemberUserId();
+                                Long memberUserId = memberUserIdGenerator.next();
                                 String nickname = "Google_" + memberUserId;
                                 return memberRepository.save(Member.createOAuth(memberUserId,
                                         userInfo.email(), nickname, userInfo.picture()));
