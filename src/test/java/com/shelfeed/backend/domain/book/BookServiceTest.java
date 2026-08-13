@@ -4,8 +4,10 @@ import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
+import com.shelfeed.backend.domain.book.dto.request.BookGenreRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
 import com.shelfeed.backend.domain.book.dto.response.BookDetailResponse;
+import com.shelfeed.backend.domain.book.dto.response.BookGenreListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookReviewListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookSearchListResponse;
 import com.shelfeed.backend.domain.book.entity.Book;
@@ -16,6 +18,8 @@ import com.shelfeed.backend.domain.book.service.BookService;
 import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
+import com.shelfeed.backend.domain.genre.entity.Genre;
+import com.shelfeed.backend.domain.genre.repository.GenreRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.review.entity.Review;
@@ -31,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -57,6 +62,7 @@ class BookServiceTest {
     @Mock BookPersistenceService bookPersistenceService;
     // 좋아요 조회에 PK가 필요해져 회원을 실제로 로드하게 되면서 차단 필터 경로도 함께 타게 됐다.
     @Mock BlockService blockService;
+    @Mock GenreRepository genreRepository;
 
     @InjectMocks BookService bookService;
 
@@ -368,4 +374,97 @@ class BookServiceTest {
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOK_NOT_FOUND);
         }
     }
+
+    @Nested
+    @DisplayName("장르별 도서 조회 (카테고리 패턴)")
+    class GetBooksByGenre {
+
+        /** Genre는 기본 생성자가 protected라 직접 만들 수 없다. 쓰는 값이 패턴 하나뿐이라 모킹으로 둔다. */
+        private Genre genre(String pattern) {
+            Genre g = mock(Genre.class);
+            lenient().when(g.getCategoryPattern()).thenReturn(pattern);
+            return g;
+        }
+
+        private BookGenreRequest request(int page, int limit) {
+            BookGenreRequest r = new BookGenreRequest();
+            r.setGenreId(15L);
+            r.setPage(page);
+            r.setLimit(limit);
+            return r;
+        }
+
+        @Test
+        @DisplayName("장르의 카테고리 패턴으로 도서를 찾는다")
+        void 패턴으로_조회한다() {
+            // 모의 객체는 given(...) 밖에서 먼저 만든다 — 스터빙 안에서 스터빙하면 Mockito가 막는다.
+            Genre g = genre("만화/라이트노벨");
+            given(genreRepository.findById(15L)).willReturn(Optional.of(g));
+            given(bookRepository.findByCategoryPattern(eq("만화/라이트노벨"), any()))
+                    .willReturn(new PageImpl<>(List.of(book), PageRequest.of(0, 8), 301));
+
+            BookGenreListResponse result = bookService.getBooksByGenre(request(1, 8), null);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getTotalElements()).isEqualTo(301);
+            // 화면이 아무 페이지나 집어가야 하므로 고를 범위를 알려줘야 한다.
+            assertThat(result.getTotalPages()).isEqualTo(38);
+            assertThat(result.getPage()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("페이지 번호는 1부터 받아 0부터인 Pageable로 넘긴다")
+        void 페이지_번호를_0부터로_바꾼다() {
+            Genre g = genre("만화/라이트노벨");
+            given(genreRepository.findById(15L)).willReturn(Optional.of(g));
+            given(bookRepository.findByCategoryPattern(anyString(), any()))
+                    .willReturn(new PageImpl<>(List.of(), PageRequest.of(2, 8), 0));
+
+            bookService.getBooksByGenre(request(3, 8), null);
+
+            then(bookRepository).should().findByCategoryPattern("만화/라이트노벨", PageRequest.of(2, 8));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 장르면 404")
+        void 없는_장르() {
+            given(genreRepository.findById(99L)).willReturn(Optional.empty());
+            BookGenreRequest r = request(1, 8);
+            r.setGenreId(99L);
+
+            assertThatThrownBy(() -> bookService.getBooksByGenre(r, null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GENRE_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("카테고리 패턴이 비어 있으면 전체 도서를 쏟아내지 않고 빈손으로 둔다")
+        void 패턴이_비면_조회하지_않는다() {
+            // LIKE '%%'가 되어 장르와 무관한 책이 전부 걸리는 것을 막는다.
+            Genre g = genre("  ");
+            given(genreRepository.findById(15L)).willReturn(Optional.of(g));
+
+            BookGenreListResponse result = bookService.getBooksByGenre(request(1, 8), null);
+
+            assertThat(result.getContent()).isEmpty();
+            then(bookRepository).should(never()).findByCategoryPattern(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("로그인 상태면 서재 보유 여부를 함께 내려준다")
+        void 서재_보유_여부() {
+            Genre g = genre("만화/라이트노벨");
+            given(genreRepository.findById(15L)).willReturn(Optional.of(g));
+            given(bookRepository.findByCategoryPattern(anyString(), any()))
+                    .willReturn(new PageImpl<>(List.of(book), PageRequest.of(0, 8), 1));
+            given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
+            given(libraryRepository.findBookIdsByMemberAndBookIdIn(101L, List.of(10L)))
+                    .willReturn(Set.of(10L));
+
+            BookGenreListResponse result = bookService.getBooksByGenre(request(1, 8), 1L);
+
+            assertThat(result.getContent().get(0).getInMyLibrary()).isTrue();
+        }
+    }
+
 }

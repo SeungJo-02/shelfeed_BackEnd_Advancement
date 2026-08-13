@@ -4,6 +4,7 @@ import com.shelfeed.backend.domain.book.client.AladinClient;
 import com.shelfeed.backend.domain.book.client.dto.AladinItem;
 import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
+import com.shelfeed.backend.domain.book.dto.request.BookGenreRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
 import com.shelfeed.backend.domain.book.dto.response.*;
 import com.shelfeed.backend.domain.book.entity.Book;
@@ -12,6 +13,8 @@ import com.shelfeed.backend.domain.library.entity.LibraryBook;
 import com.shelfeed.backend.domain.library.enums.ReadingStatus;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
+import com.shelfeed.backend.domain.genre.entity.Genre;
+import com.shelfeed.backend.domain.genre.repository.GenreRepository;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
@@ -21,6 +24,7 @@ import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -49,6 +53,7 @@ public class BookService {
     private final AladinClient aladinApiClient;
     private final BlockService blockService;
     private final BookPersistenceService bookPersistenceService;
+    private final GenreRepository genreRepository;
 
 
     // 1. 도서 검색 — 외부 HTTP는 트랜잭션 밖(NOT_SUPPORTED), DB 쓰기는 BookPersistenceService 위임
@@ -86,6 +91,47 @@ public class BookService {
                 .toList();
 
         return BookSearchListResponse.of(content, request.getLimit());
+    }
+
+    /**
+     * 장르에 속한 도서를 페이지로 조회한다.
+     *
+     * <p>장르명을 검색어로 알라딘에 질의하던 방식을 대체한다. 그 방식은 제목에 장르명이
+     * 든 책만 걸려 '만화/라이트노벨'이 2권뿐이었고, 뒤 페이지는 비어 늘 같은 책만 나왔다.
+     * 여기서는 이미 저장된 도서의 알라딘 카테고리 경로를 {@code genres.category_pattern}과
+     * 맞춘다(같은 장르가 301권).
+     *
+     * <p>장르 조회가 book 도메인에서 genre 도메인을 건너다본다. 서비스를 분리하게 되면
+     * 이 한 줄이 API 호출로 바뀌는 자리다.
+     */
+    public BookGenreListResponse getBooksByGenre(BookGenreRequest request, Long memberUserId) {
+        Genre genre = genreRepository.findById(request.getGenreId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.GENRE_NOT_FOUND));
+
+        // 패턴이 비어 있으면 LIKE '%%'가 되어 전체 도서가 걸린다. 장르 조회로서 의미가 없으므로 빈손으로 둔다.
+        String pattern = genre.getCategoryPattern();
+        if (pattern == null || pattern.isBlank()) {
+            return BookGenreListResponse.of(Page.empty(), List.of());
+        }
+
+        Page<Book> books = bookRepository.findByCategoryPattern(
+                pattern, PageRequest.of(Math.max(request.getPage(), 1) - 1, request.getLimit()));
+
+        Member member = memberUserId != null ? getMemberOrNull(memberUserId) : null;
+
+        // 서재 여부 IN절 일괄 조회 (N+1 방지)
+        Set<Long> myLibraryBookIds = Set.of();
+        if (member != null && books.hasContent()) {
+            List<Long> bookIds = books.getContent().stream().map(Book::getBookId).toList();
+            myLibraryBookIds = libraryRepository.findBookIdsByMemberAndBookIdIn(member.getMemberId(), bookIds);
+        }
+
+        final Set<Long> finalMyLibraryBookIds = myLibraryBookIds;
+        List<BookSummaryResponse> content = books.getContent().stream()
+                .map(book -> BookSummaryResponse.of(book, finalMyLibraryBookIds.contains(book.getBookId())))
+                .toList();
+
+        return BookGenreListResponse.of(books, content);
     }
 
 

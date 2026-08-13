@@ -1,8 +1,10 @@
 package com.shelfeed.backend.domain.book.controller;
 
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
+import com.shelfeed.backend.domain.book.dto.request.BookGenreRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
 import com.shelfeed.backend.domain.book.dto.response.BookDetailResponse;
+import com.shelfeed.backend.domain.book.dto.response.BookGenreListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookReviewListResponse;
 import com.shelfeed.backend.domain.book.dto.response.BookSearchListResponse;
 import com.shelfeed.backend.domain.book.service.BookService;
@@ -25,6 +27,16 @@ public class BookController {
             @AuthenticationPrincipal CustomUserDetails userDetails){
         Long memberUserId = userDetails != null ? userDetails.getMember().getMemberUserId():null;
         return ApiResponse.success(200, bookService.searchBooks(request,memberUserId));
+    }
+
+    // 1-1. 장르별 도서 조회  GET /api/v1/books/by-genre
+    // 검색과 달리 알라딘을 부르지 않고 이미 저장된 도서를 카테고리로 추린다.
+    @GetMapping("/by-genre")
+    public ApiResponse<BookGenreListResponse> getBooksByGenre(
+            @ModelAttribute BookGenreRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails){
+        Long memberUserId = userDetails != null ? userDetails.getMember().getMemberUserId() : null;
+        return ApiResponse.success(200, bookService.getBooksByGenre(request, memberUserId));
     }
 
     // 2. 도서 상세 조회  GET /api/v1/books/{bookId}

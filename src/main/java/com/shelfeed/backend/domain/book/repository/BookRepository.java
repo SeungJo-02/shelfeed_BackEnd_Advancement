@@ -1,6 +1,7 @@
 package com.shelfeed.backend.domain.book.repository;
 
 import com.shelfeed.backend.domain.book.entity.Book;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -50,6 +51,21 @@ SELECT AVG(r.rating) FROM Review r WHERE r.book.bookId = :bookId AND r.isDeleted
     List<Book> searchBooks(@Param("query") String query,
                            @Param("cursor") Long cursor,
                            Pageable pageable);
+
+    /**
+     * 장르의 알라딘 카테고리 패턴에 걸리는 도서를 페이지로 조회한다.
+     *
+     * <p>{@code category}에는 알라딘 카테고리 경로가 그대로 들어 있다
+     * (예: {@code 국내도서>만화/라이트노벨>일본만화}). {@code genres.category_pattern}이
+     * 그 경로의 한 마디와 같은 형태라 부분 문자열로 맞추면 해당 장르의 책이 걸린다.
+     *
+     * <p>장르명을 검색어로 알라딘에 질의하던 방식보다 훨씬 정확하다 — '만화/라이트노벨'을
+     * 검색어로 넣으면 제목에 그 낱말이 든 2권만 나오지만, 카테고리로 맞추면 301권이 걸린다.
+     *
+     * <p>정렬을 bookId 역순으로 고정해 페이지 경계에서 책이 새거나 겹치지 않게 한다.
+     */
+    @Query("SELECT b FROM Book b WHERE b.category LIKE CONCAT('%', :pattern, '%') ORDER BY b.bookId DESC")
+    Page<Book> findByCategoryPattern(@Param("pattern") String pattern, Pageable pageable);
 
     // ISBN 목록으로 일괄 조회 (N+1 방지)
     List<Book> findByIsbn13In(List<String> isbn13List);
