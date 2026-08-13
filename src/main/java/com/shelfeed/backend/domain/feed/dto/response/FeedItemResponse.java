@@ -1,35 +1,39 @@
 package com.shelfeed.backend.domain.feed.dto.response;
 
-import com.shelfeed.backend.domain.feed.entity.Feed;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.shelfeed.backend.domain.review.entity.Review;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 통합 피드의 감상 카드 한 장.
+ *
+ * <p>팔로잉 감상과 추천 감상이 한 피드로 합쳐졌으므로 출처와 무관하게 같은 모양이다.
+ * 추천 감상에는 대응하는 Feed 행이 없어서 예전 응답에 있던 feedId 래퍼는 없앴고,
+ * 커서도 feedId가 아니라 (createdAt, reviewId)를 쓴다.
+ */
 @Getter
 @Builder
 public class FeedItemResponse {
 
-    private Long feedId;
-    private ReviewInfo review;
+    private Long reviewId;
+    private UserInfo user;
+    private BookInfo book;
+    private byte rating;
+    private String content;
+    private String quote;
+    @JsonProperty("isSpoiler")
+    private boolean isSpoiler;
+    private int likeCount;
+    private int commentCount;
+    @JsonProperty("isLiked")
+    private boolean isLiked;
+    private List<String> tags;
+    private LocalDateTime createdAt;
 
-    @Getter
-    @Builder
-    public static class ReviewInfo {
-        private Long reviewId;
-        private UserInfo user;
-        private BookInfo book;
-        private int rating;
-        private String content;
-        private String quote;
-        private Boolean isSpoiler;
-        private int likeCount;
-        private int commentCount;
-        private Boolean isLiked;
-        private List<String> tags;
-        private LocalDateTime createdAt;
-    }
     @Getter
     @Builder
     public static class UserInfo {
@@ -45,34 +49,33 @@ public class FeedItemResponse {
         private String title;
         private String author;
         private String coverImageUrl;
+        private String category;
     }
 
-    public static FeedItemResponse of(Feed feed, boolean isLiked, List<String> tags) {
+    public static FeedItemResponse of(Review review, boolean isLiked, List<String> tags) {
         return FeedItemResponse.builder()
-                .feedId(feed.getFeedId())
-                .review(ReviewInfo.builder()
-                        .reviewId(feed.getReview().getReviewId())
-                        .user(UserInfo.builder()
-                                .userId(feed.getReview().getMember().getMemberUserId())
-                                .nickname(feed.getReview().getMember().getNickname())
-                                .profileImageUrl(feed.getReview().getMember().getProfileImageUrl())
-                                .build())
-                        .book(BookInfo.builder()
-                                .bookId(feed.getReview().getBook().getBookId())
-                                .title(feed.getReview().getBook().getTitle())
-                                .author(feed.getReview().getBook().getAuthor())
-                                .coverImageUrl(feed.getReview().getBook().getCoverImageUrl())
-                                .build())
-                        .rating(feed.getReview().getRating())
-                        .content(feed.getReview().getContent())
-                        .quote(feed.getReview().getQuote())
-                        .isSpoiler(feed.getReview().isSpoiler())
-                        .likeCount(feed.getReview().getLikeCount())
-                        .commentCount(feed.getReview().getCommentCount())
-                        .isLiked(isLiked)
-                        .tags(tags)
-                        .createdAt(feed.getReview().getCreatedAt())
+                .reviewId(review.getReviewId())
+                .user(UserInfo.builder()
+                        .userId(review.getMember().getMemberUserId())
+                        .nickname(review.getMember().getNickname())
+                        .profileImageUrl(review.getMember().getProfileImageUrl())
                         .build())
+                .book(BookInfo.builder()
+                        .bookId(review.getBook().getBookId())
+                        .title(review.getBook().getTitle())
+                        .author(review.getBook().getAuthor())
+                        .coverImageUrl(review.getBook().getCoverImageUrl())
+                        .category(review.getBook().getCategory())
+                        .build())
+                .rating(review.getRating())
+                .content(review.getContent())
+                .quote(review.getQuote())
+                .isSpoiler(review.isSpoiler())
+                .likeCount(review.getLikeCount())
+                .commentCount(review.getCommentCount())
+                .isLiked(isLiked)
+                .tags(tags)
+                .createdAt(review.getCreatedAt())
                 .build();
     }
 }

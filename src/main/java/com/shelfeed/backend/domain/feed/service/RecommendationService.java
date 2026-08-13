@@ -1,18 +1,11 @@
 package com.shelfeed.backend.domain.feed.service;
 
-import com.shelfeed.backend.domain.feed.dto.response.RecommendFeedResponse;
-import com.shelfeed.backend.domain.feed.dto.response.RecommendItemResponse;
 import com.shelfeed.backend.domain.genre.repository.MemberGenreRepository;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.library.repository.LibraryRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.review.entity.Review;
-import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
-import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
-import com.shelfeed.backend.global.common.exception.BusinessException;
-import com.shelfeed.backend.global.common.exception.ErrorCode;
-import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -22,17 +15,21 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 통합 피드에 섞어 넣을 추천 감상 후보를 고른다.
+ *
+ * <p>예전에는 이 서비스가 독립된 "추천 탭"의 응답을 좋아요 순으로 직접 만들었지만,
+ * 지금은 후보 선별만 담당한다. 최종 노출 순서는 {@link FeedService}가 팔로잉 감상과
+ * 합친 뒤 작성 시각 기준으로 일괄 결정한다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class RecommendationService {
 
-    private final MemberLoader memberLoader;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
-    private final ReviewLikeRepository reviewLikeRepository;
-    private final ReviewTagRepository reviewTagRepository;
     private final MemberGenreRepository memberGenreRepository;
 
     private static final int TOP_CATEGORY_LIMIT = 5;
@@ -40,68 +37,46 @@ public class RecommendationService {
     private static final long GENRE_WEIGHT      = 1L;
     private static final long RECENT_DAYS       = 30L;
 
-    public RecommendFeedResponse getRecommendedFeed(Long memberUserId, Integer cursorLike,
-                                                    Long cursorId, int limit) {
-        if (limit <= 0) throw new BusinessException(ErrorCode.INVALID_INPUT);
-        if ((cursorLike == null) != (cursorId == null)) throw new BusinessException(ErrorCode.INVALID_INPUT);
+    /**
+     * 추천 후보를 (createdAt, reviewId) DESC로 최대 {@code limit}건 반환한다.
+     *
+     * <p>관심 장르를 뽑을 수 있으면 장르 기반으로 고르고, 결과가 절반에도 못 미치면
+     * 팔로우 유저의 서재 기반 후보로 보충한다. 온보딩 전이라 장르를 모르면 최근
+     * 30일 감상으로 폴백한다.
+     *
+     * @param cursorCreatedAt 이 시각보다 과거의 감상만 (null이면 첫 페이지)
+     * @param cursorId        같은 시각일 때 이 ID보다 작은 감상만
+     */
+    public List<Review> findCandidates(Member me, LocalDateTime cursorCreatedAt,
+                                       Long cursorId, int limit) {
+        if (limit <= 0) return List.of();
 
-        Member me = memberLoader.getOrThrow(memberUserId);
         List<String> topCategories = buildTopCategories(me);
-        List<Review> reviews;
-        String recommendType;
-
-        if (!topCategories.isEmpty()) {
-            reviews = reviewRepository.findRecommendedByGenres(
-                    topCategories, me, cursorLike, cursorId, PageRequest.of(0, limit + 1));
-
-            // 결과가 절반 미만이면 소셜 기반으로 보충
-            if (reviews.size() < limit / 2) {
-                List<Review> social = reviewRepository.findRecommendedByFolloweeLibrary(
-                        me, cursorLike, cursorId, PageRequest.of(0, limit + 1));
-                Set<Long> seen = reviews.stream()
-                        .map(Review::getReviewId).collect(Collectors.toSet());
-                List<Review> merged = new ArrayList<>(reviews);
-                social.stream()
-                        .filter(r -> !seen.contains(r.getReviewId()))
-                        .forEach(merged::add);
-                merged.sort(Comparator.comparingInt(Review::getLikeCount)
-                        .thenComparing(Review::getReviewId)
-                        .reversed());
-                if (merged.size() > limit + 1) merged = merged.subList(0, limit + 1);
-                reviews = merged;
-                recommendType = "MIXED";
-            } else {
-                recommendType = "CONTENT_BASED";
-            }
-        } else {
-            // Cold-start: 최근 30일 인기 감상카드
-            reviews = reviewRepository.findPopularRecent(
+        if (topCategories.isEmpty()) {
+            // Cold-start: 관심 장르를 아직 모를 때는 최근 감상으로 채운다.
+            return reviewRepository.findPopularRecent(
                     LocalDateTime.now().minusDays(RECENT_DAYS),
-                    me, cursorLike, cursorId, PageRequest.of(0, limit + 1));
-            recommendType = "POPULAR";
+                    me, cursorCreatedAt, cursorId, PageRequest.of(0, limit));
         }
 
-        if (reviews.isEmpty()) {
-            return RecommendFeedResponse.of(Collections.emptyList(), limit, recommendType);
+        List<Review> byGenre = reviewRepository.findRecommendedByGenres(
+                topCategories, me, cursorCreatedAt, cursorId, PageRequest.of(0, limit));
+        if (byGenre.size() >= limit / 2) {
+            return byGenre;
         }
 
-        List<Long> reviewIds = reviews.stream().map(Review::getReviewId).toList();
+        // 장르 후보가 부족하면 소셜(팔로우 유저 서재) 후보로 보충한다.
+        List<Review> social = reviewRepository.findRecommendedByFolloweeLibrary(
+                me, cursorCreatedAt, cursorId, PageRequest.of(0, limit));
 
-        Set<Long> likedIds = reviewLikeRepository.findLikedReviewIds(reviewIds, me.getMemberId());
+        Set<Long> seen = byGenre.stream().map(Review::getReviewId).collect(Collectors.toSet());
+        List<Review> merged = new ArrayList<>(byGenre);
+        social.stream()
+                .filter(r -> !seen.contains(r.getReviewId()))
+                .forEach(merged::add);
 
-        Map<Long, List<String>> tagMap = reviewTagRepository.findByReviewIdIn(reviewIds).stream()
-                .collect(Collectors.groupingBy(
-                        rt -> rt.getReview().getReviewId(),
-                        Collectors.mapping(rt -> rt.getTag().getTagName(), Collectors.toList())));
-
-        List<RecommendItemResponse> content = reviews.stream()
-                .map(r -> RecommendItemResponse.of(
-                        r,
-                        likedIds.contains(r.getReviewId()),
-                        tagMap.getOrDefault(r.getReviewId(), Collections.emptyList())))
-                .toList();
-
-        return RecommendFeedResponse.of(content, limit, recommendType);
+        merged.sort(FeedService.NEWEST_FIRST);
+        return merged.size() > limit ? merged.subList(0, limit) : merged;
     }
 
     // 서재 장르(가중치 3) + 온보딩 장르(가중치 1) 합산 → Top-5
