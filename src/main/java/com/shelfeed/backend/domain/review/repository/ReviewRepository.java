@@ -105,9 +105,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
                                           @Param("cursorId") Long cursorId,
                                           Pageable pageable);
 
-    // ── 추천 피드용 쿼리 ──────────────────────────────────────────────────
+    // ── 통합 피드 추천 후보 쿼리 ──────────────────────────────────────────
+    //
+    // 추천 로직은 "어떤 감상을 후보로 넣을지"만 결정하고, 노출 순서는 통합 피드가
+    // (createdAt, reviewId) DESC 커서로 일괄 결정한다. 그래서 정렬·커서 기준이
+    // 좋아요 수가 아니라 작성 시각이다. 세 쿼리 모두 같은 커서 규약을 지켜야
+    // FeedService에서 병합해도 페이지 경계가 어긋나지 않는다.
 
-    // 장르 기반 추천 (Content-based)
+    // 장르 기반 추천 후보 (Content-based)
     @Query("""
         SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book b
         WHERE b.genre IN :genres
@@ -115,18 +120,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
         AND r.member <> :me
-        AND (:cursorLike IS NULL
-             OR r.likeCount < :cursorLike
-             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
-        ORDER BY r.likeCount DESC, r.reviewId DESC
+        AND (:cursorCreatedAt IS NULL
+             OR r.createdAt < :cursorCreatedAt
+             OR (r.createdAt = :cursorCreatedAt AND r.reviewId < :cursorId))
+        ORDER BY r.createdAt DESC, r.reviewId DESC
     """)
     List<Review> findRecommendedByGenres(@Param("genres") List<String> genres,
                                          @Param("me") Member me,
-                                         @Param("cursorLike") Integer cursorLike,
+                                         @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
                                          @Param("cursorId") Long cursorId,
                                          Pageable pageable);
 
-    // 팔로우 유저 서재 기반 추천 (Social-based)
+    // 팔로우 유저 서재 기반 추천 후보 (Social-based)
     @Query("""
         SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book b
         WHERE b.bookId IN (
@@ -140,17 +145,17 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         AND r.reviewVisibility = 'PUBLIC'
         AND r.reviewStatus = 'PUBLISHED'
         AND r.member <> :me
-        AND (:cursorLike IS NULL
-             OR r.likeCount < :cursorLike
-             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
-        ORDER BY r.likeCount DESC, r.reviewId DESC
+        AND (:cursorCreatedAt IS NULL
+             OR r.createdAt < :cursorCreatedAt
+             OR (r.createdAt = :cursorCreatedAt AND r.reviewId < :cursorId))
+        ORDER BY r.createdAt DESC, r.reviewId DESC
     """)
     List<Review> findRecommendedByFolloweeLibrary(@Param("me") Member me,
-                                                  @Param("cursorLike") Integer cursorLike,
+                                                  @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
                                                   @Param("cursorId") Long cursorId,
                                                   Pageable pageable);
 
-    // 최근 인기 감상카드 (Cold-start 폴백)
+    // 최근 감상 후보 (Cold-start 폴백 — 관심 장르를 아직 모을 수 없는 회원용)
     @Query("""
         SELECT r FROM Review r JOIN FETCH r.member JOIN FETCH r.book
         WHERE r.isDeleted = false
@@ -158,14 +163,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         AND r.reviewStatus = 'PUBLISHED'
         AND r.createdAt >= :since
         AND r.member <> :me
-        AND (:cursorLike IS NULL
-             OR r.likeCount < :cursorLike
-             OR (r.likeCount = :cursorLike AND r.reviewId < :cursorId))
-        ORDER BY r.likeCount DESC, r.reviewId DESC
+        AND (:cursorCreatedAt IS NULL
+             OR r.createdAt < :cursorCreatedAt
+             OR (r.createdAt = :cursorCreatedAt AND r.reviewId < :cursorId))
+        ORDER BY r.createdAt DESC, r.reviewId DESC
     """)
     List<Review> findPopularRecent(@Param("since") LocalDateTime since,
                                    @Param("me") Member me,
-                                   @Param("cursorLike") Integer cursorLike,
+                                   @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
                                    @Param("cursorId") Long cursorId,
                                    Pageable pageable);
 
