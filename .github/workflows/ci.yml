@@ -59,7 +59,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle with cache
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -67,7 +67,7 @@ jobs:
         # 외부 서비스(services.gradle.org) 의존 → Cloudflare 일시 장애로 timeout 발생 가능
         # 실패해도 빌드/테스트는 계속 진행. 보안 검증은 best-effort.
         continue-on-error: true
-        uses: gradle/actions/wrapper-validation@v3
+        uses: gradle/actions/wrapper-validation@v6
 
       - name: Build (no test)
         run: ./gradlew build -x test --no-daemon
