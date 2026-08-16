@@ -9,12 +9,14 @@ on:
     types: [completed]
     branches: [main]
 
+# 연속 머지 시 나중 배포가 먼저 끝나면 구버전이 최종 상태로 남는다.
+# 앞 배포가 끝날 때까지 기다리게 해서 순서를 지킨다(취소하지 않는다 — 건너뛴 커밋이 생기면 안 된다).
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 jobs:
-  # ── 이미지 빌드는 GitHub 러너에서 ───────────────────────────────
-  # EC2(t3.medium, 가용 메모리 2GB대)에서 빌드하면 구동 중인 앱과 메모리를 다투게 된다.
-  # 빌드는 여기서 끝내고 EC2는 이미지를 받아 띄우기만 한다.
-  build:
-    name: 이미지 빌드 및 푸시
+  deploy:
     runs-on: ubuntu-latest
     # CI 결론이 success일 때만 배포 (실패/취소 시 차단)
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -42,64 +44,52 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:${{ github.event.workflow_run.head_sha }}
 
-  # ── 배포는 EC2 자체 러너에서 ───────────────────────────────────
-  # GitHub 러너에서 SSH로 들어오던 방식은 보안 그룹이 22번 인바운드를 특정 IP로만
-  # 열어두고 있어 타임아웃으로 막혔다(호스트 방화벽은 열려 있었다). 러너를 EC2 안에
-  # 두면 GitHub로 나가는 아웃바운드 폴링만 쓰므로 인바운드를 열 필요가 없다.
-  deploy:
-    name: EC2 배포
-    needs: build
-    runs-on: [self-hosted, shelfeed]
-
-    steps:
-      - name: Checkout (CI가 검증한 정확한 커밋)
-        uses: actions/checkout@v4
+      - name: EC2에 설정 파일 복사
+        uses: appleboy/scp-action@v0.1.7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          source: "docker-compose.prod.yml,docker/nginx/nginx.conf,docker/prometheus/prometheus-prod.yml,docker/promtail/config.yml"
+          target: /home/ec2-user/app
+          strip_components: 0
 
-      - name: 설정 파일 배치
-        # compose가 기대하는 파일명·경로로 맞춰 둔다.
-        # nginx.conf는 ./docker/nginx/nginx.conf로 마운트되므로 경로를 유지한다.
-        run: |
-          set -e
-          mkdir -p /home/ec2-user/app/docker/nginx
-          cp docker-compose.prod.yml            /home/ec2-user/app/
-          cp docker/nginx/nginx.conf            /home/ec2-user/app/docker/nginx/
-          cp docker/prometheus/prometheus-prod.yml /home/ec2-user/app/prometheus.yml
-          cp docker/promtail/config.yml         /home/ec2-user/app/promtail-config.yml
+      - name: EC2 배포
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e
+            cd /home/ec2-user/app
+            mv docker/prometheus/prometheus-prod.yml prometheus.yml 2>/dev/null || true
+            mv docker/promtail/config.yml promtail-config.yml 2>/dev/null || true
+            # nginx.conf는 compose가 ./docker/nginx/nginx.conf로 마운트하므로 그대로 둔다.
+            # 비워진 디렉터리만 정리(docker/nginx 보존 — 통째로 rm하면 nginx 설정 유실 → 재생성 시 기동 실패)
+            rm -rf docker/prometheus docker/promtail
 
-      - name: 배포
-        run: |
-          set -e
-          cd /home/ec2-user/app
-          # DOCKER_IMAGE는 한 줄만 유지한다. 예전 스크립트는 배포마다 append해서 .env가 계속 자랐다.
-          sed -i '/^DOCKER_IMAGE=/d' .env
-          echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest" >> .env
-          docker-compose -f docker-compose.prod.yml pull
-          docker-compose -f docker-compose.prod.yml up -d
+            # DOCKER_IMAGE는 한 줄만 유지한다. 예전 스크립트는 배포마다 append해서 .env가 계속 자랐다.
+            sed -i '/^DOCKER_IMAGE=/d' .env
+            echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/shelfeed-backend:latest" >> .env
 
-      - name: 기동 확인
-        # 배포가 "성공"으로 끝났는데 앱이 죽어 있는 상황을 막는다.
-        run: |
-          set -e
-          for i in $(seq 1 40); do
-            if docker logs app-app-1 2>&1 | tail -200 | grep -q "Started BackendApplication"; then
-              echo "앱 기동 확인"
-              exit 0
-            fi
-            if [ "$(docker inspect -f '{{.State.Running}}' app-app-1 2>/dev/null)" != "true" ]; then
-              echo "::error::app 컨테이너가 실행 중이 아니다"
-              docker logs app-app-1 2>&1 | tail -50
-              exit 1
-            fi
-            sleep 5
-          done
-          echo "::error::기동 로그를 200초 안에 확인하지 못했다"
-          docker logs app-app-1 2>&1 | tail -50
-          exit 1
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d
 
-      - name: 이미지 정리
-        # 실패해도 배포 자체는 이미 끝난 뒤라 결과를 뒤집지 않는다.
-        if: always()
-        continue-on-error: true
-        run: docker image prune -f
+            # 배포가 "성공"으로 끝났는데 앱이 죽어 있는 상황을 막는다.
+            for i in $(seq 1 40); do
+              if docker logs app-app-1 2>&1 | tail -200 | grep -q "Started BackendApplication"; then
+                echo "앱 기동 확인"
+                docker image prune -f || true
+                exit 0
+              fi
+              if [ "$(docker inspect -f '{{.State.Running}}' app-app-1 2>/dev/null)" != "true" ]; then
+                echo "app 컨테이너가 실행 중이 아니다"
+                docker logs app-app-1 2>&1 | tail -50
+                exit 1
+              fi
+              sleep 5
+            done
+            echo "기동 로그를 200초 안에 확인하지 못했다"
+            docker logs app-app-1 2>&1 | tail -50
+            exit 1
