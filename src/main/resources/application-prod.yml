@@ -54,3 +54,10 @@ management:
   tracing:
     sampling:
       probability: 0
+  # Elasticsearch는 운영에 배포하지 않는다(검색은 DB 폴백으로 동작). 그런데 헬스 지표는
+  # 여전히 ES를 찔러 UnknownHostException으로 DOWN을 내고, 그 하나 때문에 전체 헬스가
+  # 계속 DOWN이었다 — db·redis가 진짜로 죽어도 구분되지 않는 상태였다.
+  # 배포하지 않은 의존성은 헬스 판정에서 뺀다. 운영에 ES를 올리면 이 줄을 지운다.
+  health:
+    elasticsearch:
+      enabled: false

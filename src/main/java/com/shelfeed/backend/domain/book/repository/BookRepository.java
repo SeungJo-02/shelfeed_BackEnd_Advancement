@@ -63,8 +63,19 @@ SELECT AVG(r.rating) FROM Review r WHERE r.book.bookId = :bookId AND r.isDeleted
      * 검색어로 넣으면 제목에 그 낱말이 든 2권만 나오지만, 카테고리로 맞추면 301권이 걸린다.
      *
      * <p>정렬을 bookId 역순으로 고정해 페이지 경계에서 책이 새거나 겹치지 않게 한다.
+     *
+     * <p>패턴을 정규식으로 다루는 이유: 알라딘에 '장르소설'이라는 마디가 없다. 그 장르는
+     * {@code 판타지/환상문학}·{@code 과학소설(SF)}·{@code 호러.공포소설}·{@code 추리/미스터리소설}
+     * 넷으로 흩어져 있어 공통 부분문자열이 없다. {@code |}로 이어 붙인 패턴을 받으려면
+     * LIKE로는 안 되고 REGEXP가 필요하다. 마디가 하나뿐인 장르는 그냥 부분일치로 동작한다.
      */
-    @Query("SELECT b FROM Book b WHERE b.category LIKE CONCAT('%', :pattern, '%') ORDER BY b.bookId DESC")
+    @Query(value = """
+            SELECT * FROM books
+            WHERE category REGEXP :pattern
+            ORDER BY book_id DESC
+            """,
+            countQuery = "SELECT COUNT(*) FROM books WHERE category REGEXP :pattern",
+            nativeQuery = true)
     Page<Book> findByCategoryPattern(@Param("pattern") String pattern, Pageable pageable);
 
     // ISBN 목록으로 일괄 조회 (N+1 방지)
