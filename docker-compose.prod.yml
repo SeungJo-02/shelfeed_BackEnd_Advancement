@@ -33,6 +33,20 @@ services:
       - "8080"          # 외부 직접 노출 제거 — Nginx 경유만 허용
     env_file:
       - .env
+    environment:
+      # 컨테이너 상한을 두면 JVM 기본 힙(상한의 25%)이 함께 줄어 지금보다 좁아진다.
+      # 50%로 잡아 제한 전과 같은 ~1G 힙을 유지한다(현재 실사용 645MiB).
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50"
+    # 제한이 없어 앱 하나가 3.7G 박스를 통째로 쓸 수 있었다. 실사용의 3배로 상한을 둔다.
+    mem_limit: 2g
+    healthcheck:
+      # actuator는 관리 포트 8081에 있다(8080은 nginx 경유 공개용).
+      # 이미지가 alpine이라 curl이 없어 wget --spider로 확인한다.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s   # 기동에 30초 남짓 걸린다 — 넉넉히 잡아 기동 중 unhealthy 표시를 막는다
     depends_on:
       redis:
         condition: service_healthy
@@ -59,6 +73,8 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       retries: 3
+    # maxmemory 256mb는 데이터 크기 상한일 뿐 프로세스 전체 상한이 아니다.
+    mem_limit: 384m
     restart: unless-stopped
 
   prometheus:
