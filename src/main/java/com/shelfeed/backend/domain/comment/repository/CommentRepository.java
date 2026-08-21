@@ -24,6 +24,28 @@ public interface CommentRepository extends JpaRepository<Comment,Long> {
     List<Comment> findParentComments(@Param("review") Review review, @Param("cursor") Long cursor,
                                      Pageable pageable);
 
+    /**
+     * 원 댓글을 인기순(좋아요 → 대댓글 수 → 최신)으로 조회한다. 감상 상세에 미리 펼쳐 보일 몇 개를 고르는 용도다.
+     *
+     * <p>대댓글 수를 {@code GROUP BY} 대신 ORDER BY 안의 상관 서브쿼리로 센다. 엔티티를 통째로
+     * 셀렉트하면서 GROUP BY를 쓰면 MySQL의 {@code ONLY_FULL_GROUP_BY}에 걸리기 때문이다.
+     * 서브쿼리 범위가 감상 하나의 댓글로 한정돼 비용도 문제되지 않는다.
+     *
+     * <p>{@link #findParentComments}와 달리 삭제된 댓글을 뺀다. 최신순 목록은 대댓글이 달린
+     * 삭제 댓글을 남겨 대화 흐름을 보존해야 하지만, 인기순은 "읽을 만한 댓글"을 고르는 자리라
+     * "삭제된 댓글입니다"가 좋아요 수만으로 맨 위에 오면 미리보기가 망가진다.
+     */
+    @Query("""
+            SELECT c FROM Comment c
+            WHERE c.review = :review
+            AND c.parentComment IS NULL
+            AND c.isDeleted = false
+            ORDER BY c.likeCount DESC,
+                     (SELECT COUNT(r) FROM Comment r WHERE r.parentComment = c AND r.isDeleted = false) DESC,
+                     c.commentId DESC
+            """)
+    List<Comment> findTopParentComments(@Param("review") Review review, Pageable pageable);
+
     // 대댓글 조회
     List<Comment> findByParentComment(Comment parentComment);
 
