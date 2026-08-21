@@ -7,6 +7,7 @@ import com.shelfeed.backend.domain.comment.dto.request.CommentUpdateRequest;
 import com.shelfeed.backend.domain.comment.dto.response.*;
 import com.shelfeed.backend.domain.comment.entity.Comment;
 import com.shelfeed.backend.domain.comment.entity.CommentLike;
+import com.shelfeed.backend.domain.comment.enums.CommentSort;
 import com.shelfeed.backend.domain.comment.repository.CommentLikeRepository;
 import com.shelfeed.backend.domain.comment.repository.CommentRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -86,7 +87,7 @@ public class CommentService {
     }
 
     //2. 댓글 조회
-    public CommentListResponse getComments(Long reviewId, Long cursor, int limit, Long memberUserId){
+    public CommentListResponse getComments(Long reviewId, Long cursor, int limit, Long memberUserId, CommentSort sort){
         Review review = getReview(reviewId);
 
         if (review.getReviewVisibility() == ReviewVisibility.PRIVATE) {
@@ -95,7 +96,12 @@ public class CommentService {
             if (!isOwner) throw new BusinessException(ErrorCode.PRIVATE_REVIEW);
         }
 
-        List<Comment> parentComments = commentRepository.findParentComments(review, cursor, PageRequest.of(0, limit + 1));
+        // limit + 1개를 받아 뒤에 더 있는지 판별한 뒤 limit개로 자른다.
+        // 인기순은 커서를 쓸 수 없어(정렬 키가 commentId가 아니다) 항상 앞에서부터 조회한다.
+        PageRequest page = PageRequest.of(0, limit + 1);
+        List<Comment> parentComments = sort == CommentSort.TOP
+                ? commentRepository.findTopParentComments(review, page)
+                : commentRepository.findParentComments(review, cursor, page);
         boolean hasNext = parentComments.size() > limit;
         if (hasNext) parentComments = parentComments.subList(0, limit);
 
@@ -155,7 +161,7 @@ public class CommentService {
                     }).toList();
             return CommentResponse.of(comment, authors.get(comment.getMemberId()), isMine, isLiked, replies);
         }).toList();
-        return CommentListResponse.of(content, limit);
+        return CommentListResponse.of(content, hasNext, sort != CommentSort.TOP);
     }
 
     // 3. 댓글 수정
