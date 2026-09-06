@@ -90,7 +90,12 @@ public class ReviewService {
     }
 
     //2. 감상 상세 조회
+    // [장애 재현용 나쁜 구현] 조회수 UPDATE를 쓰기 트랜잭션 맨 앞에서 실행한다.
+    // → 커밋 시점까지 이 행의 X락을 보유한 채 아래의 태그/좋아요/차단 조회가 이어진다.
+    //   락 보유 시간 = 남은 트랜잭션 전체. 같은 글에 요청이 몰리면 여기서 직렬화된다.
+    @Transactional
     public ReviewDetailResponse getReview(Long reviewId, Long memberUserId){
+        reviewRepository.incrementViewCount(reviewId);// 조회수 +1 (읽기 경로의 쓰기)
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
         boolean isMine = memberUserId != null && review.getMember().getMemberUserId().equals(memberUserId);//본인확인
         if (!isMine && review.getReviewVisibility() == ReviewVisibility.PRIVATE){//비공개 거나 게시물 주인이 아니면

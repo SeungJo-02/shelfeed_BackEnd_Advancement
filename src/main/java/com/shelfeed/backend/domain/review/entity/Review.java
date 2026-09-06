@@ -59,6 +59,9 @@ public class Review extends BaseTimeEntity {
     private ReviewVisibility reviewVisibility;
 
     @Column(nullable = false)
+    private int viewCount = 0;
+
+    @Column(nullable = false)
     private int likeCount = 0;
 
     @Column(nullable = false)
