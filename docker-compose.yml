@@ -29,6 +29,11 @@ services:
   # ── Database (성능 테스트용 / 3308) ──────────────────────
   mysql-perf:
     image: mysql:8.0
+    # 슬로우 쿼리 로그 활성화 — "0.1ms짜리 쿼리는 슬로우 로그에 안 잡힌다"를 보여주는 증거용
+    command:
+      - --slow_query_log=1
+      - --long_query_time=1
+      - --slow_query_log_file=/var/lib/mysql/slow.log
     environment:
       MYSQL_ROOT_PASSWORD: root1234
       MYSQL_DATABASE: shelfeed
@@ -48,6 +53,27 @@ services:
         limits:
           cpus: '0.6'      # Spring Boot 1.0 + mysql-perf 0.6 = 1.6 (나머지 0.4는 모니터링)
           memory: 1536M
+
+  # ── MySQL 메트릭 exporter (mysql-perf 대상) ──────────────
+  # SHOW GLOBAL STATUS 등 MySQL 내부 상태를 Prometheus /metrics 형식으로 변환.
+  # innodb_row_lock_waits 등 락 경합 지표를 Grafana에서 보기 위해 필요.
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.16.0
+    command:
+      - --mysqld.address=mysql-perf:3306
+      - --mysqld.username=root
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: root1234
+    ports:
+      - "9104:9104"
+    depends_on:
+      mysql-perf:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
 
   # ── Cache ──────────────────────────────────────────────
   redis:

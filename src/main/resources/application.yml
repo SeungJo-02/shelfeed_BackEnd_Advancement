@@ -65,6 +65,15 @@ management:
       show-details: always
     prometheus:
       enabled: true
+  metrics:
+    tags:
+      # Grafana #20729(Spring Boot JDBC & HikariCP) 대시보드의 namespace/application 변수와 맞춤
+      application: shelfeed
+      namespace: local
+    distribution:
+      # p50/p95/p99를 Grafana에서 histogram_quantile()로 계산하기 위한 버킷 노출
+      percentiles-histogram:
+        http.server.requests: true
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
