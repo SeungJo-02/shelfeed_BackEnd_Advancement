@@ -19,7 +19,7 @@
   {
    "id": 900,
    "type": "row",
-   "title": "🔥 조회수 장애 재현 — 인기글 행 락 경합",
+   "title": "서비스 핵심 지표 (Overview)",
    "collapsed": false,
    "gridPos": {
     "h": 1,
@@ -33,7 +33,7 @@
    "id": 901,
    "type": "timeseries",
    "title": "API별 RPS",
-   "description": "인기글 폭풍이 시작되면 /reviews/{reviewId}가 치솟는다",
+   "description": "",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
@@ -86,8 +86,8 @@
   {
    "id": 902,
    "type": "timeseries",
-   "title": "p99 응답시간 — 상세 API vs 무관한 API",
-   "description": "핵심 증거: 조회수와 무관한 API까지 함께 느려진다 = 공유 자원 문제",
+   "title": "API 응답시간 p99",
+   "description": "",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
@@ -141,7 +141,7 @@
       "uid": "prometheus"
      },
      "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\"}[1m])))",
-     "legendFormat": "무관한 API p99",
+     "legendFormat": "그 외 API p99",
      "refId": "B"
     }
    ]
@@ -149,8 +149,8 @@
   {
    "id": 903,
    "type": "timeseries",
-   "title": "HikariCP — Active / Pending / Max",
-   "description": "Pending>0 = 커넥션 풀 고갈. 락 경합의 가장 빠른 신호",
+   "title": "HikariCP 커넥션 풀 — Active / Pending / Max",
+   "description": "",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
@@ -221,8 +221,8 @@
   {
    "id": 904,
    "type": "timeseries",
-   "title": "InnoDB 행 락 — 대기 발생률 / 평균 대기시간",
-   "description": "진범 지표: 같은 행 UPDATE 직렬화가 여기 나타난다",
+   "title": "InnoDB Row Lock 대기",
+   "description": "",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
