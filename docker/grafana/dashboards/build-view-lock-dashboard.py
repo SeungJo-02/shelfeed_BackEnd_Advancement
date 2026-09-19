@@ -652,44 +652,54 @@ def build_experiment(key: str) -> dict:
         title = "Shelfeed — 실험 B · UPDATE를 트랜잭션 끝으로"
         card = text_note(
             "**가설** — 락 보유 시간 = UPDATE 이후 트랜잭션 나머지 전체다. UPDATE를 커밋 직전으로 옮기면 "
-            "보유 시간이 ~3ms → UPDATE 자체(~0.1ms)로 줄고, 한 행의 처리량 천장이 수십 배 올라간다. "
-            "**이 부하에서는 장애가 거의 사라질 것이다.**\n\n"
-            "**바꾼 것** — `ReviewService.getReview()`의 `incrementViewCount()`를 첫 줄에서 return 직전으로. 나머지 동일.\n\n"
-            "**읽는 법** — ① 행 락 발생률·Pending·p99가 평시로 돌아오면 락 보유 시간이 진짜 변수였다. "
-            "② 그런데 **UPDATE 실행률은 기준(≈300/s)과 같다** — 읽기 요청이 쓰기를 만드는 구조는 그대로다. "
-            "인기가 곧 쓰기 경합 조건이 되는 설계가 남아 있고, 조회수 정의(봇·중복·체류)도 손대지 못했다. "
-            "**효과가 없어서 기각하는 게 아니라, 효과가 커서 임시 완화책으로 채택하되 근본 조치는 따로 필요하다.**", h=7)
+            "보유 시간이 줄고 한 행의 처리량 천장이 올라간다.\n\n"
+            "**바꾼 것** — `ReviewService.getReview()`의 `incrementViewCount()`를 첫 줄에서 return 직전으로. "
+            "풀은 8 그대로, 부하도 동일.\n\n"
+            "**결과** (정착 폭풍 6분 · 기준 21:38:30~21:44:30, 실험 23:37:30~23:43:30)\n\n"
+            "① **효과는 컸다** — 처리량 277 → 372/s(+34%), k6 실패율 19.7 → 2.5%(8배 감소), "
+            "행 락 평균 대기 27.0 → 11.6ms, 커넥션 점유 15.6 → 10.6ms, MySQL QPS 4,615 → 6,650.\n\n"
+            "② **그래도 장애는 사라지지 않았다** — p99 8.18s, Pending 1,860. 천장이 올라갔을 뿐 "
+            "2,000 VU는 새 천장도 한참 넘는다. 큐 모델 그대로: 1,860 ÷ 372 ≈ 5.0s.\n\n"
+            "③ **경합 건수는 오히려 늘었다** — 행 락 발생률 241 → 357/s. 인기글 요청당 락 대기 0.87 → 0.96건. "
+            "**10건 중 9건은 여전히 락 앞에 선다. 달라진 건 서 있는 시간이다.**\n\n"
+            "④ **보유 시간은 0.1ms가 아니라 2.7ms까지만 줄었다** — digest 기준 UPDATE 실제 일 0.14ms + COMMIT 0.85ms ≈ 1.0ms인데 "
+            "실측 보유 시간은 2.7ms다. 나머지는 앱에 있다 — 응답 객체를 만들고 스프링이 커밋을 보내기까지, "
+            "Tomcat 스레드 1,869개가 CPU를 다투는 사이 이 스레드가 밀린다. "
+            "**락 보유 시간에는 앱이 커밋을 보내기까지의 시간도 포함된다.**\n\n"
+            "⑤ **그리고 UPDATE 실행률은 245 → 363/s로 늘었다.** 쓰기가 줄어서 좋아진 게 아니라 락을 쥐는 시간이 짧아져서 좋아졌다. "
+            "읽기 요청이 쓰기를 만드는 구조는 그대로고, 조회수 정의(봇·중복·체류)도 손대지 못했다. "
+            "**효과가 없어서 기각하는 게 아니라, 효과가 커서 임시 완화책으로 채택하되 근본 조치는 따로 필요하다.**", h=13)
         tiles = [
             _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
-                   desc="평시 수준으로 돌아올 것이다."),
+                   desc="9.09 → 8.18s. 좋아졌지만 평시(수십 ms)와는 거리가 멀다 — 부하가 새 천장도 넘는다."),
             _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
             _bstat("HikariCP Pending", BASE["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
                    decimals=0, steps=red(1)),
             _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
-                   steps=red(TH["shelfeed-rowlock-rate"]), desc="0 근처로 떨어질 것이다. 경합이 사라졌다는 뜻."),
+                   steps=red(TH["shelfeed-rowlock-rate"]), desc="예상과 반대로 241 → 357/s로 늘었다. 처리량이 는 만큼 경합 건수도 늘었다 — 짧아진 건 건당 대기(27.0 → 11.6ms)다."),
             _bstat("락 대기 풀 점유율", BASE["share"], SHARE, unit="percent", decimals=0, steps=red(50)),
             _bstat("UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=0,
-                   desc="**변하지 않는 값.** 읽기 경로의 쓰기는 그대로다 — 이 실험이 근본 해결이 아닌 이유."),
+                   desc="**줄기는커녕 245 → 363/s로 늘었다.** 읽기 경로의 쓰기는 그대로다 — 이 실험이 근본 해결이 아닌 이유."),
         ]
         charts = [
             timeseries("쓰기는 그대로, 경합만 사라졌다 — UPDATE 실행률 vs 행 락 발생률", [
                 prom(UPD_RATE, "UPDATE 실행률 (/s)", "A"),
                 prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
             ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
-                desc="UPDATE 선은 기준 높이(≈300/s)에 그대로 있고 락 대기 선만 바닥으로 내려가면 가설이 맞다. "
-                     "쓰기가 사라진 게 아니라 락을 쥐는 시간이 짧아진 것.",
+                desc="두 선이 나란히 올라간다. 쓰기도 경합도 늘었는데 서비스는 좋아졌다 — "
+                     "짧아진 것은 건수가 아니라 락을 쥐고 있는 시간(27.0 → 11.6ms)이다.",
                 threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
             timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
                 prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
             ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
-                desc="같은 부하인데 두 선이 임계 1s 아래에 머물면 무관한 API의 피해도 사라진 것."),
+                desc="두 선이 9.09/9.26s → 8.18/8.03s로 같이 내려왔지만 임계 1s 위에 남아 있다. 피해가 줄었을 뿐 사라지지 않았다."),
             timeseries("HikariCP — Active / Idle / Pending", [
                 prom('hikaricp_connections_pending{application="shelfeed"}', "Pending", "A"),
                 prom('hikaricp_connections_active{application="shelfeed"}', "Active", "B"),
                 prom('hikaricp_connections_idle{application="shelfeed"}', "Idle", "C"),
-            ], w=8, h=10, desc="Idle이 0으로 안 떨어지고 Pending이 안 쌓이면 풀에 여유가 생긴 것."),
+            ], w=8, h=10, desc="Active는 여전히 8(=Max), Pending 1,860으로 기준과 같다. 풀은 그대로 고갈됐고 회전만 빨라졌다."),
         ]
-        desc = "해결 대안 B 검증. 락 보유 시간이 변수임을 보이되, 읽기 경로의 쓰기가 남는다는 한계도 같이 보인다."
+        desc = "해결 대안 B 검증. 락 보유 시간이 변수임을 보이되, 쓰기가 남고 장애가 사라지지 않는다는 한계도 같이 보인다."
 
     rows = [
         (f"실험 {key.upper()} — 가설과 읽는 법", "블로그 절: 어떻게 해결할까", [card]),
