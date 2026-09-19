@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.pnl { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  display:flex; flex-direction:column; overflow:hidden; }
+.pnl.alarm { border:1px solid #F2495C; box-shadow:0 0 0 1px rgba(242,73,92,0.25); }
+.hd { height:28px; padding:0 10px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.ti { font-size:13px; font-weight:500; color:#CCCCDC; letter-spacing:-0.01em; }
+.inf { width:14px; height:14px; border-radius:50%; border:1px solid rgba(204,204,220,0.65); color:rgba(204,204,220,0.65);
+  font-size:9px; font-style:italic; line-height:12px; text-align:center; font-family:Georgia,serif; }
+.bd { padding:0 10px 8px; display:flex; flex-direction:column; gap:2px; flex-grow:1; }
+.chart { width:100%; display:block; }
+.ax { fill:rgba(204,204,220,0.65); font-size:11px; font-family:Inter,sans-serif; }
+.lg { width:100%; border-collapse:collapse; font-size:12px; margin-top:2px; }
+.lg th { color:rgba(204,204,220,0.65); font-weight:400; text-align:right; padding:2px 8px; font-size:11px;
+  border-bottom:1px solid rgba(204,204,220,0.07); }
+.lg th:first-child { text-align:left; }
+.lg td { padding:3px 8px; text-align:right; color:#CCCCDC; font-variant-numeric:tabular-nums; }
+.lg td.nm { text-align:left; color:rgba(204,204,220,0.65); display:flex; align-items:center; gap:8px; }
+.lg i { width:14px; height:3px; border-radius:2px; display:inline-block; flex-shrink:0; }
+.q { margin-top:6px; padding-top:6px; border-top:1px solid rgba(204,204,220,0.07);
+  font-family:'Roboto Mono',ui-monospace,monospace; font-size:10.5px; color:rgba(204,204,220,0.65);
+  line-height:1.5; word-break:break-all; }
+.rowti { font-size:13px; font-weight:600; color:#CCCCDC; padding:2px 0 0 2px;
+  display:flex; align-items:center; gap:7px; }
+.rowti::before { content:''; width:0; height:0; border-left:5px solid rgba(204,204,220,0.65);
+  border-top:4px solid transparent; border-bottom:4px solid transparent; }
+.nav { height:40px; display:flex; align-items:center; gap:10px; padding:0 4px;
+  border-bottom:1px solid rgba(204,204,220,0.07); margin-bottom:4px; }
+.crumb { font-size:13px; color:rgba(204,204,220,0.65); }
+.crumb b { color:#CCCCDC; font-weight:500; }
+.spacer { flex-grow:1; }
+.chip { height:26px; padding:0 10px; display:flex; align-items:center; gap:6px;
+  border:1px solid rgba(204,204,220,0.07); border-radius:2px; font-size:12px; color:#CCCCDC;
+  background:rgba(204,204,220,0.03); }
+.stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.st { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  padding:8px 10px 0; position:relative; overflow:hidden; height:120px;
+  display:flex; flex-direction:column; }
+.st.alarm { border:1px solid #F2495C; }
+.st .k { font-size:11.5px; color:rgba(204,204,220,0.65); }
+.st .v { font-size:30px; font-weight:500; line-height:1.15; margin-top:2px;
+  font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+.st .b { font-size:11px; color:rgba(204,204,220,0.65); margin-top:1px; }
+.st svg { position:absolute; left:0; right:0; bottom:0; width:100%; height:34px; display:block; }
+
+.ah { display:flex; align-items:center; gap:10px; padding:2px 2px 8px; }
+.ah h1 { font-size:19px; font-weight:500; margin:0; color:#CCCCDC; }
+.pills { display:flex; gap:8px; padding:2px 0 8px; }
+.pill { height:26px; padding:0 11px; display:flex; align-items:center; gap:7px;
+  border-radius:13px; font-size:12px; font-weight:500; border:1px solid rgba(204,204,220,0.07); }
+.pill b { font-weight:600; }
+.grp { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px; overflow:hidden; }
+.grp .gh { display:flex; align-items:center; gap:8px; padding:9px 12px;
+  border-bottom:1px solid rgba(204,204,220,0.07); font-size:12.5px; color:rgba(204,204,220,0.65); }
+.grp .gh b { color:#CCCCDC; font-weight:500; }
+.rule { display:flex; align-items:center; gap:12px; padding:10px 12px;
+  border-bottom:1px solid rgba(204,204,220,0.07); }
+.rule:last-child { border-bottom:none; }
+.rule.dim { opacity:0.45; }
+.badge { min-width:74px; height:22px; padding:0 9px; display:flex; align-items:center;
+  justify-content:center; gap:6px; border-radius:2px; font-size:11.5px; font-weight:600;
+  flex-shrink:0; }
+.dot { width:7px; height:7px; border-radius:50%; }
+.rn { font-size:13px; color:#CCCCDC; flex-grow:1; min-width:0; }
+.rn small { display:block; color:rgba(204,204,220,0.65); font-size:11.5px; margin-top:2px;
+  font-family:'Roboto Mono',monospace; }
+.rt { font-size:11.5px; color:rgba(204,204,220,0.65); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.miss { padding:11px 12px; font-size:12.5px; color:rgba(204,204,220,0.65); line-height:1.6;
+  border-top:1px dashed rgba(204,204,220,0.18); }
+</style>
+</helmet>
+<div class="wrap">
+<div class="ah"><h1>Alert rules</h1><span class="spacer"></span>
+<span class="chip">🕘 재현 후 &nbsp;T+3m</span></div>
+<div class="pills">
+<span class="pill" style="color:#F2495C;background:rgba(242,73,92,0.16)"><i class="dot" style="background:#F2495C"></i><b>3</b> Firing</span>
+<span class="pill" style="color:#FF9830;background:rgba(255,152,48,0.16)"><i class="dot" style="background:#FF9830"></i><b>2</b> Pending</span>
+<span class="pill" style="color:#73BF69;background:rgba(115,191,105,0.16)"><i class="dot" style="background:#73BF69"></i><b>2</b> Normal</span>
+</div>
+<div class="grp"><div class="gh">📁 <b>Shelfeed</b> &rsaquo; 조회수 행 락 경합 &nbsp;·&nbsp; 7 rules</div>
+<div class="rule"><span class="badge" style="color:#F2495C;background:rgba(242,73,92,0.16)"><i class="dot" style="background:#F2495C"></i>Firing</span><span class="rn">① 커넥션 풀 대기 발생<small>hikaricp_connections_pending &gt; 0 &nbsp;for 3m</small></span><span class="rt">Firing for 3m</span></div>
+<div class="rule"><span class="badge" style="color:#F2495C;background:rgba(242,73,92,0.16)"><i class="dot" style="background:#F2495C"></i>Firing</span><span class="rn">② 커넥션 획득 지연 1초 초과<small>hikaricp_connections_acquire_seconds_max &gt; 1 &nbsp;for 2m</small></span><span class="rt">Firing for 4m</span></div>
+<div class="rule"><span class="badge" style="color:#F2495C;background:rgba(242,73,92,0.16)"><i class="dot" style="background:#F2495C"></i>Firing</span><span class="rn">⓪ 감상글 상세 p99 1초 초과<small>histogram_quantile(0.99, …{uri="/api/v1/reviews/{reviewId}"}) &gt; 1</small></span><span class="rt">Firing for 4m</span></div>
+<div class="rule"><span class="badge" style="color:#FF9830;background:rgba(255,152,48,0.16)"><i class="dot" style="background:#FF9830"></i>Pending</span><span class="rn">③ 행 락 대기 발생률 10/s 초과<small>rate(mysql_global_status_innodb_row_lock_waits[5m]) &gt; 10 &nbsp;for 5m</small></span><span class="rt">Pending 2m 40s</span></div>
+<div class="rule"><span class="badge" style="color:#FF9830;background:rgba(255,152,48,0.16)"><i class="dot" style="background:#FF9830"></i>Pending</span><span class="rn">④ 행 락 평균 대기 100ms 초과<small>rate(…row_lock_time[5m]) / rate(…row_lock_waits[5m]) &gt; 100 &nbsp;for 5m</small></span><span class="rt">Pending 2m 10s</span></div>
+<div class="rule"><span class="badge" style="color:#73BF69;background:rgba(115,191,105,0.16)"><i class="dot" style="background:#73BF69"></i>Normal</span><span class="rn">⑤ MySQL Threads running 포화<small>max(mysql_global_status_threads_running) &gt; 20 &nbsp;for 5m</small></span><span class="rt">Normal · 3</span></div>
+<div class="rule"><span class="badge" style="color:#73BF69;background:rgba(115,191,105,0.16)"><i class="dot" style="background:#73BF69"></i>Normal</span><span class="rn">⑥ 슬로우 쿼리 발생<small>rate(mysql_global_status_slow_queries[5m]) &gt; 0 &nbsp;for 5m</small></span><span class="rt">Normal · 0</span></div>
+<div class="miss">
+<b style="color:#CCCCDC">Normal 두 줄이 이 화면의 핵심이다.</b> ⑤⑥은 못 잡는 알람이 아니라
+<b style="color:#73BF69">일부러 안 울리게 둔 대조군</b>이다.
+Firing이 앱 계열에만 몰리고 DB 리소스 계열이 Normal로 남으면
+“DB가 느린 게 아니라 앱이 DB를 기다리는 중”이 화면에서 바로 읽힌다 — 사건 때 12분 걸린 판단이다.
+</div></div></div>
+</x-dc>
+</body>
+</html>

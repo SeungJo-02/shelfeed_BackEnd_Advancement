@@ -6,6 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 8   # 장애 재현 시나리오와 동일 — 풀 고갈 관측용 (기본값 10)
+      connection-timeout: 5000   # 운영(application-prod.yml)과 동일 5초 — 풀 대기가 이걸 넘으면 5xx
 
   jpa:
     hibernate:
@@ -25,3 +26,15 @@ spring:
             port: ${MAIL_PORT:465}
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
+
+jwt:
+  access-expiration: 21600000   # 6시간 — 로컬 부하 테스트용 (k6 토큰 재발급 없이 여러 번 실행). 운영은 application.yml 의 1시간
+
+server:
+  tomcat:
+    threads:
+      max: 2000            # 로컬 부하 재현용 — 기본 200이면 톰캣 스레드가 대기열을 막아 풀 앞 대기가 안 쌓인다
+    accept-count: 2000
+    max-connections: 10000
+    mbeanregistry:
+      enabled: true        # tomcat_threads_* 메트릭 노출

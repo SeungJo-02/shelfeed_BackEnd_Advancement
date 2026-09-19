@@ -1,0 +1,183 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1470,
+      "h": 860,
+      "title": "① 히어로 — 썸네일 / 도입"
+    },
+    {
+      "file": "ApiP99.dc.html",
+      "x": 0,
+      "y": 1030,
+      "w": 990,
+      "h": 540,
+      "title": "Panel 01 — API p99"
+    },
+    {
+      "file": "Rps.dc.html",
+      "x": 1110,
+      "y": 1030,
+      "w": 990,
+      "h": 610,
+      "title": "Panel 02 — API별 RPS"
+    },
+    {
+      "file": "ErrorRate.dc.html",
+      "x": 2220,
+      "y": 1030,
+      "w": 1010,
+      "h": 500,
+      "title": "Panel 03 — 실패 지표"
+    },
+    {
+      "file": "AlertBefore.dc.html",
+      "x": 0,
+      "y": 1780,
+      "w": 1120,
+      "h": 380,
+      "title": "Panel 04 — 사건 당시 알림 (1 Firing)"
+    },
+    {
+      "file": "MysqlIdle.dc.html",
+      "x": 1240,
+      "y": 1780,
+      "w": 1300,
+      "h": 580,
+      "title": "Panel 05 — DB 무죄 증거"
+    },
+    {
+      "file": "Hikari.dc.html",
+      "x": 0,
+      "y": 2500,
+      "w": 990,
+      "h": 600,
+      "title": "Panel 06 — 커넥션 풀"
+    },
+    {
+      "file": "AcquireUsage.dc.html",
+      "x": 1110,
+      "y": 2500,
+      "w": 990,
+      "h": 660,
+      "title": "Panel 07 — acquire vs usage"
+    },
+    {
+      "file": "LockWaitsSql.dc.html",
+      "x": 2220,
+      "y": 2500,
+      "w": 980,
+      "h": 780,
+      "title": "Panel 10 — sys.innodb_lock_waits"
+    },
+    {
+      "file": "RowLockWaits.dc.html",
+      "x": 0,
+      "y": 3420,
+      "w": 990,
+      "h": 560,
+      "title": "Panel 08 — 행 락 발생률"
+    },
+    {
+      "file": "RowLockTime.dc.html",
+      "x": 1110,
+      "y": 3420,
+      "w": 990,
+      "h": 600,
+      "title": "Panel 09 — 행 락 평균 대기"
+    },
+    {
+      "file": "AlertAfter.dc.html",
+      "x": 2220,
+      "y": 3420,
+      "w": 1120,
+      "h": 660,
+      "title": "Panel 11 — 재현 후 알림 (재발 방지)"
+    },
+    {
+      "file": "MysqlOverview.dc.html",
+      "x": 0,
+      "y": 4260,
+      "w": 1300,
+      "h": 640,
+      "title": "Panel 12 — MySQL Overview (#7362)"
+    },
+    {
+      "file": "GetReviewCode.dc.html",
+      "x": 1400,
+      "y": 4260,
+      "w": 980,
+      "h": 620,
+      "title": "Panel 13 — getReview 코드"
+    },
+    {
+      "file": "ViewApiCode.dc.html",
+      "x": 2480,
+      "y": 4260,
+      "w": 980,
+      "h": 560,
+      "title": "Panel 14 — 조회 완료 API 코드"
+    },
+    {
+      "file": "ClickHousePipeline.dc.html",
+      "x": 3560,
+      "y": 4260,
+      "w": 1180,
+      "h": 720,
+      "title": "Panel 15 — Kafka → ClickHouse 파이프라인"
+    },
+    {
+      "file": "ObservedStats.dc.html",
+      "x": 0,
+      "y": 5100,
+      "w": 1470,
+      "h": 640,
+      "title": "Panel 16 — 관측된 지표 (성공률·p99·커넥션 8/8)"
+    },
+    {
+      "file": "HikariDashboard.dc.html",
+      "x": 1600,
+      "y": 5100,
+      "w": 1470,
+      "h": 780,
+      "title": "Panel 17 — HikariCP 대시보드 한 화면 (#20729)"
+    },
+    {
+      "file": "PoolMath.dc.html",
+      "x": 0,
+      "y": 6000,
+      "w": 1470,
+      "h": 720,
+      "title": "Panel 18 — 풀 8→20 계산 노트"
+    },
+    {
+      "file": "ViewTracker.dc.html",
+      "x": 1600,
+      "y": 6000,
+      "w": 1180,
+      "h": 720,
+      "title": "Panel 19 — 조회 1회 정의 (클라이언트)"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-flow",
+      "x": 3460,
+      "y": 3420,
+      "w": 420,
+      "text": "블로그 그림 자리 대응 (초안 v3)\n\n[그라파나 지표] 성공률/p99/커넥션 → ObservedStats (+ApiP99·Rps·ErrorRate)\n[#7362 MySQL Overview 사진] → MysqlOverview (+MysqlIdle)\n[커넥션 풀 모니터링 지표] → HikariDashboard (한 장) 또는 Hikari + AcquireUsage\n[mysql InnoDB Row Lock 사진] → RowLockWaits + RowLockTime + LockWaitsSql\n[실제 코드] → GetReviewCode\n[해결 코드] → ViewApiCode\n[파이프라인] → ClickHousePipeline\n[히어로] → Main\n[알림 전/후] → AlertBefore / AlertAfter\n[풀 확대 기각·UPDATE 이동] → PoolMath\n[조회 1회 정의·클라이언트 코드] → ViewTracker"
+    },
+    {
+      "id": "note-src",
+      "x": 3460,
+      "y": 3760,
+      "w": 420,
+      "text": "색·선폭(2px)·fillOpacity(8)·범례 계산열(Max/Mean/Last)·임계 점선은\ndocker/grafana/dashboards/shelfeed-view-lock.json 의 실제 fieldConfig 값을 그대로 옮겼다.\nPromQL 캡션도 대시보드/알람 룰의 실제 표현식."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

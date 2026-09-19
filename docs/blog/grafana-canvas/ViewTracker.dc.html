@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.ed { background:#1E1F22; border:1px solid rgba(204,204,220,0.10); border-radius:6px;
+  overflow:hidden; min-height:570px; }
+.tab { height:34px; display:flex; align-items:center; gap:8px; padding:0 12px;
+  background:#2B2D30; border-bottom:1px solid rgba(204,204,220,0.10); }
+.tab .nm { font-size:12.5px; color:#BCBEC4; font-family:Inter,sans-serif; }
+.tab .pth { font-size:11.5px; color:#7A7E85; font-family:Inter,sans-serif; margin-left:4px; }
+.code { position:relative; display:flex; font-family:'Roboto Mono',ui-monospace,monospace;
+  font-size:13px; line-height:23px; }
+.gut { width:44px; flex-shrink:0; padding:12px 10px 44px 0; text-align:right; color:#6B6F76;
+  white-space:pre; }
+.brkcol { width:26px; flex-shrink:0; }
+.src { margin:0; padding:12px 14px 44px 12px; color:#BCBEC4; white-space:pre; flex-grow:1;
+  font-family:'Roboto Mono',ui-monospace,monospace; font-size:13px; line-height:23px; }
+.kw { color:#CF8E6D; } .str { color:#6AAB73; } .cm { color:#7A7E85; } .ann { color:#B3AE60; }
+.brk { position:absolute; left:46px; width:14px; border:2px solid #F2495C; border-right:none;
+  border-radius:4px 0 0 4px; }
+.brklab { position:absolute; left:46px; font-family:Inter,'Helvetica Neue',sans-serif;
+  font-size:13px; font-weight:500; color:#F2495C; white-space:nowrap; }
+.hlbox { position:absolute; left:76px; right:12px; border:1px solid #F2495C; border-radius:4px;
+  background:rgba(242,73,92,0.10); }
+.cap { font-size:13px; color:rgba(204,204,220,0.65); padding:0 3px; line-height:1.5; }
+.cap b { color:#CCCCDC; font-weight:500; }
+
+.grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.pnl { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px; padding:10px 12px; }
+.pnl.alarm { border:1px solid #F2495C; }
+.ti { font-size:13px; font-weight:500; color:#CCCCDC; margin-bottom:6px; }
+.calc { font-family:'Roboto Mono',ui-monospace,monospace; font-size:12.5px; line-height:1.75; color:#BCBEC4; white-space:pre; margin:0; }
+.calc .r { color:#F2495C; } .calc .g { color:#73BF69; } .calc .d { color:#7A7E85; }
+.tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
+.tbl th { text-align:left; color:rgba(204,204,220,0.65); font-weight:400; padding:5px 8px; border-bottom:1px solid rgba(204,204,220,0.07); }
+.tbl td { padding:6px 8px; border-bottom:1px solid rgba(204,204,220,0.05); color:#CCCCDC; }
+.tbl td.r { color:#F2495C; } .tbl td.g { color:#73BF69; }
+.flow { display:flex; align-items:stretch; gap:8px; }
+.step { flex:1; background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px; padding:10px 12px; min-width:0; }
+.step.ok { border-color:#73BF69; } .step.no { border-color:#F2495C; }
+.step .h { font-size:13px; font-weight:500; color:#CCCCDC; margin-bottom:4px; }
+.step .s { font-size:12px; color:rgba(204,204,220,0.65); line-height:1.5; }
+.arr { display:flex; align-items:center; color:rgba(204,204,220,0.45); }
+.note { border:1px solid rgba(204,204,220,0.07); border-radius:3px; padding:9px 12px; font-size:12.5px; line-height:1.6; color:rgba(204,204,220,0.65); background:#181B1F; }
+.note b { color:#CCCCDC; font-weight:500; }
+.rowti { font-size:13px; font-weight:600; color:#CCCCDC; padding:2px 0 0 2px; }
+</style>
+</helmet>
+<div class="wrap">
+<div class="ed" style="min-height:0">
+<div class="tab"><svg width="13" height="15" viewBox="0 0 13 15" role="img" aria-label="java file"><rect x="0.5" y="0.5" width="12" height="14" rx="1.5" fill="#3C5A82" stroke="#5B7FA8" stroke-width="1"></rect><path d="M3 4.5h7M3 7.5h7M3 10.5h4" stroke="#9FB8D4" stroke-width="1" stroke-linecap="round" fill="none"></path></svg><span class="nm">useViewTracker.ts</span><span class="pth">src/features/review/</span></div>
+<div class="code"><div class="gut">  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15</div><div class="brkcol"></div><div class="hlbox" style="top:172px;height:25px"></div><div class="hlbox" style="top:218px;height:25px"></div><pre class="src" style="padding-bottom:12px"><span class="cm">// useViewTracker.ts — 본문이 보이는 상태로 3초를 넘겼을 때만 "봤다"</span>
+<span class="kw">export function</span> useViewTracker(reviewId: <span class="kw">number</span>, el: HTMLElement) {
+  <span class="kw">let</span> t: ReturnType&lt;<span class="kw">typeof</span> setTimeout&gt; | <span class="kw">undefined</span>;
+
+  <span class="kw">const</span> io = <span class="kw">new</span> IntersectionObserver(([e]) =&gt; {
+    <span class="kw">if</span> (!e.isIntersecting) { clearTimeout(t); <span class="kw">return</span>; }   <span class="cm">// 화면에서 벗어나면 취소</span>
+    t = setTimeout(() =&gt; {
+      navigator.sendBeacon(<span class="str">`/api/v1/reviews/${reviewId}/view`</span>);   <span class="cm">// 탭을 닫아도 전송된다</span>
+      io.disconnect();                                        <span class="cm">// 한 화면에서 1회</span>
+    }, <span class="str">3000</span>);                                                <span class="cm">// 3초 체류</span>
+  }, { threshold: <span class="str">0.5</span> });                                     <span class="cm">// 본문 절반 이상 노출</span>
+
+  io.observe(el);
+  <span class="kw">return</span> () =&gt; { clearTimeout(t); io.disconnect(); };
+}</pre></div>
+</div>
+<div class="rowti">"조회 1회"의 판정 흐름</div>
+<div class="flow">
+<div class="step"><div class="h">감상글 진입</div><div class="s">GET /reviews/4812<br>여기서는 세지 않는다</div></div><div class="arr"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M1 7h13M10 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="step"><div class="h">본문 50% 노출</div><div class="s">IntersectionObserver<br>타이머 시작</div></div><div class="arr"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M1 7h13M10 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="step ok"><div class="h">3초 체류</div><div class="s">POST /reviews/4812/view<br>sendBeacon 1회</div></div><div class="arr"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M1 7h13M10 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="step"><div class="h">서버</div><div class="s">SET NX EX 30분으로 중복 제거<br>Kafka 발행 후 204</div></div>
+</div>
+<div class="flow">
+<div class="step no" style="flex:0 0 31%"><div class="h">3초 전 이탈 · 링크 미리보기 · 프리페치 · SPA 라우팅</div><div class="s">타이머 취소 → 미전송. 예전엔 전부 조회수에 들어갔다</div></div>
+<div class="note" style="flex:1"><b>GET에서 세지 않으니 GET은 다시 순수한 읽기다.</b> JS를 실행하지 않는 단순 크롤러와 미리보기 봇은 여기서 걸러진다. JS를 실행하는 크롤러와 API 직접 호출은 걸러지지 않으므로 서버 쪽 중복 제거가 반드시 같이 간다.</div>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -37,3 +37,4 @@ k6/results/*.json
 
 ### Let's Encrypt / certbot (인증서·개인키 — 절대 커밋 금지) ###
 certbot/
+k6/ids.local.json

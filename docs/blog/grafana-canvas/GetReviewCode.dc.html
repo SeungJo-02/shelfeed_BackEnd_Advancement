@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.ed { background:#1E1F22; border:1px solid rgba(204,204,220,0.10); border-radius:6px;
+  overflow:hidden; min-height:570px; }
+.tab { height:34px; display:flex; align-items:center; gap:8px; padding:0 12px;
+  background:#2B2D30; border-bottom:1px solid rgba(204,204,220,0.10); }
+.tab .nm { font-size:12.5px; color:#BCBEC4; font-family:Inter,sans-serif; }
+.tab .pth { font-size:11.5px; color:#7A7E85; font-family:Inter,sans-serif; margin-left:4px; }
+.code { position:relative; display:flex; font-family:'Roboto Mono',ui-monospace,monospace;
+  font-size:13px; line-height:23px; }
+.gut { width:44px; flex-shrink:0; padding:12px 10px 44px 0; text-align:right; color:#6B6F76;
+  white-space:pre; }
+.brkcol { width:26px; flex-shrink:0; }
+.src { margin:0; padding:12px 14px 44px 12px; color:#BCBEC4; white-space:pre; flex-grow:1;
+  font-family:'Roboto Mono',ui-monospace,monospace; font-size:13px; line-height:23px; }
+.kw { color:#CF8E6D; } .str { color:#6AAB73; } .cm { color:#7A7E85; } .ann { color:#B3AE60; }
+.brk { position:absolute; left:46px; width:14px; border:2px solid #F2495C; border-right:none;
+  border-radius:4px 0 0 4px; }
+.brklab { position:absolute; left:46px; font-family:Inter,'Helvetica Neue',sans-serif;
+  font-size:13px; font-weight:500; color:#F2495C; white-space:nowrap; }
+.hlbox { position:absolute; left:76px; right:12px; border:1px solid #F2495C; border-radius:4px;
+  background:rgba(242,73,92,0.10); }
+.cap { font-size:13px; color:rgba(204,204,220,0.65); padding:0 3px; line-height:1.5; }
+.cap b { color:#CCCCDC; font-weight:500; }
+</style>
+</helmet>
+<div class="wrap">
+<div class="ed">
+<div class="tab"><svg width="13" height="15" viewBox="0 0 13 15" role="img" aria-label="java file"><rect x="0.5" y="0.5" width="12" height="14" rx="1.5" fill="#3C5A82" stroke="#5B7FA8" stroke-width="1"></rect><path d="M3 4.5h7M3 7.5h7M3 10.5h4" stroke="#9FB8D4" stroke-width="1" stroke-linecap="round" fill="none"></path></svg><span class="nm">ReviewService.java</span><span class="pth">src/main/java/.../review/service</span></div>
+<div class="code">
+<div class="gut">  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+ 18
+ 19
+ 20</div>
+<div class="brkcol"></div>
+<div class="brk" style="top:58px;height:414px"></div>
+<div class="hlbox" style="top:56px;height:27px"></div>
+<div class="brklab" style="top:482px">락 보유 구간 = 트랜잭션 잔여 전체 (평시 &asymp; 12ms, 경합 시 3.9s)</div>
+<pre class="src"><span class="ann">@Transactional</span>
+<span class="kw">public</span> ReviewDetailResponse getReview(Long reviewId, Long memberUserId) {
+    reviewRepository.incrementViewCount(reviewId);            <span class="cm">// &#9312; UPDATE &mdash; X락을 잡는다 (0.1ms)</span>
+    Review review = getReviewOrThrow(reviewId);               <span class="cm">// &#9313; 삭제 여부</span>
+    <span class="kw">boolean</span> isMine = memberUserId != <span class="kw">null</span>
+            &amp;&amp; review.getMember().getMemberUserId().equals(memberUserId);
+    <span class="kw">if</span> (!isMine &amp;&amp; review.getReviewVisibility() == ReviewVisibility.PRIVATE) {
+        <span class="kw">throw new</span> BusinessException(ErrorCode.PRIVATE_REVIEW);
+    }
+    Member requester = memberUserId != <span class="kw">null</span>
+            ? memberLoader.getOrThrow(memberUserId) : <span class="kw">null</span>;   <span class="cm">// &#9314; 요청자</span>
+    <span class="kw">if</span> (!isMine &amp;&amp; requester != <span class="kw">null</span>
+            &amp;&amp; blockService.isBlockedBetween(review.getMember(), requester)) {
+        <span class="kw">throw new</span> BusinessException(ErrorCode.BLOCKED_USER);  <span class="cm">// &#9315; 차단 여부</span>
+    }
+    List&lt;String&gt; tags = getTagNames(review);                  <span class="cm">// &#9316; 태그</span>
+    <span class="kw">boolean</span> isLiked = requester != <span class="kw">null</span> &amp;&amp; reviewLikeRepository
+            .existsByReview_ReviewIdAndMemberId(reviewId, requester.getMemberId()); <span class="cm">// &#9317; 좋아요</span>
+    <span class="kw">return</span> ReviewDetailResponse.of(review, tags, isMine, isLiked);
+}                                                             <span class="cm">// &#9318; 커밋 &mdash; 여기서야 락을 놓는다</span></pre>
+</div>
+</div>
+<div class="cap"><b>repro/view-count-lock</b> &middot; ReviewService.getReview() &middot; 일부러 넣은 나쁜 구현</div>
+</div>
+</x-dc>
+</body>
+</html>

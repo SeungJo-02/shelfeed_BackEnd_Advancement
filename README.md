@@ -34,6 +34,14 @@ JAVA_TOOL_OPTIONS="-Xmx1g -Xms512m" \
 
 ---
 
+## Step 1.5 — 배경 트래픽 ID 풀 생성 (조회수 재현 시나리오용)
+
+```bash
+bash k6/setup-ids.sh   # PUBLIC 리뷰·실제 회원 ID → k6/ids.local.json
+```
+
+---
+
 ## Step 2 — 테스트 유저 500명 + JWT 토큰 생성
 
 ```bash
