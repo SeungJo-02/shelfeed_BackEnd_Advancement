@@ -606,42 +606,46 @@ def build_experiment(key: str) -> dict:
     if key == "a":
         title = "Shelfeed — 실험 A · 풀 8 → 20"
         card = text_note(
-            "**가설** — 풀을 늘리면 Pending 그래프는 내려가지만 **처리량 천장은 그대로**다. "
-            "한 행의 처리량 = 1 ÷ 락 보유 시간이고, 풀 크기는 그 식에 없다. "
-            "늘어나는 건 락 앞에 선 세션 수뿐이고, 줄이 **앱 앞(acquire)에서 DB 안(row lock)으로 옮겨갈 뿐**이다.\n\n"
+            "**가설** — 풀을 늘려도 **처리량 천장은 그대로**다. 한 행의 처리량 = 1 ÷ 락 보유 시간이고, "
+            "풀 크기는 그 식에 없다. 늘어나는 건 락 앞에 선 세션 수뿐이다.\n\n"
             "**바꾼 것** — `application-local.yml` `maximum-pool-size: 8 → 20`. 나머지(부하·코드)는 기준 실행과 동일.\n\n"
-            "**읽는 법** — ① 상세 처리량과 행 락 발생률이 기준(≈300/s)에서 안 움직이면 천장이 그대로다. "
-            "② 락 앞 세션이 새 풀 크기(20)에 붙고 행 락 평균 대기가 기준의 2~3배가 되면 줄이 DB로 옮겨간 것이다. "
-            "③ 그런데도 p99가 기준과 같으면 사용자는 아무 이득이 없다.", h=6)
+            "**결과** (정착 폭풍 6분끼리 비교 · 기준 21:38:30~21:44:30, 실험 23:05:30~23:11:30)\n\n"
+            "① **천장은 그대로였다** — 상세 처리량 277 → 267/s. 풀을 2.5배로 늘렸는데 처리량은 오히려 3.6% 내려갔다.\n\n"
+            "② **줄은 옮겨간 게 아니라 하나 더 생겼다** — 처음엔 Pending이 내려갈 것으로 봤지만 1,883 → 1,832로 거의 안 움직였고, "
+            "락 앞 세션만 6.2 → 18.3으로 3배가 됐다. 동시 요청 총량은 Tomcat 스레드 상한(2,000 · 실측 busy ≈1,950)이 정하고 있어서, "
+            "풀을 12개 늘린 것은 그 줄에서 보이지도 않는다.\n\n"
+            "③ **모델은 맞았다** — 대기 ≈ 보유 시간 × 앞선 세션 수. 27.0ms ÷ 6.16 = 4.4ms, 96.3ms ÷ 18.32 = 5.3ms. "
+            "락 보유 시간은 풀 크기와 무관하게 그대로다.\n\n"
+            "④ **중립이 아니라 손해였다** — 커넥션 점유 시간 15.6 → 44.0ms, p99 최대 9.99 → 22.2s, MySQL QPS 4,615 → 4,062.", h=9)
         tiles = [
             _bstat("감상글 상세 처리량", BASE["hot_rps"], HOT_RPS, unit="reqps", decimals=0,
-                   desc="변하면 안 되는 값. 락 보유 시간이 정한 천장이다."),
+                   desc="천장. 락 보유 시간이 정하고 풀 크기는 못 바꾼다 — 실측 277 → 267/s."),
             _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
-                   desc="풀을 늘려도 이 값이 안 내려가면 사용자에게 이득이 없다."),
+                   desc="안 내려가면 사용자에게 이득이 없다 — 실측은 오히려 악화(평균 9.09 → 10.63s)."),
             _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
             _bstat("HikariCP Pending", BASE["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
-                   decimals=0, steps=red(1), desc="내려갈 것이다. 줄이 사라진 게 아니라 DB 안으로 들어간 것."),
+                   decimals=0, steps=red(1), desc="예상과 달리 거의 안 내려갔다(1,883 → 1,832). 대기 총량은 Tomcat 스레드 상한이 정한다."),
             _bstat("락 앞에 선 세션", BASE["waiters"], "mysql_global_status_innodb_row_lock_current_waits",
-                   decimals=0, desc="새 풀 크기 20 근처까지 올라갈 것이다."),
+                   decimals=0, desc="풀 크기 − 1 까지 올라간다 — 실측 평균 18.3, 최대 19(풀 20)."),
             _bstat("행 락 평균 대기", BASE["lock_avg"], LOCK_AVG_MS, unit="ms", calc="mean",
                    steps=red(TH["shelfeed-rowlock-time"]),
-                   desc="앞에 선 세션이 늘어난 만큼 길어진다. 대기 ≈ 보유 시간 × 앞선 세션 수."),
+                   desc="앞에 선 세션이 3배가 된 만큼 3.6배 길어졌다(27.0 → 96.3ms). 대기 ≈ 보유 시간 × 앞선 세션 수."),
         ]
         charts = [
             timeseries("천장은 그대로인가 — 상세 처리량 vs 행 락 발생률", [
                 prom(HOT_RPS, "감상글 상세 처리량 (req/s)", "A"),
                 prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
             ], unit="short", w=8, h=10,
-                desc="두 선이 기준(≈300/s)에서 안 움직이면 풀 크기는 처리량과 무관하다는 뜻."),
-            timeseries("줄이 어디로 옮겨갔나 — 락 앞 세션 vs 풀 크기", [
+                desc="두 선이 기준 높이에서 안 움직였다. 풀 크기는 한 행의 처리량과 무관하다."),
+            timeseries("줄은 어디에 섰나 — 락 앞 세션 vs 풀 크기", [
                 prom("mysql_global_status_innodb_row_lock_current_waits", "락 앞에 선 세션", "A"),
                 prom('max(hikaricp_connections_max{application="shelfeed"})', "풀 크기", "B"),
-            ], w=8, h=10, desc="세션 수가 풀 크기 선에 붙어 올라간다. 풀 20이면 19개가 락 앞에 선다."),
+            ], w=8, h=10, desc="세션 수가 풀 크기 선에 붙어 올라간다(풀 20 → 19개). 앱 앞 Pending은 그대로였으니, 줄이 옮겨간 게 아니라 하나 더 생긴 것."),
             timeseries("대기 위치 — 앱 앞(acquire) vs DB 안(행 락)", [
                 prom(ACQ_AVG, "평균 acquire (앱 앞에서 기다림)", "A"),
                 prom(f"({LOCK_AVG_MS}) / 1000", "행 락 평균 대기 (DB 안에서 기다림)", "B"),
             ], unit="s", w=8, h=10,
-                desc="풀을 늘리면 acquire는 줄고 행 락 대기는 는다. 합은 비슷하다 — 줄 선 자리만 바뀐다."),
+                desc="acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것."),
         ]
         desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
     else:
