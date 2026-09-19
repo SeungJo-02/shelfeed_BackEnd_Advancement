@@ -20,6 +20,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 RULES = ROOT / "docker/grafana/provisioning/alerting/view-lock-rules.yaml"
 OUT = ROOT / "docker/grafana/dashboards/shelfeed-view-lock.json"
 OUT_ALERTS = ROOT / "docker/grafana/dashboards/shelfeed-alerts.json"
+OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
+           "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -547,6 +549,163 @@ def build_alerts() -> dict:
     }
 
 
+
+# ---------------------------------------------------------------- 실험 대시보드 (해결 대안 검증)
+
+# 기준값 = 실측 11 (2026-09-19 21:35 실행 · 캡처 범위 21:37→21:44). 타일 제목에 박아 두어
+# 실험 실행을 캡처하면 한 장에서 "기준 → 실험" 이 읽히게 한다.
+BASE = {
+    "p99": "9.99s", "succ": "49.63%", "pending": "1,991", "waiters": "7 (풀 8)",
+    "share": "80.1%", "lock_avg": "24ms", "lock_rate": "297/s", "hot_rps": "307/s",
+    "upd_rate": "302/s", "acq": "4.28s",
+}
+
+_A = {"application": "shelfeed"}
+ACQ_AVG = ('rate(hikaricp_connections_acquire_seconds_sum{application="shelfeed"}[1m])'
+           ' / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application="shelfeed"}[1m]), 1e-9)')
+LOCK_AVG_MS = ('rate(mysql_global_status_innodb_row_lock_time[1m])'
+               ' / clamp_min(rate(mysql_global_status_innodb_row_lock_waits[1m]), 1e-9)')
+LOCK_RATE = 'rate(mysql_global_status_innodb_row_lock_waits[1m])'
+HOT_RPS = f'sum(rate(http_server_requests_seconds_count{{uri="{HOT_URI}"}}[1m]))'
+UPD_RATE = 'rate(mysql_global_status_commands_total{command="update"}[1m])'
+HOT_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{{uri="{HOT_URI}"}}[1m])))'
+OTHER_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{{uri=~"{ALL_URI}", uri!="{HOT_URI}"}}[1m])))'
+SUCC = (f'sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",status=~"2..|3.."}}[1m]))'
+        f' / sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}"}}[1m]))')
+SHARE = ('(rate(mysql_global_status_innodb_row_lock_time[1m]) / 1000)'
+         ' / scalar(max(hikaricp_connections_max{application="shelfeed"})) * 100')
+
+
+def _layout(rows):
+    """(행 제목, 행 설명, 패널 목록) 리스트 → gridPos 가 채워진 패널 배열."""
+    panels, y = [], 0
+    for title, desc, items in rows:
+        panels.append({"id": next(_ids), "type": "row", "title": title, "collapsed": False,
+                       "gridPos": {"h": 1, "w": 24, "x": 0, "y": y}, "panels": [],
+                       "description": desc})
+        y += 1; x = 0; line_h = 0
+        for p in items:
+            w, h = p.pop("_w"), p.pop("_h")
+            if x + w > 24:
+                x, y, line_h = 0, y + line_h, 0
+            p["gridPos"] = {"h": h, "w": w, "x": x, "y": y}
+            x += w; line_h = max(line_h, h); panels.append(p)
+        y += line_h
+    return panels
+
+
+def _bstat(title, base, expr, **kw):
+    """기준값이 제목에 붙은 stat. '상세 p99 · 기준 9.99s' 처럼 읽힌다."""
+    return stat(f"{title} · 기준 {base}", expr, w=4, h=5, **kw)
+
+
+def build_experiment(key: str) -> dict:
+    red = lambda v: [{"color": "green", "value": None}, {"color": "red", "value": v}]
+    grn = lambda v: [{"color": "red", "value": None}, {"color": "green", "value": v}]
+
+    if key == "a":
+        title = "Shelfeed — 실험 A · 풀 8 → 20"
+        card = text_note(
+            "**가설** — 풀을 늘리면 Pending 그래프는 내려가지만 **처리량 천장은 그대로**다. "
+            "한 행의 처리량 = 1 ÷ 락 보유 시간이고, 풀 크기는 그 식에 없다. "
+            "늘어나는 건 락 앞에 선 세션 수뿐이고, 줄이 **앱 앞(acquire)에서 DB 안(row lock)으로 옮겨갈 뿐**이다.\n\n"
+            "**바꾼 것** — `application-local.yml` `maximum-pool-size: 8 → 20`. 나머지(부하·코드)는 기준 실행과 동일.\n\n"
+            "**읽는 법** — ① 상세 처리량과 행 락 발생률이 기준(≈300/s)에서 안 움직이면 천장이 그대로다. "
+            "② 락 앞 세션이 새 풀 크기(20)에 붙고 행 락 평균 대기가 기준의 2~3배가 되면 줄이 DB로 옮겨간 것이다. "
+            "③ 그런데도 p99가 기준과 같으면 사용자는 아무 이득이 없다.", h=6)
+        tiles = [
+            _bstat("감상글 상세 처리량", BASE["hot_rps"], HOT_RPS, unit="reqps", decimals=0,
+                   desc="변하면 안 되는 값. 락 보유 시간이 정한 천장이다."),
+            _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
+                   desc="풀을 늘려도 이 값이 안 내려가면 사용자에게 이득이 없다."),
+            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+            _bstat("HikariCP Pending", BASE["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
+                   decimals=0, steps=red(1), desc="내려갈 것이다. 줄이 사라진 게 아니라 DB 안으로 들어간 것."),
+            _bstat("락 앞에 선 세션", BASE["waiters"], "mysql_global_status_innodb_row_lock_current_waits",
+                   decimals=0, desc="새 풀 크기 20 근처까지 올라갈 것이다."),
+            _bstat("행 락 평균 대기", BASE["lock_avg"], LOCK_AVG_MS, unit="ms", calc="mean",
+                   steps=red(TH["shelfeed-rowlock-time"]),
+                   desc="앞에 선 세션이 늘어난 만큼 길어진다. 대기 ≈ 보유 시간 × 앞선 세션 수."),
+        ]
+        charts = [
+            timeseries("천장은 그대로인가 — 상세 처리량 vs 행 락 발생률", [
+                prom(HOT_RPS, "감상글 상세 처리량 (req/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="두 선이 기준(≈300/s)에서 안 움직이면 풀 크기는 처리량과 무관하다는 뜻."),
+            timeseries("줄이 어디로 옮겨갔나 — 락 앞 세션 vs 풀 크기", [
+                prom("mysql_global_status_innodb_row_lock_current_waits", "락 앞에 선 세션", "A"),
+                prom('max(hikaricp_connections_max{application="shelfeed"})', "풀 크기", "B"),
+            ], w=8, h=10, desc="세션 수가 풀 크기 선에 붙어 올라간다. 풀 20이면 19개가 락 앞에 선다."),
+            timeseries("대기 위치 — 앱 앞(acquire) vs DB 안(행 락)", [
+                prom(ACQ_AVG, "평균 acquire (앱 앞에서 기다림)", "A"),
+                prom(f"({LOCK_AVG_MS}) / 1000", "행 락 평균 대기 (DB 안에서 기다림)", "B"),
+            ], unit="s", w=8, h=10,
+                desc="풀을 늘리면 acquire는 줄고 행 락 대기는 는다. 합은 비슷하다 — 줄 선 자리만 바뀐다."),
+        ]
+        desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
+    else:
+        title = "Shelfeed — 실험 B · UPDATE를 트랜잭션 끝으로"
+        card = text_note(
+            "**가설** — 락 보유 시간 = UPDATE 이후 트랜잭션 나머지 전체다. UPDATE를 커밋 직전으로 옮기면 "
+            "보유 시간이 ~3ms → UPDATE 자체(~0.1ms)로 줄고, 한 행의 처리량 천장이 수십 배 올라간다. "
+            "**이 부하에서는 장애가 거의 사라질 것이다.**\n\n"
+            "**바꾼 것** — `ReviewService.getReview()`의 `incrementViewCount()`를 첫 줄에서 return 직전으로. 나머지 동일.\n\n"
+            "**읽는 법** — ① 행 락 발생률·Pending·p99가 평시로 돌아오면 락 보유 시간이 진짜 변수였다. "
+            "② 그런데 **UPDATE 실행률은 기준(≈300/s)과 같다** — 읽기 요청이 쓰기를 만드는 구조는 그대로다. "
+            "인기가 곧 쓰기 경합 조건이 되는 설계가 남아 있고, 조회수 정의(봇·중복·체류)도 손대지 못했다. "
+            "**효과가 없어서 기각하는 게 아니라, 효과가 커서 임시 완화책으로 채택하되 근본 조치는 따로 필요하다.**", h=7)
+        tiles = [
+            _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
+                   desc="평시 수준으로 돌아올 것이다."),
+            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+            _bstat("HikariCP Pending", BASE["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
+                   decimals=0, steps=red(1)),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"]), desc="0 근처로 떨어질 것이다. 경합이 사라졌다는 뜻."),
+            _bstat("락 대기 풀 점유율", BASE["share"], SHARE, unit="percent", decimals=0, steps=red(50)),
+            _bstat("UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=0,
+                   desc="**변하지 않는 값.** 읽기 경로의 쓰기는 그대로다 — 이 실험이 근본 해결이 아닌 이유."),
+        ]
+        charts = [
+            timeseries("쓰기는 그대로, 경합만 사라졌다 — UPDATE 실행률 vs 행 락 발생률", [
+                prom(UPD_RATE, "UPDATE 실행률 (/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+            ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
+                desc="UPDATE 선은 기준 높이(≈300/s)에 그대로 있고 락 대기 선만 바닥으로 내려가면 가설이 맞다. "
+                     "쓰기가 사라진 게 아니라 락을 쥐는 시간이 짧아진 것.",
+                threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
+            timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
+                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="같은 부하인데 두 선이 임계 1s 아래에 머물면 무관한 API의 피해도 사라진 것."),
+            timeseries("HikariCP — Active / Idle / Pending", [
+                prom('hikaricp_connections_pending{application="shelfeed"}', "Pending", "A"),
+                prom('hikaricp_connections_active{application="shelfeed"}', "Active", "B"),
+                prom('hikaricp_connections_idle{application="shelfeed"}', "Idle", "C"),
+            ], w=8, h=10, desc="Idle이 0으로 안 떨어지고 Pending이 안 쌓이면 풀에 여유가 생긴 것."),
+        ]
+        desc = "해결 대안 B 검증. 락 보유 시간이 변수임을 보이되, 읽기 경로의 쓰기가 남는다는 한계도 같이 보인다."
+
+    rows = [
+        (f"실험 {key.upper()} — 가설과 읽는 법", "블로그 절: 어떻게 해결할까", [card]),
+        ("기준(실측 11) → 실험", "타일 제목의 '기준' 값과 비교해서 읽는다", tiles),
+        ("증거", "이 실험이 증명해야 할 그림", charts),
+    ]
+    return {
+        "uid": f"shelfeed-exp-{key}", "title": title, "description": desc,
+        "tags": ["shelfeed", "view-count", "row-lock", "experiment"],
+        "timezone": "browser", "schemaVersion": 39, "version": 0,
+        "refresh": "10s", "time": {"from": "now-15m", "to": "now"}, "editable": True,
+        "annotations": {"list": [{
+            "name": "알람 상태 변화", "datasource": {"type": "datasource", "uid": "grafana"},
+            "enable": True, "hide": False, "iconColor": "red",
+            "target": {"type": "dashboard", "limit": 100, "matchAny": False, "tags": []},
+        }]},
+        "panels": _layout(rows),
+    }
+
+
 if __name__ == "__main__":
     dash = build()
     OUT.write_text(json.dumps(dash, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -562,3 +721,10 @@ if __name__ == "__main__":
     OUT_ALERTS.write_text(json.dumps(alerts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"생성: {OUT_ALERTS.relative_to(ROOT)}")
     print(f"  패널 {len(alerts['panels'])} (alertlist 1 · 해설 1)")
+
+    for key, path in OUT_EXP.items():
+        exp = build_experiment(key)
+        path.write_text(json.dumps(exp, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        n = [p for p in exp["panels"] if p["type"] not in ("row", "text")]
+        print(f"생성: {path.relative_to(ROOT)}  — {exp['title']}")
+        print(f"  패널 {len(n)} (stat {sum(p['type']=='stat' for p in n)} · timeseries {sum(p['type']=='timeseries' for p in n)}) + 해설 1")
