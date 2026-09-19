@@ -1,0 +1,74 @@
+{
+  "uid": "shelfeed-alerts",
+  "title": "Shelfeed — 알림",
+  "description": "블로그 파트 4·14용. 등록된 알람 룰과 상태.",
+  "tags": [
+    "shelfeed",
+    "view-count",
+    "row-lock",
+    "alerting"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": true,
+  "panels": [
+    {
+      "id": 144,
+      "type": "alertlist",
+      "title": "Alert rules",
+      "description": "Shelfeed 폴더의 Grafana 관리 룰만 보여 준다. 어떤 룰이 울렸나보다 어떤 룰이 목록에 아예 없나를 먼저 본다. 주의: 이 패널은 대시보드 시간 범위를 따르지 않고 '지금' 상태만 보여 준다.",
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "viewMode": "list",
+        "groupMode": "default",
+        "groupBy": [],
+        "maxItems": 20,
+        "sortOrder": 1,
+        "dashboardAlerts": false,
+        "alertName": "",
+        "dashboardTitle": "",
+        "folder": {
+          "uid": "afm9jdtz6czcwe",
+          "title": "Shelfeed"
+        },
+        "datasource": "grafana",
+        "tags": [],
+        "alertInstanceLabelFilter": "",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "normal": true,
+          "error": true,
+          "noData": false
+        }
+      }
+    },
+    {
+      "id": 145,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**사건 당시 화면으로 읽는 법** — 이 목록이 그때 본 전부다. 커넥션 풀·행 락·슬로우 쿼리 룰은 **Normal이어서 조용했던 게 아니라, 아예 등록돼 있지 않았다.**\n\n알람 하나로는 \"이 API가 느리다\"까지밖에 못 읽는다 — 그래서 상세 조회 쿼리부터 열어 보게 된다.\n\n**탐지의 한계는 지표가 아니라 등록된 질문의 목록이 정한다.** `innodb_row_lock_waits`는 그때도 exporter가 뱉고 있었다. 아무도 안 물었을 뿐이다.\n\n---\n\n**재발 방지 화면으로 읽는 법** — 룰 7개가 다 등록되면 발화 순서가 곧 진단 순서가 된다. ①② 가 먼저 울려 *공유 자원이 막혔다*를 알리고, 2~3분 뒤 ③④ 가 따라 올라와 *행 락 때문이다*까지 좁힌다. 그 사이 **⑤⑥ 이 Normal로 남아 DB 리소스를 용의선상에서 지운다** — 일부러 안 울리게 둔 대조군이다.\n\n> **캡처 시점 주의** — 이 패널은 대시보드 시간 범위를 따르지 않는다. 언제나 *지금* 상태만 보여 주므로, Firing 화면은 **부하가 도는 중에** 캡처해야 한다. 부하가 끝나면 곧 Normal로 돌아간다.\n\n> 알람 프로비저닝은 **Grafana 기동 시 1회만** 적재된다. 룰 파일을 고쳤다면 `docker compose restart grafana` 후에야 목록에 반영된다.\n\n> 이 패널은 Shelfeed 폴더의 **Grafana 관리 룰만** 보여 준다. `docker/prometheus/rules/view-lock.yml` 은 같은 룰의 Prometheus 문법판(참조용)이라 여기서는 일부러 제외한다 — 섞이면 \"그때 ⓪ 하나뿐이었다\"는 그림이 거짓이 된다."
+      }
+    }
+  ]
+}

@@ -1,0 +1,751 @@
+# Grafana 통합 알람 — 조회수 행 락 경합 탐지
+# ①②는 원인을 모르지만 빨리 울리고, ③④는 5분 걸리는 대신 원인을 지목한다.
+# 대시보드: shelfeed-view-lock  ·  PromQL 은 mysqld-exporter v0.16.0 / Micrometer 기준 실측 확인
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "조회수 행 락 경합",
+      "folder": "Shelfeed",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "shelfeed-p99",
+          "title": "⓪ 감상글 상세 p99 1초 초과",
+          "condition": "C",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "감상글 상세 p99 {{ $values.B }}초",
+            "description": "이 알람만 보면 '이 API가 느리다'로 읽힌다. 하지만 여러 API가 동시에 느려졌는지를 먼저 확인해야 한다 — 공유 자원(커넥션 풀·락) 문제면 알람이 가리킨 곳과 원인이 있는 곳이 다르다.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "1"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        1
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-pending",
+          "title": "① 커넥션 풀 대기 발생 (락 경합의 가장 빠른 신호)",
+          "condition": "C",
+          "for": "3m",
+          "labels": {
+            "severity": "warning",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "커넥션 풀 대기 {{ $values.B }}건",
+            "description": "3분 넘게 커넥션을 못 받고 기다리는 요청이 있습니다. 풀 사이즈를 올리기 전에 대시보드의 'acquire vs usage' 패널을 먼저 보세요 — usage 가 더 크면 풀이 작은 게 아니라 커넥션이 안 돌아오는 것이고, 풀을 늘려도 처리량은 그대로입니다.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "3"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "max(hikaricp_connections_pending{application=\"shelfeed\"})",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-acquire",
+          "title": "② 커넥션 획득 지연 1초 초과",
+          "condition": "C",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "커넥션 획득에 {{ $values.B }}초 소요",
+            "description": "평시 획득 시간은 50ms 미만입니다. 공유 자원(풀·락)이 막혔을 때 가장 먼저 튀는 값입니다.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "4"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "max(hikaricp_connections_acquire_seconds_max{application=\"shelfeed\"})",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        1
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-rowlock-rate",
+          "title": "③ InnoDB 행 락 대기 발생률 10/s 초과",
+          "condition": "C",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "행 락 대기 {{ $values.B }}/s",
+            "description": "같은 행에 요청이 몰려 직렬화되고 있습니다. 읽기 경로에서 카운터성 UPDATE 를 하는 엔드포인트가 있는지 확인하고, sys.innodb_lock_waits 로 어느 행인지 바로 볼 수 있습니다.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "5"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "rate(mysql_global_status_innodb_row_lock_waits[5m])",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        10
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-rowlock-time",
+          "title": "④ InnoDB 행 락 평균 대기 100ms 초과",
+          "condition": "C",
+          "for": "5m",
+          "labels": {
+            "severity": "critical",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "행 락 평균 대기 {{ $values.B }}ms",
+            "description": "락 하나를 평균 이만큼 쥐고 있습니다. 직렬화 구간의 처리량 상한은 1/락보유시간이라 커넥션 풀을 늘려도 처리량은 늘지 않습니다. 트랜잭션 안에서 UPDATE 위치를 먼저 확인하세요.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "6"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "rate(mysql_global_status_innodb_row_lock_time[5m]) / rate(mysql_global_status_innodb_row_lock_waits[5m])",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        100
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-threads-running",
+          "title": "⑤ MySQL Threads running 포화",
+          "condition": "C",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "MySQL 동시 실행 스레드 {{ $values.B }}개",
+            "description": "DB가 실제로 일하고 있는 스레드 수. 앱이 느린데 이게 Normal 이면 DB가 느린 게 아니라 앱이 DB를 기다리는 중이다. 울리지 않는 것 자체가 증거가 되는 알람.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "7"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "max(mysql_global_status_threads_running)",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        20
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uid": "shelfeed-slow-queries",
+          "title": "⑥ 슬로우 쿼리 발생",
+          "condition": "C",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "service": "shelfeed",
+            "incident": "view-count-row-lock"
+          },
+          "annotations": {
+            "summary": "슬로우 쿼리 {{ $values.B }}/s",
+            "description": "long_query_time 을 넘는 쿼리. 락 경합은 개별 쿼리가 빠르기 때문에 여기 안 잡힌다 — 이 알람이 Normal 인데 서비스가 느리면 경합을 의심해야 한다.",
+            "runbook_url": "docs/blog/조회수-행락-장애-회고.md",
+            "__dashboardUid__": "shelfeed-view-lock",
+            "__panelId__": "8"
+          },
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "editorMode": "code",
+                "expr": "rate(mysql_global_status_slow_queries[5m])",
+                "instant": true,
+                "range": false,
+                "intervalMs": 15000,
+                "maxDataPoints": 43200,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "prometheus"
+                }
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "B"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
