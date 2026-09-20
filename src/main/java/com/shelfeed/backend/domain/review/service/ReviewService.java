@@ -90,11 +90,11 @@ public class ReviewService {
     }
 
     //2. 감상 상세 조회
-    // [실험 B] 조회수 UPDATE를 트랜잭션 맨 끝(커밋 직전)으로 옮겼다.
-    // → 락 보유 시간 = 남은 트랜잭션 전체 → UPDATE + 커밋으로 줄어든다.
-    //   읽기 경로에 쓰기가 남아 있다는 구조 자체는 그대로다(근본 조치가 아닌 이유).
-    //   부수 효과: PRIVATE·차단으로 막힌 요청은 이제 조회수를 올리지 않는다.
-    @Transactional
+    // [실험 C] 조회수 UPDATE를 이 경로에서 아예 뺐다. GET은 순수 읽기가 된다.
+    // → 쥘 행 락이 없으니 한 행의 직렬화 천장 자체가 사라진다.
+    //   조회수는 본문을 3초 이상 본 시점에 별도 요청으로 올린다(정의 변경).
+    //   이 실험은 "읽기 경로에서 쓰기를 뺐을 때 천장이 어디까지 가는가"만 잰다.
+    @Transactional(readOnly = true)
     public ReviewDetailResponse getReview(Long reviewId, Long memberUserId){
         Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
         boolean isMine = memberUserId != null && review.getMember().getMemberUserId().equals(memberUserId);//본인확인
@@ -112,7 +112,6 @@ public class ReviewService {
         List<String> tags = getTagNames(review);
         boolean isLiked = requester != null
                 && reviewLikeRepository.existsByReview_ReviewIdAndMemberId(reviewId, requester.getMemberId());
-        reviewRepository.incrementViewCount(reviewId);// 조회수 +1 — 커밋 직전이라 락을 쥐는 구간이 가장 짧다
         return ReviewDetailResponse.of(review, tags, isMine, isLiked);
     }
 

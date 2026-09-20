@@ -21,7 +21,8 @@ RULES = ROOT / "docker/grafana/provisioning/alerting/view-lock-rules.yaml"
 OUT = ROOT / "docker/grafana/dashboards/shelfeed-view-lock.json"
 OUT_ALERTS = ROOT / "docker/grafana/dashboards/shelfeed-alerts.json"
 OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
-           "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json"}
+           "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json",
+           "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -572,6 +573,14 @@ HOT_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seco
 OTHER_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{{uri=~"{ALL_URI}", uri!="{HOT_URI}"}}[1m])))'
 SUCC = (f'sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",status=~"2..|3.."}}[1m]))'
         f' / sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}"}}[1m]))')
+# 요청 1건이 커넥션을 두 번 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션). 풀 포화도는
+# HTTP 요청이 아니라 "커넥션 대여 횟수"로 봐야 상한과 같은 단위가 된다.
+BORROW_RATE = 'rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m])'
+USAGE_AVG = ('rate(hikaricp_connections_usage_seconds_sum{application="shelfeed"}[1m])'
+             ' / clamp_min(rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m]), 1e-9)')
+# 직렬화가 사라지면 커넥션 8개가 비로소 병렬로 돈다. 그때의 상한 = 풀 크기 ÷ 커넥션 1회 점유 시간.
+POOL_CEIL = ('scalar(max(hikaricp_connections_max{application="shelfeed"}))'
+             f' / clamp_min({USAGE_AVG}, 1e-9)')
 SHARE = ('(rate(mysql_global_status_innodb_row_lock_time[1m]) / 1000)'
          ' / scalar(max(hikaricp_connections_max{application="shelfeed"})) * 100')
 
@@ -648,6 +657,64 @@ def build_experiment(key: str) -> dict:
                 desc="acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것."),
         ]
         desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
+    elif key == "c":
+        title = "Shelfeed — 실험 C · GET에서 조회수 쓰기 제거"
+        card = text_note(
+            "**가설** — 조회수 UPDATE를 상세 조회 경로에서 아예 빼면 쥘 행 락이 없다. "
+            "한 행의 직렬화 천장(1 ÷ 락 보유 시간) 자체가 사라지고, 천장을 정하는 주체가 "
+            "**행 락에서 커넥션 풀로** 넘어간다.\n\n"
+            "**바꾼 것** — `ReviewService.getReview()`에서 `incrementViewCount()` 한 줄 삭제. "
+            "풀은 8 그대로, 부하도 기준 실행과 동일. 조회수는 본문을 3초 이상 본 시점에 "
+            "별도 요청으로 올린다는 정의 변경을 전제한다.\n\n"
+            "**결과** (정착 폭풍 6분 · 기준 21:38:30~21:44:30, 실험 22:27:30~22:33:30)\n\n"
+            "① **락이 완전히 사라졌다** — 행 락 발생률·락 앞 세션·평균 대기·풀 점유율이 모두 **정확히 0**이다"
+            "(6분 내내 mean·max·min 전부 0). UPDATE 실행률도 245 → 3.4/s로, 남은 건 배경 트래픽의 다른 쓰기뿐이다.\n\n"
+            "② **처리량은 277 → 462/s(+67%)**, MySQL QPS 4,615 → 8,592(+86%), "
+            "MySQL Threads running 8.6 → 2.6. DB가 한가해졌다.\n\n"
+            "③ **그런데 p99 8.00s, Pending 1,816은 남았다.** 병목이 사라진 게 아니라 **옮겨갔다.** "
+            "커넥션 대여율을 이론 상한과 대보면 기준은 521.9/925.9→**99.6% 포화**, 실험 C는 911.0/925.9→**98.4% 포화**다. "
+            "풀은 두 경우 다 100% 포화였고, 달라진 건 회전 속도다 — 커넥션 점유가 15.6 → 8.8ms로 줄어 "
+            "같은 8개가 522/s → 911/s로 돈다.\n\n"
+            "④ **그래서 실험 A의 결론이 뒤집힌다.** 락이 있을 땐 점유 시간의 77%가 락 대기라 커넥션을 늘려도 "
+            "다 같이 락 앞에 섰다. 지금은 점유 시간이 순수한 일로만 채워져 있으니 늘린 만큼 선형으로 늘어난다. "
+            "**A는 틀린 답이 아니라 순서가 틀린 답이었다.**\n\n"
+            "⑤ **덤** — HTTP 요청 472/s인데 커넥션 대여는 911/s, 요청당 1.93회다. "
+            "`JwtAuthenticationFilter`가 매 요청 회원을 DB에서 조회한다(digest: `SELECT members` 418,661회 ÷ 요청 214,451건 = 1.95배). "
+            "여기를 캐시로 돌리면 같은 풀로 처리량이 한 번 더 두 배가 된다.", h=13)
+        tiles = [
+            _bstat("감상글 상세 처리량", BASE["hot_rps"], HOT_RPS, unit="reqps", decimals=0,
+                   desc="락이 사라졌을 때 이 방향의 상한."),
+            _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"])),
+            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+            _bstat("UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=0,
+                   desc="0으로 떨어져야 한다. 읽기 경로에서 쓰기가 사라졌다는 뜻."),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"]), desc="쥘 락이 없으니 0이어야 한다."),
+            _bstat("HikariCP Pending", BASE["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
+                   decimals=0, steps=red(1)),
+        ]
+        charts = [
+            timeseries("쓰기가 사라졌다 — UPDATE 실행률 vs 행 락 발생률", [
+                prom(UPD_RATE, "UPDATE 실행률 (/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+            ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
+                desc="두 선이 바닥에 붙으면 읽기 경로에 쓰기가 없다. 실험 B에서 두 선이 300~400/s였던 것과 대비된다.",
+                threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
+            timeseries("이제 천장을 정하는 건 누구인가 — 커넥션 대여율 vs 풀 ÷ 점유 시간", [
+                prom(BORROW_RATE, "커넥션 대여 (/s)", "A"),
+                prom(POOL_CEIL, "풀 크기 ÷ 커넥션 점유 시간 (이론 상한)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="두 선이 겹치면 풀이 100% 포화라는 뜻이다. 기준(풀 8, 락 있음)도 99.6% 포화였고 "
+                     "실험 C도 98.4% 포화다 — 달라진 건 회전 속도다. 커넥션 점유가 15.6ms에서 8.8ms로 "
+                     "줄어 같은 8개가 522/s → 911/s로 돈다. 점유 시간이 순수한 일로만 채워진 지금은 "
+                     "커넥션을 늘린 만큼 선형으로 늘어난다 — **실험 A와 달리 여기서는 풀 증설이 답이 된다.** "
+                     "참고: HTTP 요청 1건이 커넥션을 약 2회 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션)."),
+            timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
+                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="조회수와 무관했던 피드·검색·로그인이 같이 내려오면, 공유 자원을 막던 원인이 제거된 것."),
+        ]
+        desc = "해결 방향 검증. 읽기 경로에서 쓰기를 빼면 천장이 어디까지 가고, 그다음 병목은 무엇이 되는가."
     else:
         title = "Shelfeed — 실험 B · UPDATE를 트랜잭션 끝으로"
         card = text_note(
