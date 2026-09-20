@@ -221,7 +221,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -678,7 +678,7 @@
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\", uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m])))",
           "legendFormat": "그 외 API 전체",
           "datasource": {
             "type": "prometheus",

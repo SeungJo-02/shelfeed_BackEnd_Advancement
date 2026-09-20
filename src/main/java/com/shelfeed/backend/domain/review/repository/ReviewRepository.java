@@ -22,6 +22,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("UPDATE Review r SET r.viewCount = r.viewCount + 1 WHERE r.reviewId = :reviewId")
     void incrementViewCount(@Param("reviewId") Long reviewId);
 
+    // Redis에 모아둔 조회수를 한 번에 더한다. 요청마다 한 건씩 쓰던 것을 주기당 리뷰 하나에 한 건으로 줄인다.
+    @Modifying
+    @Query("UPDATE Review r SET r.viewCount = r.viewCount + :delta WHERE r.reviewId = :reviewId")
+    void addViewCount(@Param("reviewId") Long reviewId, @Param("delta") long delta);
+
     @Query("SELECT r FROM Review r JOIN FETCH r.member WHERE r.isDeleted = false AND r.reviewStatus = 'PUBLISHED'")
     List<Review> findAllPublishedWithMember();
 

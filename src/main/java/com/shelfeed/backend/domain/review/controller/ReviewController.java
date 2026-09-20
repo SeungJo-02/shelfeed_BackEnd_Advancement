@@ -6,8 +6,10 @@ import com.shelfeed.backend.domain.review.dto.response.*;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.service.ReviewLikeService;
 import com.shelfeed.backend.domain.review.service.ReviewService;
+import com.shelfeed.backend.domain.review.viewcount.ViewCountService;
 import com.shelfeed.backend.global.common.response.ApiResponse;
 import com.shelfeed.backend.global.security.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
     private final ReviewLikeService reviewLikeService;
+    private final ViewCountService viewCountService;
 
     // 1. 감상 작성  POST /api/v1/reviews
     @PostMapping("/reviews")
@@ -42,6 +45,22 @@ public class ReviewController {
         Long memberUserId = userDetails != null ? userDetails.getMember().getMemberUserId() : null;//비회원 접근 허용
         return ApiResponse.success(200, reviewService.getReview(reviewId,memberUserId));
     }
+    // 2-1. 조회 기록  POST /api/v1/reviews/{reviewId}/view
+    // 본문을 3초 이상 본 시점에 화면이 호출한다. 상세 조회(GET)는 순수 읽기로 두고
+    // 조회수 집계는 이 요청 하나로 모은다. MySQL을 건드리지 않으므로 쥐는 락이 없다.
+    @PostMapping("/reviews/{reviewId}/view")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void recordView(
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader(value = "X-Viewer-Key", required = false) String viewerKey,
+            HttpServletRequest request){
+        String viewer = userDetails != null
+                ? String.valueOf(userDetails.getMember().getMemberUserId())
+                : (viewerKey != null ? viewerKey : request.getRemoteAddr());//비회원은 IP로 식별
+        viewCountService.record(reviewId, viewer);
+    }
+
     // 3. 감상 수정  PUT /api/v1/reviews/{reviewId}
     @PutMapping("/reviews/{reviewId}")
     public ApiResponse<ReviewUpdateResponse> updateReview(

@@ -54,6 +54,7 @@ const BASELINE  = __ENV.BASELINE  || '2m';
 const RAMP      = __ENV.RAMP      || '30s';
 const STORM     = __ENV.STORM     || '6m';
 const RECOVERY  = __ENV.RECOVERY  || '1m30s';
+const RECORD_VIEW = __ENV.RECORD_VIEW === '1';  // [실험 D] 조회 기록 API 호출 여부
 
 // ── 인증 토큰 ────────────────────────────────────────────────────────
 // 비인증으로 돌리면 상세 조회가 짧은 경로를 타서 락 보유 시간이 절반이 된다.
@@ -102,6 +103,7 @@ const bgOtherDuration   = new Trend('bg_other_duration', true);     // 다른 �
 const feedDuration      = new Trend('feed_duration', true);        // 피드 — 조회수와 무관
 const searchDuration    = new Trend('search_duration', true);      // 검색 — 조회수와 무관
 const loginDuration     = new Trend('login_duration', true);       // 로그인 — 사용자가 가장 먼저 체감
+const viewRecordDuration = new Trend('view_record_duration', true); // 조회 기록 API (Redis 경로)
 const errorRate         = new Rate('error_rate');
 
 export const options = {
@@ -200,5 +202,19 @@ export function hotStorm() {
   hotDetailDuration.add(res.timings.duration);
   check(res, { 'hot status 2xx': r => r.status === 200 }) || errorRate.add(1);
   errorRate.add(res.status >= 500);
+
+  // [실험 D] 본문을 3초 이상 본 시점에 화면이 보내는 조회 기록 요청.
+  // RECORD_VIEW=1 일 때만 보낸다. X-Viewer-Key를 매번 다르게 주어 중복 제거에 걸리지 않게 하고
+  // (쓰기 경로가 초당 수백 건을 받아내는지를 재는 게 목적), 비회원 경로로 보낸다.
+  if (RECORD_VIEW) {
+    const v = http.post(`${BASE_URL}/api/v1/reviews/${HOT_ID}/view`, null, {
+      headers: { 'X-Viewer-Key': `${__VU}-${__ITER}` },
+      tags: { api: 'view_record' },
+    });
+    viewRecordDuration.add(v.timings.duration);
+    check(v, { 'view status 2xx': r => r.status === 204 || r.status === 200 }) || errorRate.add(1);
+    errorRate.add(v.status >= 500);
+  }
+
   sleep(0.1 + Math.random() * 0.4); // 글 하나를 여러 사람이 연달아 여는 패턴
 }

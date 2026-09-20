@@ -38,3 +38,11 @@ server:
     max-connections: 10000
     mbeanregistry:
       enabled: true        # tomcat_threads_* 메트릭 노출
+
+shelfeed:
+  view-count:
+    # 같은 사람의 같은 글 재조회를 이 시간 동안 한 번으로 친다(운영 기준 1800 = 30분).
+    # [실험 D] 쓰기 경로가 초당 수백 건을 받아내는지 재려면 중복 제거가 부하를 다 먹으면 안 된다.
+    # k6는 요청마다 다른 X-Viewer-Key를 보내므로 TTL과 무관하게 전부 통과한다.
+    dedup-ttl-seconds: 1800
+    flush-interval-ms: 60000   # 누적분을 MySQL에 반영하는 주기 — 리뷰당 UPDATE 1건

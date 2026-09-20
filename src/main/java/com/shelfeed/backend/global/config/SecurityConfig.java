@@ -65,6 +65,8 @@ public class SecurityConfig {
                         // /reviews/me 가 {reviewId} 와일드카드에 매칭되어 NPE 발생하는 것을 방지
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/me").authenticated()
                         .requestMatchers(HttpMethod.GET, GET_PERMIT_ALL).permitAll()
+                        // 상세 조회(GET)가 비회원 허용이므로 조회 기록도 같아야 한다. 비회원은 IP로 식별한다.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews/{reviewId}/view").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
