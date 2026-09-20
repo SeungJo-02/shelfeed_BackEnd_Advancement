@@ -556,7 +556,7 @@ def build_alerts() -> dict:
 # 실험 실행을 캡처하면 한 장에서 "기준 → 실험" 이 읽히게 한다.
 BASE = {
     "p99": "9.99s", "succ": "49.63%", "pending": "1,991", "waiters": "7 (풀 8)",
-    "share": "80.1%", "lock_avg": "24ms", "lock_rate": "297/s", "hot_rps": "307/s",
+    "share": "80.1%", "lock_avg": "27ms", "lock_rate": "297/s", "hot_rps": "307/s",
     "upd_rate": "302/s", "acq": "4.28s",
 }
 

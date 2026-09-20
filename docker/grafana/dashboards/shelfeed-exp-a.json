@@ -403,7 +403,7 @@
     {
       "id": 152,
       "type": "stat",
-      "title": "행 락 평균 대기 · 기준 24ms",
+      "title": "행 락 평균 대기 · 기준 27ms",
       "description": "앞에 선 세션이 3배가 된 만큼 3.6배 길어졌다(27.0 → 96.3ms). 대기 ≈ 보유 시간 × 앞선 세션 수.",
       "datasource": {
         "type": "prometheus",
@@ -417,7 +417,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "행 락 평균 대기 · 기준 24ms",
+          "legendFormat": "행 락 평균 대기 · 기준 27ms",
           "instant": false,
           "range": true
         }
