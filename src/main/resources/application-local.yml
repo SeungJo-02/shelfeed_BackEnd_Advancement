@@ -5,7 +5,7 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 40  # [실험 F] 락을 없앤 뒤 풀 증설. 실험 A와 달리 여기서는 효과가 있어야 한다 (원복: 8)
+      maximum-pool-size: 8   # 장애 재현 시나리오와 동일 — 풀 고갈 관측용 (기본값 10)
       connection-timeout: 5000   # 운영(application-prod.yml)과 동일 5초 — 풀 대기가 이걸 넘으면 5xx
 
   jpa:

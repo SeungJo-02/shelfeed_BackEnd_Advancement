@@ -24,7 +24,8 @@ OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
            "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json",
            "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json",
            "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json",
-           "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json"}
+           "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json",
+           "f": ROOT / "docker/grafana/dashboards/shelfeed-exp-f.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -669,6 +670,58 @@ def build_experiment(key: str) -> dict:
                 desc="acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것."),
         ]
         desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
+    elif key == "f":
+        title = "Shelfeed — 실험 F · 락을 없앤 뒤 풀 8 → 40"
+        card = text_note(
+            "**가설** — 실험 A와 **똑같은 변경**(풀 증설)인데 정반대 결과가 나와야 한다.\n\n"
+            "실험 A에서는 커넥션 점유 시간의 77%가 행 락 대기였다. 커넥션을 늘려도 늘어난 만큼 "
+            "다 같이 락 앞에 섰고, 처리량은 277 → 267/s로 오히려 내려갔다. "
+            "지금은 락이 0이라 점유 시간 10ms가 **전부 순수한 일**이다. "
+            "그러면 한 행의 처리량 공식(1 ÷ 락 보유 시간)이 아니라 "
+            "**풀 공식(풀 크기 ÷ 커넥션 점유 시간)**이 천장을 정한다. "
+            "커넥션을 5배로 늘리면 천장도 5배가 되어야 한다.\n\n"
+            "**바꾼 것** — `maximum-pool-size: 8 → 40` 하나. 코드·부하는 실험 E와 동일(Kafka 경로 유지).\n\n"
+            "**읽는 법** — ① 풀 이론 상한이 804/s에서 4,000/s 근처로 뛰고 커넥션 대여량이 따라 올라가면 "
+            "풀이 진짜 병목이었던 것이다. ② acquire가 무너지면(2.2초 → 수십 ms) 대기가 사라진 것이고, "
+            "그때 p99가 임계 1초 아래로 내려온다. ③ 행 락은 계속 0이어야 한다 — "
+            "락이 없는 상태에서 늘렸으니 실험 A처럼 DB 안에 줄이 생기면 안 된다.\n\n"
+            "**이게 맞으면 결론은 '풀 증설은 답이 아니다'가 아니라 '순서가 틀렸다'가 된다.**", h=11)
+        tiles = [
+            _bstat("감상글 상세 처리량", "실험 E 412/s", HOT_RPS, unit="reqps", decimals=0,
+                   desc="실험 A에서는 안 움직였다. 여기서는 올라가야 한다."),
+            _bstat("감상글 상세 p99", "실험 E 8.51s", HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
+                   desc="**이 실험의 숫자.** 임계 1초 아래로 내려오는가."),
+            _bstat("평균 acquire", "실험 E 2.22s", ACQ_AVG, unit="s", calc="mean",
+                   steps=red(TH["shelfeed-acquire"]),
+                   desc="풀 앞 대기. 시간의 99.6%를 먹던 값이 무너져야 한다."),
+            _bstat("HikariCP Pending", "실험 E 1,836", 'hikaricp_connections_pending{application="shelfeed"}',
+                   decimals=0, steps=red(1)),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"]),
+                   desc="계속 0이어야 한다. 실험 A처럼 DB 안에 줄이 생기면 안 된다."),
+            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+        ]
+        charts = [
+            timeseries("천장이 올라갔나 — 커넥션 대여량 vs 풀 ÷ 점유 시간", [
+                prom(BORROW_RATE, "커넥션 대여 (/s)", "A"),
+                prom(POOL_CEIL, "풀 크기 ÷ 커넥션 점유 시간 (이론 상한)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="실험 E에서는 831/804 = 103%로 완전 포화였다. 풀을 5배로 늘렸으니 "
+                     "상한선이 4,000/s 근처로 뛴다. 대여량이 따라 올라가면 풀이 진짜 병목이었던 것이고, "
+                     "대여량이 안 따라오면 병목이 또 다른 곳(톰캣·CPU)으로 옮겨간 것이다."),
+            timeseries("대기가 사라졌나 — acquire vs 실제 일(usage)", [
+                prom(ACQ_AVG, "평균 acquire (풀 앞 대기)", "A"),
+                prom(USAGE_AVG, "평균 usage (실제 일)", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-acquire"],
+                desc="실험 E에서는 2,224ms 대 10ms로 99.6%가 대기였다. 두 선이 가까워질수록 "
+                     "요청이 기다리지 않고 바로 일한다는 뜻이다."),
+            timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
+                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="조회수와 무관했던 피드·검색·로그인이 같이 내려오는지 본다. "
+                     "둘 다 임계 1초 아래면 이 장애 서사가 완전히 닫힌다."),
+        ]
+        desc = "실험 A의 반전. 락을 없앤 뒤에는 같은 풀 증설이 효과가 있는지 — 순서 문제였는지를 본다."
     elif key == "e":
         title = "Shelfeed — 실험 E · 조회 이벤트를 Kafka로"
         card = text_note(
