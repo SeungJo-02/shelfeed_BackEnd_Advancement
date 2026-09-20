@@ -5,7 +5,7 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 8   # 장애 재현 시나리오와 동일 — 풀 고갈 관측용 (기본값 10)
+      maximum-pool-size: 40  # [실험 F] 락을 없앤 뒤 풀 증설. 실험 A와 달리 여기서는 효과가 있어야 한다 (원복: 8)
       connection-timeout: 5000   # 운영(application-prod.yml)과 동일 5초 — 풀 대기가 이걸 넘으면 5xx
 
   jpa:
@@ -46,3 +46,28 @@ shelfeed:
     # k6는 요청마다 다른 X-Viewer-Key를 보내므로 TTL과 무관하게 전부 통과한다.
     dedup-ttl-seconds: 1800
     flush-interval-ms: 60000   # 누적분을 MySQL에 반영하는 주기 — 리뷰당 UPDATE 1건
+    kafka-enabled: true         # [실험 E] 조회 이벤트를 Kafka로 보낸다. false면 요청 스레드가 바로 Redis에 누적
+    event-dedup-ttl-seconds: 3600   # at-least-once 중복 전달을 걸러내는 창
+
+spring.kafka:
+  bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    acks: "1"                   # 리더만 확인. 로컬 단일 노드라 all과 같지만 의도를 남긴다
+    linger-ms: 20               # 20ms 모아 보낸다 — 초당 수백 건이면 배치가 크게 잡힌다
+    batch-size: 65536
+    compression-type: lz4
+    properties:
+      spring.json.add.type.headers: false
+  consumer:
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    group-id: view-count
+    auto-offset-reset: latest
+    max-poll-records: 2000      # 배치 리스너로 한 번에 받는 최대 건수
+    properties:
+      spring.json.trusted.packages: "com.shelfeed.backend.domain.review.viewcount"
+      spring.json.value.default.type: com.shelfeed.backend.domain.review.viewcount.ViewEvent
+  listener:
+    type: batch

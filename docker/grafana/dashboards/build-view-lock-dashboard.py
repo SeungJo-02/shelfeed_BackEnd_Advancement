@@ -23,7 +23,8 @@ OUT_ALERTS = ROOT / "docker/grafana/dashboards/shelfeed-alerts.json"
 OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
            "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json",
            "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json",
-           "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json"}
+           "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json",
+           "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -581,6 +582,11 @@ SUCC = (f'sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",uri!="{V
         f' / sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",uri!="{VIEW_URI}"}}[1m]))')
 # 요청 1건이 커넥션을 두 번 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션). 풀 포화도는
 # HTTP 요청이 아니라 "커넥션 대여 횟수"로 봐야 상한과 같은 단위가 된다.
+# Kafka 클라이언트가 스스로 계산해 내보내는 비율이다. rate()로 다시 감싸면 안 된다.
+KAFKA_SEND = 'sum(kafka_producer_record_send_rate{application="shelfeed"})'
+KAFKA_CONSUME = 'sum(kafka_consumer_fetch_manager_records_consumed_rate{application="shelfeed"})'
+KAFKA_LAG = 'max(kafka_consumer_fetch_manager_records_lag_max{application="shelfeed"})'
+KAFKA_QUEUE_MS = 'max(kafka_producer_record_queue_time_avg{application="shelfeed"})'
 BORROW_RATE = 'rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m])'
 USAGE_AVG = ('rate(hikaricp_connections_usage_seconds_sum{application="shelfeed"}[1m])'
              ' / clamp_min(rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m]), 1e-9)')
@@ -663,6 +669,55 @@ def build_experiment(key: str) -> dict:
                 desc="acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것."),
         ]
         desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
+    elif key == "e":
+        title = "Shelfeed — 실험 E · 조회 이벤트를 Kafka로"
+        card = text_note(
+            "**가설** — 실험 D는 요청 스레드가 Redis에 바로 누적했다. 여기서는 그 사이에 Kafka를 끼운다. "
+            "조회 기록 API는 토픽에 던지고 끝나고, 컨슈머가 배치로 받아 Redis에 누적한 뒤 "
+            "스케줄러가 분당 UPDATE 1건으로 반영한다. "
+            "**질문은 하나다 — 단을 하나 더 껴도 느려지지 않는가, 그리고 이벤트가 밀리지 않는가.**\n\n"
+            "**바꾼 것** — `review.viewed` 토픽(파티션 키 = reviewId로 같은 글의 순서 보장), "
+            "배치 컨슈머(`max-poll-records 2000`, `linger-ms 20`, lz4). "
+            "Kafka는 유실을 막는 대신 중복을 허용하는 at-least-once라, 메시지마다 UUID를 담고 "
+            "**소비 측이 `SET key 1 NX EX`로 이미 본 eventId인지 확인해 거른다.** "
+            "담는 것만으로는 멱등이 되지 않는다.\n\n"
+            "**읽는 법** — ① 조회 기록 p99가 실험 D(12ms)와 자릿수가 같으면 Kafka를 껴도 사용자는 못 느낀다. "
+            "② 프로듀서 전송률과 컨슈머 소비율이 겹치고 **랙이 0 근처면 파이프라인이 부하를 따라잡은 것**이다. "
+            "랙이 우상향하면 컨슈머가 뒤처진 것이고, 그때는 조회수가 실시간이 아니게 된다. "
+            "③ MySQL UPDATE는 실험 D와 같이 바닥이어야 한다 — 단을 껴도 쓰기 총량은 안 바뀐다.", h=10)
+        tiles = [
+            _bstat("조회 기록 처리량", "실험 D 465/s", VIEW_RPS, unit="reqps", decimals=0),
+            _bstat("조회 기록 p99", "실험 D 12ms", VIEW_P99, unit="s", steps=red(TH["shelfeed-p99"]),
+                   desc="**이 실험의 숫자.** Kafka를 껴도 자릿수가 같아야 한다."),
+            _bstat("컨슈머 랙 최대", "없던 값", KAFKA_LAG, decimals=0, steps=red(10000),
+                   desc="밀린 이벤트 수. 0 근처면 따라잡은 것, 우상향이면 뒤처진 것."),
+            _bstat("MySQL UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=2,
+                   desc="단을 껴도 쓰기 총량은 안 바뀐다 — 실험 D와 같아야 한다."),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"])),
+            _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"])),
+        ]
+        charts = [
+            timeseries("파이프라인이 따라잡았나 — 프로듀서 전송 vs 컨슈머 소비", [
+                prom(KAFKA_SEND, "프로듀서 전송 (rec/s)", "A"),
+                prom(KAFKA_CONSUME, "컨슈머 소비 (rec/s)", "B"),
+                prom(KAFKA_LAG, "컨슈머 랙 (건)", "C"),
+            ], unit="short", w=8, h=10,
+                desc="두 선이 겹치고 랙이 바닥에 붙어 있으면 이벤트가 밀리지 않는다. "
+                     "소비 선이 전송 선 아래로 벌어지면 그 간격만큼 조회수 반영이 늦어진다."),
+            timeseries("Kafka를 껴도 빨랐나 — 조회 기록 p99 vs 상세 조회 p99", [
+                prom(VIEW_P99, "조회 기록 p99 (Kafka 경로)", "A"),
+                prom(HOT_P99, "감상글 상세 p99 (DB 경로)", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="조회 기록은 토픽에 던지고 끝나므로 DB를 기다리는 상세 조회와 자릿수가 달라야 한다. "
+                     "여기가 상세 조회 쪽으로 올라붙으면 Kafka가 새 병목이 된 것이다."),
+            timeseries("1:1이 끊어졌다 — 조회 기록 처리량 vs MySQL UPDATE", [
+                prom(VIEW_RPS, "조회 기록 요청 (/s)", "A"),
+                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="실험 D와 같은 그림이어야 한다. 중간에 Kafka가 들어가도 MySQL이 받는 쓰기는 그대로다."),
+        ]
+        desc = "해결안 2단계 검증. 조회 이벤트를 Kafka로 비동기화했을 때 지연이 늘지 않고 이벤트가 밀리지 않는지 본다."
     elif key == "d":
         title = "Shelfeed — 실험 D · 조회수를 Redis로, MySQL엔 분당 배치"
         card = text_note(

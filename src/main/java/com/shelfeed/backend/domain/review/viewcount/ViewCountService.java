@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,6 +35,18 @@ public class ViewCountService {
 
     private final StringRedisTemplate redis;
     private final ReviewRepository reviewRepository;
+    private final org.springframework.beans.factory.ObjectProvider<ViewEventProducer> producerProvider;
+
+    /** Kafka를 켜면 조회 이벤트가 토픽을 거쳐 컨슈머에서 누적된다. 끄면 요청 스레드가 바로 누적한다. */
+    @Value("${shelfeed.view-count.kafka-enabled:false}")
+    private boolean kafkaEnabled;
+
+    private ViewEventProducer producer;
+
+    @jakarta.annotation.PostConstruct
+    void initProducer() {
+        this.producer = kafkaEnabled ? producerProvider.getIfAvailable() : null;
+    }
 
     /** 같은 사람의 같은 글 재조회를 이 시간 동안 한 번으로 친다. 실험 시 짧게 줄여 쓰기 경로 한계를 잰다. */
     @Value("${shelfeed.view-count.dedup-ttl-seconds:1800}")
@@ -51,9 +64,20 @@ public class ViewCountService {
         if (!Boolean.TRUE.equals(first)) {
             return false;   // TTL 안에 이미 본 사람
         }
+        if (kafkaEnabled && producer != null) {
+            // 요청 스레드는 여기서 끝난다. 누적은 컨슈머가 한다.
+            producer.send(new ViewEvent(UUID.randomUUID().toString(), reviewId, viewer,
+                    System.currentTimeMillis()));
+        } else {
+            accumulate(reviewId);
+        }
+        return true;
+    }
+
+    /** 조회 1건을 Redis 카운터에 누적한다. 직접 경로와 Kafka 컨슈머가 함께 쓴다. */
+    public void accumulate(Long reviewId) {
         redis.opsForValue().increment(COUNT_PREFIX + reviewId);
         redis.opsForSet().add(DIRTY_SET, String.valueOf(reviewId));
-        return true;
     }
 
     /**
