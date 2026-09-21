@@ -482,7 +482,7 @@
     {
       "id": 153,
       "type": "timeseries",
-      "title": "천장은 그대로인가 — 상세 처리량 vs 행 락 발생률",
+      "title": "감상글 상세 처리량 vs 행 락 대기 발생률",
       "description": "두 선이 기준 높이에서 안 움직였다. 풀 크기는 한 행의 처리량과 무관하다.",
       "datasource": {
         "type": "prometheus",
@@ -503,7 +503,7 @@
         {
           "refId": "B",
           "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
-          "legendFormat": "행 락 대기 발생률 (/s)",
+          "legendFormat": "행 락 대기 발생률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -567,7 +567,7 @@
     {
       "id": 154,
       "type": "timeseries",
-      "title": "줄은 어디에 섰나 — 락 앞 세션 vs 풀 크기",
+      "title": "락 대기 세션 vs 풀 크기",
       "description": "세션 수가 풀 크기 선에 붙어 올라간다(풀 20 → 19개). 앱 앞 Pending은 그대로였으니, 줄이 옮겨간 게 아니라 하나 더 생긴 것.",
       "datasource": {
         "type": "prometheus",
@@ -651,7 +651,7 @@
     {
       "id": 155,
       "type": "timeseries",
-      "title": "대기 위치 — 앱 앞(acquire) vs DB 안(행 락)",
+      "title": "커넥션 획득 대기(acquire) vs 행 락 대기",
       "description": "acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것.",
       "datasource": {
         "type": "prometheus",

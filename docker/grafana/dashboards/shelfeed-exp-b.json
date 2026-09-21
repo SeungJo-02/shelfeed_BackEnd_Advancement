@@ -488,7 +488,7 @@
     {
       "id": 166,
       "type": "timeseries",
-      "title": "쓰기는 그대로, 경합만 사라졌다 — UPDATE 실행률 vs 행 락 발생률",
+      "title": "UPDATE 실행률 vs 행 락 대기 발생률",
       "description": "두 선이 나란히 올라간다. 쓰기도 경합도 늘었는데 서비스는 좋아졌다 — 짧아진 것은 건수가 아니라 락을 쥐고 있는 시간(27.0 → 11.6ms)이다. · 점선 = 알람 ③ 임계 10/s",
       "datasource": {
         "type": "prometheus",
@@ -498,7 +498,7 @@
         {
           "refId": "A",
           "expr": "rate(mysql_global_status_commands_total{command=\"update\"}[1m])",
-          "legendFormat": "UPDATE 실행률 (/s)",
+          "legendFormat": "UPDATE 실행률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -509,7 +509,7 @@
         {
           "refId": "B",
           "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
-          "legendFormat": "행 락 대기 발생률 (/s)",
+          "legendFormat": "행 락 대기 발생률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -587,7 +587,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
-          "legendFormat": "감상글 상세",
+          "legendFormat": "감상글 상세 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -598,7 +598,7 @@
         {
           "refId": "B",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\", uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m])))",
-          "legendFormat": "그 외 API 전체",
+          "legendFormat": "그 외 API 전체 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -666,7 +666,7 @@
     {
       "id": 168,
       "type": "timeseries",
-      "title": "HikariCP — Active / Idle / Pending",
+      "title": "HikariCP 커넥션 — Active / Idle / Pending",
       "description": "Active는 여전히 8(=Max), Pending 1,860으로 기준과 같다. 풀은 그대로 고갈됐고 회전만 빨라졌다.",
       "datasource": {
         "type": "prometheus",
@@ -676,7 +676,7 @@
         {
           "refId": "A",
           "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
-          "legendFormat": "Pending",
+          "legendFormat": "Pending (개)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -687,7 +687,7 @@
         {
           "refId": "B",
           "expr": "hikaricp_connections_active{application=\"shelfeed\"}",
-          "legendFormat": "Active",
+          "legendFormat": "Active (개)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -698,7 +698,7 @@
         {
           "refId": "C",
           "expr": "hikaricp_connections_idle{application=\"shelfeed\"}",
-          "legendFormat": "Idle",
+          "legendFormat": "Idle (개)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

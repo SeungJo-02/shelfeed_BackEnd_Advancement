@@ -23,10 +23,9 @@ OUT_ALERTS = ROOT / "docker/grafana/dashboards/shelfeed-alerts.json"
 OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
            "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json",
            "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json",
-           "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json",
            "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json",
-           "f": ROOT / "docker/grafana/dashboards/shelfeed-exp-f.json",
-           "g": ROOT / "docker/grafana/dashboards/shelfeed-exp-g.json"}
+           "g": ROOT / "docker/grafana/dashboards/shelfeed-exp-g.json",
+           "h": ROOT / "docker/grafana/dashboards/shelfeed-exp-h.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -559,10 +558,17 @@ def build_alerts() -> dict:
 
 # 기준값 = 실측 11 (2026-09-19 21:35 실행 · 캡처 범위 21:37→21:44). 타일 제목에 박아 두어
 # 실험 실행을 캡처하면 한 장에서 "기준 → 실험" 이 읽히게 한다.
-BASE = {
+BASE_FULL = {  # 실측 11 · 2,065 VU · 정착 폭풍 09-19 21:38:30~21:44:30
     "p99": "9.99s", "succ": "49.63%", "pending": "1,991", "waiters": "7 (풀 8)",
     "share": "80.1%", "lock_avg": "27ms", "lock_rate": "297/s", "hot_rps": "307/s",
     "upd_rate": "302/s", "acq": "4.28s",
+}
+BASE = BASE_FULL
+# 실험 H(상세 조회 캐시)의 기준은 원본 사건이 아니라 실험 C다. 블로그에 실린 C 캡처의 타일 값 그대로.
+BASE_C = {  # 실험 C · 같은 부하(2,065 VU) · 09-20 22:27:30~22:33:30
+    "p99": "11.6s", "succ": "82.7%", "pending": "1,990", "waiters": "0 (풀 8)",
+    "share": "0%", "lock_avg": "0ms", "lock_rate": "0/s", "hot_rps": "525/s",
+    "upd_rate": "7/s", "acq": "—",
 }
 
 _A = {"application": "shelfeed"}
@@ -579,6 +585,10 @@ HOT_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seco
 VIEW_URI = "/api/v1/reviews/{reviewId}/view"
 VIEW_RPS = f'sum(rate(http_server_requests_seconds_count{{uri="{VIEW_URI}"}}[1m]))'
 VIEW_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{{uri="{VIEW_URI}"}}[1m])))'
+# 중복 제거 카운터 — 앱이 Micrometer Counter "view.dedup"(tag result=hit|miss)를 내보내야 값이 생긴다.
+DEDUP_HIT  = 'sum(rate(view_dedup_total{application="shelfeed",result="hit"}[1m]))'
+DEDUP_MISS = 'sum(rate(view_dedup_total{application="shelfeed",result="miss"}[1m]))'
+DEDUP_RATIO = f'({DEDUP_HIT}) / clamp_min(({DEDUP_HIT}) + ({DEDUP_MISS}), 1e-9)'
 OTHER_P99 = f'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{{uri=~"{ALL_URI}", uri!="{HOT_URI}", uri!="{VIEW_URI}"}}[1m])))'
 SUCC = (f'sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",uri!="{VIEW_URI}",status=~"2..|3.."}}[1m]))'
         f' / sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",uri!="{VIEW_URI}"}}[1m]))')
@@ -599,6 +609,9 @@ KAFKA_CONSUME = 'sum(kafka_consumer_fetch_manager_records_consumed_rate{applicat
 KAFKA_LAG = 'max(kafka_consumer_fetch_manager_records_lag_max{application="shelfeed"})'
 KAFKA_QUEUE_MS = 'max(kafka_producer_record_queue_time_avg{application="shelfeed"})'
 BORROW_RATE = 'rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m])'
+CACHE_HIT  = 'sum(rate(review_detail_cache_total{application="shelfeed",result=~"l1_hit|l2_hit"}[1m]))'
+CACHE_MISS = 'sum(rate(review_detail_cache_total{application="shelfeed",result="miss"}[1m]))'
+CACHE_RATIO = f'({CACHE_HIT}) / clamp_min(({CACHE_HIT}) + ({CACHE_MISS}), 1e-9)'
 USAGE_AVG = ('rate(hikaricp_connections_usage_seconds_sum{application="shelfeed"}[1m])'
              ' / clamp_min(rate(hikaricp_connections_usage_seconds_count{application="shelfeed"}[1m]), 1e-9)')
 # 직렬화가 사라지면 커넥션 8개가 비로소 병렬로 돈다. 그때의 상한 = 풀 크기 ÷ 커넥션 1회 점유 시간.
@@ -634,6 +647,7 @@ def _bstat(title, base, expr, **kw):
 def build_experiment(key: str) -> dict:
     red = lambda v: [{"color": "green", "value": None}, {"color": "red", "value": v}]
     grn = lambda v: [{"color": "red", "value": None}, {"color": "green", "value": v}]
+    extra = []  # 실험별 추가 행
 
     if key == "a":
         title = "Shelfeed — 실험 A · 풀 8 → 20"
@@ -664,16 +678,16 @@ def build_experiment(key: str) -> dict:
                    desc="앞에 선 세션이 3배가 된 만큼 3.6배 길어졌다(27.0 → 96.3ms). 대기 ≈ 보유 시간 × 앞선 세션 수."),
         ]
         charts = [
-            timeseries("천장은 그대로인가 — 상세 처리량 vs 행 락 발생률", [
+            timeseries("감상글 상세 처리량 vs 행 락 대기 발생률", [
                 prom(HOT_RPS, "감상글 상세 처리량 (req/s)", "A"),
-                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (ops/s)", "B"),
             ], unit="short", w=8, h=10,
                 desc="두 선이 기준 높이에서 안 움직였다. 풀 크기는 한 행의 처리량과 무관하다."),
-            timeseries("줄은 어디에 섰나 — 락 앞 세션 vs 풀 크기", [
+            timeseries("락 대기 세션 vs 풀 크기", [
                 prom("mysql_global_status_innodb_row_lock_current_waits", "락 앞에 선 세션", "A"),
                 prom('max(hikaricp_connections_max{application="shelfeed"})', "풀 크기", "B"),
             ], w=8, h=10, desc="세션 수가 풀 크기 선에 붙어 올라간다(풀 20 → 19개). 앱 앞 Pending은 그대로였으니, 줄이 옮겨간 게 아니라 하나 더 생긴 것."),
-            timeseries("대기 위치 — 앱 앞(acquire) vs DB 안(행 락)", [
+            timeseries("커넥션 획득 대기(acquire) vs 행 락 대기", [
                 prom(ACQ_AVG, "평균 acquire (앱 앞에서 기다림)", "A"),
                 prom(f"({LOCK_AVG_MS}) / 1000", "행 락 평균 대기 (DB 안에서 기다림)", "B"),
             ], unit="s", w=8, h=10,
@@ -719,79 +733,27 @@ def build_experiment(key: str) -> dict:
                    steps=red(TH["shelfeed-rowlock-rate"])),
         ]
         charts = [
-            timeseries("실시간으로 따라오나 — 앱 전송률 vs ClickHouse 수집률", [
+            timeseries("Kafka 전송 vs ClickHouse 수집·기록", [
                 prom(KAFKA_SEND, "앱 프로듀서 전송 (rec/s)", "A"),
                 prom(CH_ROWS_READ, "ClickHouse 수집 (rows/s)", "B"),
                 prom(CH_ROWS_WRITE, "ClickHouse 기록 (rows/s)", "C"),
             ], unit="short", w=8, h=10,
                 desc="세 선이 겹치면 이벤트가 하나도 안 밀리고 집계까지 끝났다는 뜻이다. "
                      "앱 컨슈머와 ClickHouse 가 같은 토픽을 각자 다 받는다 — 컨슈머 그룹이 다르기 때문."),
-            timeseries("MySQL은 한가한가 — UPDATE 실행률 vs 행 락 대기", [
-                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "A"),
-                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
-                prom("mysql_global_status_threads_running", "MySQL Threads running", "C"),
+            timeseries("MySQL UPDATE 실행률 · 행 락 대기 · Threads running", [
+                prom(UPD_RATE, "MySQL UPDATE 실행률 (ops/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (ops/s)", "B"),
+                prom("mysql_global_status_threads_running", "MySQL Threads running (개)", "C"),
             ], unit="short", w=8, h=10,
                 desc="집계를 ClickHouse 가 가져갔으니 MySQL 은 폭풍 중에도 바닥에 머물러야 한다. "
                      "이벤트 테이블을 MySQL 에 뒀다면 여기가 초당 수백 건의 INSERT 로 올라간다."),
-            timeseries("무결성 — 거부된 행 · Kafka 오류", [
-                prom(CH_REJECTED, "거부된 행 (/s)", "A"),
-                prom(CH_ERRORS, "Kafka 오류 (/s)", "B"),
+            timeseries("ClickHouse 거부된 행 · Kafka 오류", [
+                prom(CH_REJECTED, "거부된 행 (rows/s)", "A"),
+                prom(CH_ERRORS, "Kafka 오류 (회/s)", "B"),
             ], unit="short", w=8, h=10,
                 desc="둘 다 0이어야 한다. 조회수를 세는 파이프라인이라 유실·오류가 그대로 통계 오차가 된다."),
         ]
         desc = "해결안 3단계 검증. ClickHouse 가 Kafka 를 직접 소비해 집계까지 끝내고, MySQL 은 그동안 한가한지 본다."
-    elif key == "f":
-        title = "Shelfeed — 실험 F · 락을 없앤 뒤 풀 8 → 40"
-        card = text_note(
-            "**가설** — 실험 A와 **똑같은 변경**(풀 증설)인데 정반대 결과가 나와야 한다.\n\n"
-            "실험 A에서는 커넥션 점유 시간의 77%가 행 락 대기였다. 커넥션을 늘려도 늘어난 만큼 "
-            "다 같이 락 앞에 섰고, 처리량은 277 → 267/s로 오히려 내려갔다. "
-            "지금은 락이 0이라 점유 시간 10ms가 **전부 순수한 일**이다. "
-            "그러면 한 행의 처리량 공식(1 ÷ 락 보유 시간)이 아니라 "
-            "**풀 공식(풀 크기 ÷ 커넥션 점유 시간)**이 천장을 정한다. "
-            "커넥션을 5배로 늘리면 천장도 5배가 되어야 한다.\n\n"
-            "**바꾼 것** — `maximum-pool-size: 8 → 40` 하나. 코드·부하는 실험 E와 동일(Kafka 경로 유지).\n\n"
-            "**읽는 법** — ① 풀 이론 상한이 804/s에서 4,000/s 근처로 뛰고 커넥션 대여량이 따라 올라가면 "
-            "풀이 진짜 병목이었던 것이다. ② acquire가 무너지면(2.2초 → 수십 ms) 대기가 사라진 것이고, "
-            "그때 p99가 임계 1초 아래로 내려온다. ③ 행 락은 계속 0이어야 한다 — "
-            "락이 없는 상태에서 늘렸으니 실험 A처럼 DB 안에 줄이 생기면 안 된다.\n\n"
-            "**이게 맞으면 결론은 '풀 증설은 답이 아니다'가 아니라 '순서가 틀렸다'가 된다.**", h=11)
-        tiles = [
-            _bstat("감상글 상세 처리량", "실험 E 412/s", HOT_RPS, unit="reqps", decimals=0,
-                   desc="실험 A에서는 안 움직였다. 여기서는 올라가야 한다."),
-            _bstat("감상글 상세 p99", "실험 E 8.51s", HOT_P99, unit="s", steps=red(TH["shelfeed-p99"]),
-                   desc="**이 실험의 숫자.** 임계 1초 아래로 내려오는가."),
-            _bstat("평균 acquire", "실험 E 2.22s", ACQ_AVG, unit="s", calc="mean",
-                   steps=red(TH["shelfeed-acquire"]),
-                   desc="풀 앞 대기. 시간의 99.6%를 먹던 값이 무너져야 한다."),
-            _bstat("HikariCP Pending", "실험 E 1,836", 'hikaricp_connections_pending{application="shelfeed"}',
-                   decimals=0, steps=red(1)),
-            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
-                   steps=red(TH["shelfeed-rowlock-rate"]),
-                   desc="계속 0이어야 한다. 실험 A처럼 DB 안에 줄이 생기면 안 된다."),
-            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
-        ]
-        charts = [
-            timeseries("천장이 올라갔나 — 커넥션 대여량 vs 풀 ÷ 점유 시간", [
-                prom(BORROW_RATE, "커넥션 대여 (/s)", "A"),
-                prom(POOL_CEIL, "풀 크기 ÷ 커넥션 점유 시간 (이론 상한)", "B"),
-            ], unit="short", w=8, h=10,
-                desc="실험 E에서는 831/804 = 103%로 완전 포화였다. 풀을 5배로 늘렸으니 "
-                     "상한선이 4,000/s 근처로 뛴다. 대여량이 따라 올라가면 풀이 진짜 병목이었던 것이고, "
-                     "대여량이 안 따라오면 병목이 또 다른 곳(톰캣·CPU)으로 옮겨간 것이다."),
-            timeseries("대기가 사라졌나 — acquire vs 실제 일(usage)", [
-                prom(ACQ_AVG, "평균 acquire (풀 앞 대기)", "A"),
-                prom(USAGE_AVG, "평균 usage (실제 일)", "B"),
-            ], unit="s", w=8, h=10, threshold=TH["shelfeed-acquire"],
-                desc="실험 E에서는 2,224ms 대 10ms로 99.6%가 대기였다. 두 선이 가까워질수록 "
-                     "요청이 기다리지 않고 바로 일한다는 뜻이다."),
-            timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
-                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
-            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
-                desc="조회수와 무관했던 피드·검색·로그인이 같이 내려오는지 본다. "
-                     "둘 다 임계 1초 아래면 이 장애 서사가 완전히 닫힌다."),
-        ]
-        desc = "실험 A의 반전. 락을 없앤 뒤에는 같은 풀 증설이 효과가 있는지 — 순서 문제였는지를 본다."
     elif key == "e":
         title = "Shelfeed — 실험 E · 조회 이벤트를 Kafka로"
         card = text_note(
@@ -821,70 +783,26 @@ def build_experiment(key: str) -> dict:
             _bstat("감상글 상세 p99", BASE["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"])),
         ]
         charts = [
-            timeseries("파이프라인이 따라잡았나 — 프로듀서 전송 vs 컨슈머 소비", [
+            timeseries("Kafka 프로듀서 전송 vs 컨슈머 소비", [
                 prom(KAFKA_SEND, "프로듀서 전송 (rec/s)", "A"),
                 prom(KAFKA_CONSUME, "컨슈머 소비 (rec/s)", "B"),
                 prom(KAFKA_LAG, "컨슈머 랙 (건)", "C"),
             ], unit="short", w=8, h=10,
                 desc="두 선이 겹치고 랙이 바닥에 붙어 있으면 이벤트가 밀리지 않는다. "
                      "소비 선이 전송 선 아래로 벌어지면 그 간격만큼 조회수 반영이 늦어진다."),
-            timeseries("Kafka를 껴도 빨랐나 — 조회 기록 p99 vs 상세 조회 p99", [
-                prom(VIEW_P99, "조회 기록 p99 (Kafka 경로)", "A"),
-                prom(HOT_P99, "감상글 상세 p99 (DB 경로)", "B"),
+            timeseries("API p99 — 조회 기록 vs 감상글 상세", [
+                prom(VIEW_P99, "조회 기록 p99 (s)", "A"),
+                prom(HOT_P99, "감상글 상세 p99 (s)", "B"),
             ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
                 desc="조회 기록은 토픽에 던지고 끝나므로 DB를 기다리는 상세 조회와 자릿수가 달라야 한다. "
                      "여기가 상세 조회 쪽으로 올라붙으면 Kafka가 새 병목이 된 것이다."),
-            timeseries("1:1이 끊어졌다 — 조회 기록 처리량 vs MySQL UPDATE", [
-                prom(VIEW_RPS, "조회 기록 요청 (/s)", "A"),
-                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "B"),
+            timeseries("조회 기록 처리량 vs MySQL UPDATE 실행률", [
+                prom(VIEW_RPS, "조회 기록 요청 (req/s)", "A"),
+                prom(UPD_RATE, "MySQL UPDATE 실행률 (ops/s)", "B"),
             ], unit="short", w=8, h=10,
                 desc="실험 D와 같은 그림이어야 한다. 중간에 Kafka가 들어가도 MySQL이 받는 쓰기는 그대로다."),
         ]
         desc = "해결안 2단계 검증. 조회 이벤트를 Kafka로 비동기화했을 때 지연이 늘지 않고 이벤트가 밀리지 않는지 본다."
-    elif key == "d":
-        title = "Shelfeed — 실험 D · 조회수를 Redis로, MySQL엔 분당 배치"
-        card = text_note(
-            "**가설** — 실험 C는 조회수를 아예 세지 않아 락을 없앴다. 실제 설계는 세지 않는 게 아니라 "
-            "**다른 곳에 센다.** 조회 이벤트를 Redis에 누적하고 스케줄러가 1분마다 리뷰당 UPDATE 한 건으로 "
-            "반영하면, 요청 1건이 UPDATE 1건을 만들던 1:1이 끊긴다. "
-            "**옮긴 그 경로가 초당 수백 건을 받아내는지가 이 실험의 질문이다.**\n\n"
-            "**바꾼 것** — `POST /reviews/{reviewId}/view` 신설(`SET key 1 NX EX` 중복 제거 → `INCR`), "
-            "`@Scheduled` 1분 주기 배치 반영. 상세 조회(GET)는 실험 C와 같이 순수 읽기. 풀은 8, 부하도 동일.\n\n"
-            "**읽는 법** — ① 조회 기록 처리량이 상세 조회와 같은 높이로 붙어 있으면 쓰기 경로가 부하를 다 받아낸 것이다. "
-            "② 그런데 **MySQL UPDATE 실행률은 바닥**이어야 한다 — 이 두 선의 간격이 1:1이 끊어진 폭이다. "
-            "③ 행 락 발생률 0은 실험 C와 같다. 다만 C는 조회수를 버렸고 **D는 하나도 잃지 않는다.**", h=9)
-        tiles = [
-            _bstat("감상글 상세 처리량", BASE["hot_rps"], HOT_RPS, unit="reqps", decimals=0),
-            _bstat("조회 기록 처리량", "없던 API", VIEW_RPS, unit="reqps", decimals=0,
-                   desc="Redis만 건드리는 경로. 상세 조회와 같은 높이여야 부하를 다 받아낸 것이다."),
-            _bstat("MySQL UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=2,
-                   desc="**이 실험의 숫자.** 리뷰당 1분에 1건이므로 바닥이어야 한다."),
-            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
-                   steps=red(TH["shelfeed-rowlock-rate"])),
-            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
-            _bstat("조회 기록 p99", "없던 API", VIEW_P99, unit="s", steps=red(TH["shelfeed-p99"]),
-                   desc="Redis 왕복만 하므로 상세 조회보다 훨씬 빨라야 한다."),
-        ]
-        charts = [
-            timeseries("1:1이 끊어졌다 — 조회 기록 처리량 vs MySQL UPDATE 실행률", [
-                prom(VIEW_RPS, "조회 기록 요청 (/s)", "A"),
-                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "B"),
-            ], unit="short", w=8, h=10,
-                desc="위 선과 아래 선의 간격이 이 설계의 전부다. 조회는 초당 수백 건 들어오는데 "
-                     "MySQL 쓰기는 분당 리뷰 수만큼만 나간다. 기준 실행에서는 두 선이 겹쳐 있었다(302/s 대 302/s)."),
-            timeseries("지연 — 상세 조회 vs 조회 기록(Redis 경로)", [
-                prom(HOT_P99, "감상글 상세 p99", "A"),
-                prom(VIEW_P99, "조회 기록 p99", "B"),
-            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
-                desc="조회 기록은 DB를 안 거치므로 상세 조회와 자릿수가 달라야 한다. "
-                     "여기가 느리면 병목을 Redis로 옮기기만 한 것이다."),
-            timeseries("행 락 · HikariCP", [
-                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "A"),
-                prom('hikaricp_connections_pending{application="shelfeed"}', "Pending", "B"),
-                prom('hikaricp_connections_active{application="shelfeed"}', "Active", "C"),
-            ], w=8, h=10, desc="행 락은 0이다. Pending은 남는다 — 병목이 풀로 옮겨간 실험 C와 같은 상태."),
-        ]
-        desc = "해결안 1단계 검증. 조회수를 Redis로 옮기고 분당 배치로 반영했을 때 쓰기 경로가 부하를 받아내는지 본다."
     elif key == "c":
         title = "Shelfeed — 실험 C · GET에서 조회수 쓰기 제거"
         card = text_note(
@@ -900,12 +818,14 @@ def build_experiment(key: str) -> dict:
             "② **처리량은 277 → 462/s(+67%)**, MySQL QPS 4,615 → 8,592(+86%), "
             "MySQL Threads running 8.6 → 2.6. DB가 한가해졌다.\n\n"
             "③ **그런데 p99 8.00s, Pending 1,816은 남았다.** 병목이 사라진 게 아니라 **옮겨갔다.** "
-            "커넥션 대여율을 이론 상한과 대보면 기준은 521.9/925.9→**99.6% 포화**, 실험 C는 911.0/925.9→**98.4% 포화**다. "
+            "커넥션 대여율을 이론 상한과 대보면 기준은 521.8/523.8→**99.6% 포화**, 실험 C는 911.0/925.9→**98.4% 포화**다. "
             "풀은 두 경우 다 100% 포화였고, 달라진 건 회전 속도다 — 커넥션 점유가 15.6 → 8.8ms로 줄어 "
             "같은 8개가 522/s → 911/s로 돈다.\n\n"
             "④ **그래서 실험 A의 결론이 뒤집힌다.** 락이 있을 땐 점유 시간의 77%가 락 대기라 커넥션을 늘려도 "
-            "다 같이 락 앞에 섰다. 지금은 점유 시간이 순수한 일로만 채워져 있으니 늘린 만큼 선형으로 늘어난다. "
-            "**A는 틀린 답이 아니라 순서가 틀린 답이었다.**\n\n"
+            "다 같이 락 앞에 섰다. 지금은 점유 시간이 순수한 일이라 풀을 늘리면 처리량이 따라 늘어난다 — "
+            "실험 F에서 8 → 40으로 늘리자 412 → 512/s(+24%). **A는 틀린 답이 아니라 순서가 틀린 답이었다.** "
+            "다만 선형은 아니다. 커넥션 점유가 10 → 46ms로 같이 늘어 상한은 804 → 868/s(+8%)에 그쳤고, "
+            "p99(8.5 → 8.7s)와 Pending(1,836 → 1,860)은 그대로였다. 풀 증설은 처리량을 올리지 지연을 내리진 못한다.\n\n"
             "⑤ **덤** — HTTP 요청 472/s인데 커넥션 대여는 911/s, 요청당 1.93회다. "
             "`JwtAuthenticationFilter`가 매 요청 회원을 DB에서 조회한다(digest: `SELECT members` 418,661회 ÷ 요청 214,451건 = 1.95배). "
             "여기를 캐시로 돌리면 같은 풀로 처리량이 한 번 더 두 배가 된다.", h=13)
@@ -922,27 +842,82 @@ def build_experiment(key: str) -> dict:
                    decimals=0, steps=red(1)),
         ]
         charts = [
-            timeseries("쓰기가 사라졌다 — UPDATE 실행률 vs 행 락 발생률", [
-                prom(UPD_RATE, "UPDATE 실행률 (/s)", "A"),
-                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+            timeseries("UPDATE 실행률 vs 행 락 대기 발생률", [
+                prom(UPD_RATE, "UPDATE 실행률 (ops/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (ops/s)", "B"),
             ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
                 desc="두 선이 바닥에 붙으면 읽기 경로에 쓰기가 없다. 실험 B에서 두 선이 300~400/s였던 것과 대비된다.",
                 threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
-            timeseries("이제 천장을 정하는 건 누구인가 — 커넥션 대여율 vs 풀 ÷ 점유 시간", [
-                prom(BORROW_RATE, "커넥션 대여 (/s)", "A"),
+            timeseries("커넥션 대여율 vs 풀 ÷ 점유 시간 (이론 상한)", [
+                prom(BORROW_RATE, "커넥션 대여 (회/s)", "A"),
                 prom(POOL_CEIL, "풀 크기 ÷ 커넥션 점유 시간 (이론 상한)", "B"),
             ], unit="short", w=8, h=10,
                 desc="두 선이 겹치면 풀이 100% 포화라는 뜻이다. 기준(풀 8, 락 있음)도 99.6% 포화였고 "
                      "실험 C도 98.4% 포화다 — 달라진 건 회전 속도다. 커넥션 점유가 15.6ms에서 8.8ms로 "
-                     "줄어 같은 8개가 522/s → 911/s로 돈다. 점유 시간이 순수한 일로만 채워진 지금은 "
-                     "커넥션을 늘린 만큼 선형으로 늘어난다 — **실험 A와 달리 여기서는 풀 증설이 답이 된다.** "
+                     "줄어 같은 8개가 522/s → 911/s로 돈다. 점유 시간이 순수한 일이 된 지금은 풀을 늘리면 "
+                     "처리량이 따라 늘어난다(실험 F: 8 → 40, +24%). 다만 점유 시간이 함께 늘어 선형은 아니고, p99는 내려오지 않았다. "
                      "참고: HTTP 요청 1건이 커넥션을 약 2회 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션)."),
             timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
-                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
+                prom(HOT_P99, "감상글 상세 p99 (s)", "A"), prom(OTHER_P99, "그 외 API 전체 p99 (s)", "B"),
             ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
                 desc="조회수와 무관했던 피드·검색·로그인이 같이 내려오면, 공유 자원을 막던 원인이 제거된 것."),
         ]
         desc = "해결 방향 검증. 읽기 경로에서 쓰기를 빼면 천장이 어디까지 가고, 그다음 병목은 무엇이 되는가."
+    elif key == "h":
+        B = BASE_C
+        title = "Shelfeed — 실험 H · 상세 조회를 캐시에 올리다"
+        card = text_note(
+            "**가설** — 실험 C에서 락은 사라졌지만 GET 한 건이 여전히 커넥션을 두 번(인증 필터의 회원 조회 + 상세 트랜잭션) "
+            "빌려 풀 8개 앞에 줄이 그대로였다. 상세 본문을 캐시에 올리고 인증 회원도 캐시하면 **GET이 커넥션을 아예 빌리지 않는다.** "
+            "그러면 커넥션 대여율이 바닥으로, Pending이 0 근처로, p99가 1초 아래로 내려와야 한다.\n\n"
+            "**바꾼 것** — 상세 스냅샷을 로컬(5초·단일 실행) → Redis(60초) 두 단으로 캐시. isMine/isLiked/차단은 캐시된 스냅샷과 "
+            "회원별 Redis 집합으로 판단해 DB를 안 본다. 인증 필터의 회원 조회도 60초 로컬 캐시. 수정·삭제·좋아요·댓글·차단·조회수 반영 시 무효화. "
+            "풀 8, 부하는 실험 C와 동일.\n\n"
+            "**읽는 법** — ① 커넥션 대여율이 상세 처리량과 **따로 놀아야** 한다(대여는 배경 트래픽 몫만). "
+            "② Pending 타일이 0 근처면 줄 자체가 없어진 것이다. ③ 그 외 API p99가 같이 내려오면 풀을 나눠 쓰던 다른 기능까지 풀린 것이다.", h=8)
+        tiles = [
+            _bstat("감상글 상세 처리량", B["hot_rps"], HOT_RPS, unit="reqps", decimals=0,
+                   desc="캐시 히트는 커넥션을 안 빌리니 상한은 풀이 아니라 톰캣·CPU가 정한다."),
+            _bstat("감상글 상세 p99", B["p99"], HOT_P99, unit="s", steps=red(TH["shelfeed-p99"])),
+            _bstat("성공률 최저", B["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+            _bstat("UPDATE 실행률", B["upd_rate"], UPD_RATE, unit="ops", decimals=0,
+                   desc="실험 C와 같아야 한다. 캐시는 읽기만 바꾼다."),
+            _bstat("행 락 대기 발생률", B["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"]), desc="실험 C에서 이미 0. 그대로 0."),
+            _bstat("HikariCP Pending", B["pending"], 'hikaricp_connections_pending{application="shelfeed"}',
+                   decimals=0, steps=red(1), desc="이 실험이 내려야 할 숫자. 0 근처면 GET이 풀을 안 쓴다는 뜻."),
+        ]
+        charts = [
+            timeseries("UPDATE 실행률 vs 행 락 대기 발생률", [
+                prom(UPD_RATE, "UPDATE 실행률 (ops/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (ops/s)", "B"),
+            ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
+                desc="실험 C와 같은 그림이어야 한다. 캐시는 쓰기 경로를 건드리지 않는다.",
+                threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
+            timeseries("커넥션 대여율 vs 풀 ÷ 점유 시간 (이론 상한)", [
+                prom(BORROW_RATE, "커넥션 대여 (회/s)", "A"),
+                prom(POOL_CEIL, "풀 크기 ÷ 커넥션 점유 시간 (이론 상한)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="실험 C에서는 두 선이 겹쳐 있었다(풀 100% 포화). 캐시가 먹히면 대여율이 상한선 훨씬 아래로 떨어져 "
+                     "두 선이 벌어진다. 남는 대여는 배경 트래픽(피드·검색·로그인)과 캐시 미스뿐이다."),
+            timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
+                prom(HOT_P99, "감상글 상세 p99 (s)", "A"), prom(OTHER_P99, "그 외 API 전체 p99 (s)", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="상세는 캐시에서 나오니 ms 단위로 떨어져야 하고, 그 외 API도 풀을 독차지하던 상세가 빠졌으니 같이 내려와야 한다."),
+        ]
+        extra = [("캐시", "GET이 실제로 DB를 안 봤는지", [
+            timeseries("캐시 적중률", [prom(CACHE_RATIO, "적중률", "A")], unit="percentunit", w=8, h=8, maxval=1,
+                       desc="L1(로컬 5초)+L2(Redis 60초) 적중 ÷ 전체. 폭풍 중 99% 이상이어야 한다. "
+                            "미스는 60초마다 한 번(TTL 만료)과 조회수 반영(분당 1회) 무효화 직후에만 난다."),
+            timeseries("캐시 적중 vs 미스 (회/s)", [
+                prom(CACHE_HIT, "적중 (회/s)", "A"), prom(CACHE_MISS, "미스 (회/s)", "B"),
+            ], unit="short", w=8, h=8, desc="미스 선이 바닥에 붙어 있어야 한다. 미스 1건 = DB 읽기 1회."),
+            timeseries("커넥션 대여율 vs 감상글 상세 처리량", [
+                prom(BORROW_RATE, "커넥션 대여 (회/s)", "A"), prom(HOT_RPS, "감상글 상세 요청 (req/s)", "B"),
+            ], unit="short", w=8, h=8,
+                desc="실험 C에서는 대여가 요청의 약 2배였다. 캐시가 먹히면 요청은 올라가고 대여는 바닥에 남는다 — 두 선이 갈라지는 폭이 캐시가 대신 받아낸 양이다."),
+        ])]
+        desc = "해결안 검증. 상세 조회가 커넥션을 빌리지 않게 했을 때 풀 앞의 줄(Pending)과 p99가 실제로 내려오는가."
     else:
         title = "Shelfeed — 실험 B · UPDATE를 트랜잭션 끝으로"
         card = text_note(
@@ -977,30 +952,31 @@ def build_experiment(key: str) -> dict:
                    desc="**줄기는커녕 245 → 363/s로 늘었다.** 읽기 경로의 쓰기는 그대로다 — 이 실험이 근본 해결이 아닌 이유."),
         ]
         charts = [
-            timeseries("쓰기는 그대로, 경합만 사라졌다 — UPDATE 실행률 vs 행 락 발생률", [
-                prom(UPD_RATE, "UPDATE 실행률 (/s)", "A"),
-                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+            timeseries("UPDATE 실행률 vs 행 락 대기 발생률", [
+                prom(UPD_RATE, "UPDATE 실행률 (ops/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (ops/s)", "B"),
             ], unit="short", w=8, h=10, threshold=TH["shelfeed-rowlock-rate"],
                 desc="두 선이 나란히 올라간다. 쓰기도 경합도 늘었는데 서비스는 좋아졌다 — "
                      "짧아진 것은 건수가 아니라 락을 쥐고 있는 시간(27.0 → 11.6ms)이다.",
                 threshold_label=f"점선 = 알람 ③ 임계 {TH['shelfeed-rowlock-rate']}/s"),
             timeseries("API p99 — 감상글 상세 vs 그 외 전체", [
-                prom(HOT_P99, "감상글 상세", "A"), prom(OTHER_P99, "그 외 API 전체", "B"),
+                prom(HOT_P99, "감상글 상세 p99 (s)", "A"), prom(OTHER_P99, "그 외 API 전체 p99 (s)", "B"),
             ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
                 desc="두 선이 9.09/9.26s → 8.18/8.03s로 같이 내려왔지만 임계 1s 위에 남아 있다. 피해가 줄었을 뿐 사라지지 않았다."),
-            timeseries("HikariCP — Active / Idle / Pending", [
-                prom('hikaricp_connections_pending{application="shelfeed"}', "Pending", "A"),
-                prom('hikaricp_connections_active{application="shelfeed"}', "Active", "B"),
-                prom('hikaricp_connections_idle{application="shelfeed"}', "Idle", "C"),
+            timeseries("HikariCP 커넥션 — Active / Idle / Pending", [
+                prom('hikaricp_connections_pending{application="shelfeed"}', "Pending (개)", "A"),
+                prom('hikaricp_connections_active{application="shelfeed"}', "Active (개)", "B"),
+                prom('hikaricp_connections_idle{application="shelfeed"}', "Idle (개)", "C"),
             ], w=8, h=10, desc="Active는 여전히 8(=Max), Pending 1,860으로 기준과 같다. 풀은 그대로 고갈됐고 회전만 빨라졌다."),
         ]
         desc = "해결 대안 B 검증. 락 보유 시간이 변수임을 보이되, 쓰기가 남고 장애가 사라지지 않는다는 한계도 같이 보인다."
 
     rows = [
         (f"실험 {key.upper()} — 가설과 읽는 법", "블로그 절: 어떻게 해결할까", [card]),
-        ("기준(실측 11) → 실험", "타일 제목의 '기준' 값과 비교해서 읽는다", tiles),
+        ("기준(실험 C) → 실험 H" if key == "h" else "기준(실측 11) → 실험",
+         "타일 제목의 '기준' 값과 비교해서 읽는다", tiles),
         ("증거", "이 실험이 증명해야 할 그림", charts),
-    ]
+    ] + extra
     return {
         "uid": f"shelfeed-exp-{key}", "title": title, "description": desc,
         "tags": ["shelfeed", "view-count", "row-lock", "experiment"],

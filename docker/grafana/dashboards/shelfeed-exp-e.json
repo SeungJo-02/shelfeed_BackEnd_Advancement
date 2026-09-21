@@ -39,7 +39,7 @@
   },
   "panels": [
     {
-      "id": 208,
+      "id": 195,
       "type": "row",
       "title": "실험 E — 가설과 읽는 법",
       "collapsed": false,
@@ -53,7 +53,7 @@
       "description": "블로그 절: 어떻게 해결할까"
     },
     {
-      "id": 198,
+      "id": 185,
       "type": "text",
       "title": "",
       "options": {
@@ -69,7 +69,7 @@
       }
     },
     {
-      "id": 209,
+      "id": 196,
       "type": "row",
       "title": "기준(실측 11) → 실험",
       "collapsed": false,
@@ -83,7 +83,7 @@
       "description": "타일 제목의 '기준' 값과 비교해서 읽는다"
     },
     {
-      "id": 199,
+      "id": 186,
       "type": "stat",
       "title": "조회 기록 처리량 · 기준 실험 D 465/s",
       "description": "",
@@ -145,7 +145,7 @@
       }
     },
     {
-      "id": 200,
+      "id": 187,
       "type": "stat",
       "title": "조회 기록 p99 · 기준 실험 D 12ms",
       "description": "**이 실험의 숫자.** Kafka를 껴도 자릿수가 같아야 한다.",
@@ -210,7 +210,7 @@
       }
     },
     {
-      "id": 201,
+      "id": 188,
       "type": "stat",
       "title": "컨슈머 랙 최대 · 기준 없던 값",
       "description": "밀린 이벤트 수. 0 근처면 따라잡은 것, 우상향이면 뒤처진 것.",
@@ -275,7 +275,7 @@
       }
     },
     {
-      "id": 202,
+      "id": 189,
       "type": "stat",
       "title": "MySQL UPDATE 실행률 · 기준 302/s",
       "description": "단을 껴도 쓰기 총량은 안 바뀐다 — 실험 D와 같아야 한다.",
@@ -337,7 +337,7 @@
       }
     },
     {
-      "id": 203,
+      "id": 190,
       "type": "stat",
       "title": "행 락 대기 발생률 · 기준 297/s",
       "description": "",
@@ -403,7 +403,7 @@
       }
     },
     {
-      "id": 204,
+      "id": 191,
       "type": "stat",
       "title": "감상글 상세 p99 · 기준 9.99s",
       "description": "",
@@ -468,7 +468,7 @@
       }
     },
     {
-      "id": 210,
+      "id": 197,
       "type": "row",
       "title": "증거",
       "collapsed": false,
@@ -482,9 +482,9 @@
       "description": "이 실험이 증명해야 할 그림"
     },
     {
-      "id": 205,
+      "id": 192,
       "type": "timeseries",
-      "title": "파이프라인이 따라잡았나 — 프로듀서 전송 vs 컨슈머 소비",
+      "title": "Kafka 프로듀서 전송 vs 컨슈머 소비",
       "description": "두 선이 겹치고 랙이 바닥에 붙어 있으면 이벤트가 밀리지 않는다. 소비 선이 전송 선 아래로 벌어지면 그 간격만큼 조회수 반영이 늦어진다.",
       "datasource": {
         "type": "prometheus",
@@ -578,9 +578,9 @@
       }
     },
     {
-      "id": 206,
+      "id": 193,
       "type": "timeseries",
-      "title": "Kafka를 껴도 빨랐나 — 조회 기록 p99 vs 상세 조회 p99",
+      "title": "API p99 — 조회 기록 vs 감상글 상세",
       "description": "조회 기록은 토픽에 던지고 끝나므로 DB를 기다리는 상세 조회와 자릿수가 달라야 한다. 여기가 상세 조회 쪽으로 올라붙으면 Kafka가 새 병목이 된 것이다.",
       "datasource": {
         "type": "prometheus",
@@ -590,7 +590,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}/view\"}[1m])))",
-          "legendFormat": "조회 기록 p99 (Kafka 경로)",
+          "legendFormat": "조회 기록 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -601,7 +601,7 @@
         {
           "refId": "B",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
-          "legendFormat": "감상글 상세 p99 (DB 경로)",
+          "legendFormat": "감상글 상세 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -667,9 +667,9 @@
       }
     },
     {
-      "id": 207,
+      "id": 194,
       "type": "timeseries",
-      "title": "1:1이 끊어졌다 — 조회 기록 처리량 vs MySQL UPDATE",
+      "title": "조회 기록 처리량 vs MySQL UPDATE 실행률",
       "description": "실험 D와 같은 그림이어야 한다. 중간에 Kafka가 들어가도 MySQL이 받는 쓰기는 그대로다.",
       "datasource": {
         "type": "prometheus",
@@ -679,7 +679,7 @@
         {
           "refId": "A",
           "expr": "sum(rate(http_server_requests_seconds_count{uri=\"/api/v1/reviews/{reviewId}/view\"}[1m]))",
-          "legendFormat": "조회 기록 요청 (/s)",
+          "legendFormat": "조회 기록 요청 (req/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -690,7 +690,7 @@
         {
           "refId": "B",
           "expr": "rate(mysql_global_status_commands_total{command=\"update\"}[1m])",
-          "legendFormat": "MySQL UPDATE 실행률 (/s)",
+          "legendFormat": "MySQL UPDATE 실행률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

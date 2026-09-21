@@ -58,7 +58,7 @@
       "title": "",
       "options": {
         "mode": "markdown",
-        "content": "**가설** — 조회수 UPDATE를 상세 조회 경로에서 아예 빼면 쥘 행 락이 없다. 한 행의 직렬화 천장(1 ÷ 락 보유 시간) 자체가 사라지고, 천장을 정하는 주체가 **행 락에서 커넥션 풀로** 넘어간다.\n\n**바꾼 것** — `ReviewService.getReview()`에서 `incrementViewCount()` 한 줄 삭제. 풀은 8 그대로, 부하도 기준 실행과 동일. 조회수는 본문을 3초 이상 본 시점에 별도 요청으로 올린다는 정의 변경을 전제한다.\n\n**결과** (정착 폭풍 6분 · 기준 21:38:30~21:44:30, 실험 22:27:30~22:33:30)\n\n① **락이 완전히 사라졌다** — 행 락 발생률·락 앞 세션·평균 대기·풀 점유율이 모두 **정확히 0**이다(6분 내내 mean·max·min 전부 0). UPDATE 실행률도 245 → 3.4/s로, 남은 건 배경 트래픽의 다른 쓰기뿐이다.\n\n② **처리량은 277 → 462/s(+67%)**, MySQL QPS 4,615 → 8,592(+86%), MySQL Threads running 8.6 → 2.6. DB가 한가해졌다.\n\n③ **그런데 p99 8.00s, Pending 1,816은 남았다.** 병목이 사라진 게 아니라 **옮겨갔다.** 커넥션 대여율을 이론 상한과 대보면 기준은 521.9/925.9→**99.6% 포화**, 실험 C는 911.0/925.9→**98.4% 포화**다. 풀은 두 경우 다 100% 포화였고, 달라진 건 회전 속도다 — 커넥션 점유가 15.6 → 8.8ms로 줄어 같은 8개가 522/s → 911/s로 돈다.\n\n④ **그래서 실험 A의 결론이 뒤집힌다.** 락이 있을 땐 점유 시간의 77%가 락 대기라 커넥션을 늘려도 다 같이 락 앞에 섰다. 지금은 점유 시간이 순수한 일로만 채워져 있으니 늘린 만큼 선형으로 늘어난다. **A는 틀린 답이 아니라 순서가 틀린 답이었다.**\n\n⑤ **덤** — HTTP 요청 472/s인데 커넥션 대여는 911/s, 요청당 1.93회다. `JwtAuthenticationFilter`가 매 요청 회원을 DB에서 조회한다(digest: `SELECT members` 418,661회 ÷ 요청 214,451건 = 1.95배). 여기를 캐시로 돌리면 같은 풀로 처리량이 한 번 더 두 배가 된다."
+        "content": "**가설** — 조회수 UPDATE를 상세 조회 경로에서 아예 빼면 쥘 행 락이 없다. 한 행의 직렬화 천장(1 ÷ 락 보유 시간) 자체가 사라지고, 천장을 정하는 주체가 **행 락에서 커넥션 풀로** 넘어간다.\n\n**바꾼 것** — `ReviewService.getReview()`에서 `incrementViewCount()` 한 줄 삭제. 풀은 8 그대로, 부하도 기준 실행과 동일. 조회수는 본문을 3초 이상 본 시점에 별도 요청으로 올린다는 정의 변경을 전제한다.\n\n**결과** (정착 폭풍 6분 · 기준 21:38:30~21:44:30, 실험 22:27:30~22:33:30)\n\n① **락이 완전히 사라졌다** — 행 락 발생률·락 앞 세션·평균 대기·풀 점유율이 모두 **정확히 0**이다(6분 내내 mean·max·min 전부 0). UPDATE 실행률도 245 → 3.4/s로, 남은 건 배경 트래픽의 다른 쓰기뿐이다.\n\n② **처리량은 277 → 462/s(+67%)**, MySQL QPS 4,615 → 8,592(+86%), MySQL Threads running 8.6 → 2.6. DB가 한가해졌다.\n\n③ **그런데 p99 8.00s, Pending 1,816은 남았다.** 병목이 사라진 게 아니라 **옮겨갔다.** 커넥션 대여율을 이론 상한과 대보면 기준은 521.8/523.8→**99.6% 포화**, 실험 C는 911.0/925.9→**98.4% 포화**다. 풀은 두 경우 다 100% 포화였고, 달라진 건 회전 속도다 — 커넥션 점유가 15.6 → 8.8ms로 줄어 같은 8개가 522/s → 911/s로 돈다.\n\n④ **그래서 실험 A의 결론이 뒤집힌다.** 락이 있을 땐 점유 시간의 77%가 락 대기라 커넥션을 늘려도 다 같이 락 앞에 섰다. 지금은 점유 시간이 순수한 일이라 풀을 늘리면 처리량이 따라 늘어난다 — 실험 F에서 8 → 40으로 늘리자 412 → 512/s(+24%). **A는 틀린 답이 아니라 순서가 틀린 답이었다.** 다만 선형은 아니다. 커넥션 점유가 10 → 46ms로 같이 늘어 상한은 804 → 868/s(+8%)에 그쳤고, p99(8.5 → 8.7s)와 Pending(1,836 → 1,860)은 그대로였다. 풀 증설은 처리량을 올리지 지연을 내리진 못한다.\n\n⑤ **덤** — HTTP 요청 472/s인데 커넥션 대여는 911/s, 요청당 1.93회다. `JwtAuthenticationFilter`가 매 요청 회원을 DB에서 조회한다(digest: `SELECT members` 418,661회 ÷ 요청 214,451건 = 1.95배). 여기를 캐시로 돌리면 같은 풀로 처리량이 한 번 더 두 배가 된다."
       },
       "transparent": true,
       "gridPos": {
@@ -484,7 +484,7 @@
     {
       "id": 179,
       "type": "timeseries",
-      "title": "쓰기가 사라졌다 — UPDATE 실행률 vs 행 락 발생률",
+      "title": "UPDATE 실행률 vs 행 락 대기 발생률",
       "description": "두 선이 바닥에 붙으면 읽기 경로에 쓰기가 없다. 실험 B에서 두 선이 300~400/s였던 것과 대비된다. · 점선 = 알람 ③ 임계 10/s",
       "datasource": {
         "type": "prometheus",
@@ -494,7 +494,7 @@
         {
           "refId": "A",
           "expr": "rate(mysql_global_status_commands_total{command=\"update\"}[1m])",
-          "legendFormat": "UPDATE 실행률 (/s)",
+          "legendFormat": "UPDATE 실행률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -505,7 +505,7 @@
         {
           "refId": "B",
           "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
-          "legendFormat": "행 락 대기 발생률 (/s)",
+          "legendFormat": "행 락 대기 발생률 (ops/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -573,8 +573,8 @@
     {
       "id": 180,
       "type": "timeseries",
-      "title": "이제 천장을 정하는 건 누구인가 — 커넥션 대여율 vs 풀 ÷ 점유 시간",
-      "description": "두 선이 겹치면 풀이 100% 포화라는 뜻이다. 기준(풀 8, 락 있음)도 99.6% 포화였고 실험 C도 98.4% 포화다 — 달라진 건 회전 속도다. 커넥션 점유가 15.6ms에서 8.8ms로 줄어 같은 8개가 522/s → 911/s로 돈다. 점유 시간이 순수한 일로만 채워진 지금은 커넥션을 늘린 만큼 선형으로 늘어난다 — **실험 A와 달리 여기서는 풀 증설이 답이 된다.** 참고: HTTP 요청 1건이 커넥션을 약 2회 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션).",
+      "title": "커넥션 대여율 vs 풀 ÷ 점유 시간 (이론 상한)",
+      "description": "두 선이 겹치면 풀이 100% 포화라는 뜻이다. 기준(풀 8, 락 있음)도 99.6% 포화였고 실험 C도 98.4% 포화다 — 달라진 건 회전 속도다. 커넥션 점유가 15.6ms에서 8.8ms로 줄어 같은 8개가 522/s → 911/s로 돈다. 점유 시간이 순수한 일이 된 지금은 풀을 늘리면 처리량이 따라 늘어난다(실험 F: 8 → 40, +24%). 다만 점유 시간이 함께 늘어 선형은 아니고, p99는 내려오지 않았다. 참고: HTTP 요청 1건이 커넥션을 약 2회 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -583,7 +583,7 @@
         {
           "refId": "A",
           "expr": "rate(hikaricp_connections_usage_seconds_count{application=\"shelfeed\"}[1m])",
-          "legendFormat": "커넥션 대여 (/s)",
+          "legendFormat": "커넥션 대여 (회/s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -668,7 +668,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
-          "legendFormat": "감상글 상세",
+          "legendFormat": "감상글 상세 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -679,7 +679,7 @@
         {
           "refId": "B",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\", uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m])))",
-          "legendFormat": "그 외 API 전체",
+          "legendFormat": "그 외 API 전체 p99 (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
