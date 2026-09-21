@@ -35,7 +35,7 @@
  *
  * 실행:
  *   bash k6/setup-ids.sh               # 먼저 (ids.local.json — PUBLIC 리뷰·실제 회원 ID)
- *   k6 run k6/setup-tokens.js          # 먼저 (tokens.local.json 생성 · 토큰 수명 1시간)
+ *   k6 run k6/setup-tokens.js          # 먼저 (tokens.local.json 생성 · 토큰 수명 6시간(local) — 지나면 전부 401)
  *   k6 run --out influxdb=http://localhost:8086/k6 \
  *          --summary-export k6/results/view-storm-before.json \
  *          k6/view-storm.js
@@ -55,6 +55,7 @@ const RAMP      = __ENV.RAMP      || '30s';
 const STORM     = __ENV.STORM     || '6m';
 const RECOVERY  = __ENV.RECOVERY  || '1m30s';
 const RECORD_VIEW = __ENV.RECORD_VIEW === '1';  // [실험 D] 조회 기록 API 호출 여부
+const RUN_ID = __ENV.RUN_ID || String(Date.now()); // 실행마다 다른 viewer 키 접두사 — 이전 런의 SET NX 키(TTL 30분)와 충돌하지 않게
 
 // ── 인증 토큰 ────────────────────────────────────────────────────────
 // 비인증으로 돌리면 상세 조회가 짧은 경로를 타서 락 보유 시간이 절반이 된다.
@@ -204,11 +205,11 @@ export function hotStorm() {
   errorRate.add(res.status >= 500);
 
   // [실험 D] 본문을 3초 이상 본 시점에 화면이 보내는 조회 기록 요청.
-  // RECORD_VIEW=1 일 때만 보낸다. X-Viewer-Key를 매번 다르게 주어 중복 제거에 걸리지 않게 하고
+  // RECORD_VIEW=1 일 때만 보낸다. X-Viewer-Key를 매번(그리고 런마다) 다르게 주어 중복 제거에 걸리지 않게 하고
   // (쓰기 경로가 초당 수백 건을 받아내는지를 재는 게 목적), 비회원 경로로 보낸다.
   if (RECORD_VIEW) {
     const v = http.post(`${BASE_URL}/api/v1/reviews/${HOT_ID}/view`, null, {
-      headers: { 'X-Viewer-Key': `${__VU}-${__ITER}` },
+      headers: { 'X-Viewer-Key': `${RUN_ID}-${__VU}-${__ITER}` },
       tags: { api: 'view_record' },
     });
     viewRecordDuration.add(v.timings.duration);

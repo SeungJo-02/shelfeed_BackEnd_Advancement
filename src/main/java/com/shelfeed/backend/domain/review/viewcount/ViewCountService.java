@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.review.viewcount;
 
+import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ public class ViewCountService {
 
     private final StringRedisTemplate redis;
     private final ReviewRepository reviewRepository;
+    private final ReviewDetailCache reviewDetailCache;
     private final org.springframework.beans.factory.ObjectProvider<ViewEventProducer> producerProvider;
 
     /** Kafka를 켜면 조회 이벤트가 토픽을 거쳐 컨슈머에서 누적된다. 끄면 요청 스레드가 바로 누적한다. */
@@ -108,6 +110,8 @@ public class ViewCountService {
             }
             try {
                 reviewRepository.addViewCount(Long.valueOf(id), delta);
+                // [실험 H] viewCount가 상세 스냅샷에 들어 있다. 반영된 글만 버린다.
+                reviewDetailCache.evict(Long.valueOf(id));
                 reviews++;
                 total += delta;
             } catch (RuntimeException e) {

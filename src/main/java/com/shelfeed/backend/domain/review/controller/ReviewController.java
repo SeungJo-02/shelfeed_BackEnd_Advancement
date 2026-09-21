@@ -1,5 +1,6 @@
 package com.shelfeed.backend.domain.review.controller;
 
+import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.review.dto.request.ReviewCreateRequest;
 import com.shelfeed.backend.domain.review.dto.request.ReviewUpdateRequest;
 import com.shelfeed.backend.domain.review.dto.response.*;
@@ -42,8 +43,9 @@ public class ReviewController {
     public ApiResponse<ReviewDetailResponse> getReview(
             @PathVariable Long reviewId,
             @AuthenticationPrincipal CustomUserDetails userDetails){
-        Long memberUserId = userDetails != null ? userDetails.getMember().getMemberUserId() : null;//비회원 접근 허용
-        return ApiResponse.success(200, reviewService.getReview(reviewId,memberUserId));
+        // [실험 H] 인증 단계에서 이미 회원을 들고 있다. 다시 조회하면 그만큼 커넥션을 빌리므로 그대로 넘긴다.
+        Member requester = userDetails != null ? userDetails.getMember() : null;//비회원 접근 허용
+        return ApiResponse.success(200, reviewService.getReview(reviewId, requester));
     }
     // 2-1. 조회 기록  POST /api/v1/reviews/{reviewId}/view
     // 본문을 3초 이상 본 시점에 화면이 호출한다. 상세 조회(GET)는 순수 읽기로 두고

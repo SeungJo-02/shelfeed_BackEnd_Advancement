@@ -14,6 +14,7 @@ import com.shelfeed.backend.global.email.EmailSendException;
 import com.shelfeed.backend.global.email.EmailService;
 import com.shelfeed.backend.global.jwt.JwtProvider;
 import com.shelfeed.backend.global.redis.RedisService;
+import com.shelfeed.backend.global.security.CustomUserDetailsService;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,7 @@ public class AuthService {
     private final RedisService redisService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final CustomUserDetailsService userDetailsService;
 
     private final RestClient restClient = buildRestClient();
     private final MemberUserIdGenerator memberUserIdGenerator;
@@ -388,6 +390,7 @@ public class AuthService {
         member.changePassword(passwordEncoder.encode(request.getNewPassword()));
         redisService.deletePasswordResetToken(request.getToken());
         redisService.deleteRefreshToken(member.getMemberUserId());
+        userDetailsService.evict(member.getMemberUserId());// [실험 H] 인증 캐시에 옛 비밀번호가 남지 않게 한다
     }
 
     // ── 11/12. 닉네임/이메일 중복 확인

@@ -9,6 +9,8 @@ import com.shelfeed.backend.domain.review.entity.ReviewLike;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
+import com.shelfeed.backend.global.cache.MemberRelationCache;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
@@ -30,6 +32,8 @@ public class ReviewLikeService {
     private final MemberLoader memberLoader;
     private final BlockService blockService;
     private final NotificationService notificationService;
+    private final ReviewDetailCache reviewDetailCache;
+    private final MemberRelationCache memberRelationCache;
 
     // 감상 좋아요
     @Transactional
@@ -60,6 +64,9 @@ public class ReviewLikeService {
             throw new BusinessException(ErrorCode.ALREADY_REVIEW_LIKED);
         }
         reviewRepository.increaseLikeCount(review.getReviewId());
+        // [실험 H] likeCount가 스냅샷에 들어 있고, 누른 사람의 좋아요 집합도 바뀐다 — 둘 다 버린다.
+        reviewDetailCache.evict(reviewId);
+        memberRelationCache.evictLiked(member.getMemberId());
         notificationService.notifyReviewLike(review.getMember(), member, review.getReviewId());
         return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
@@ -76,6 +83,8 @@ public class ReviewLikeService {
             throw new BusinessException(ErrorCode.REVIEW_LIKE_NOT_FOUND);// 좋아요 없음(또는 동시 요청이 먼저 취소)
         }
         reviewRepository.decreaseLikeCount(review.getReviewId());
+        reviewDetailCache.evict(reviewId);
+        memberRelationCache.evictLiked(memberId);
         return ReviewLikeResponse.of(getReviewOrThrow(reviewId));
     }
 

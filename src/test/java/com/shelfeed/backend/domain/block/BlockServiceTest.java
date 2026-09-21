@@ -32,6 +32,7 @@ class BlockServiceTest {
     @Mock BlockRepository blockRepository;
     @Mock FollowRepository followRepository;
     @Mock FeedRepository feedRepository;
+    @Mock com.shelfeed.backend.global.cache.MemberRelationCache memberRelationCache;
 
     @InjectMocks BlockService blockService;
 

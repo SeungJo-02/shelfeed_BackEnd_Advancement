@@ -83,6 +83,9 @@ class ReviewLikeCommentNotificationIntegrationTest extends TestContainerSupport 
     // 알림 목록 조회(커서)에서만 쓰이는 의존성. 좋아요/댓글 생성 경로에선 호출되지 않으므로 mock으로 충분
     // (ObjectMapper 의존을 끊어 JPA 슬라이스 컨텍스트 로딩을 단순화).
     @MockBean CursorUtils cursorUtils;
+    // [실험 H] 캐시 무효화 빈은 Redis/메트릭에 의존한다 — JPA 슬라이스에 없으므로 대체한다
+    @MockBean com.shelfeed.backend.domain.review.cache.ReviewDetailCache reviewDetailCache;
+    @MockBean com.shelfeed.backend.global.cache.MemberRelationCache memberRelationCache;
 
     private Member author;   // 감상 작성자
     private Member actor;    // 좋아요/댓글 행위자

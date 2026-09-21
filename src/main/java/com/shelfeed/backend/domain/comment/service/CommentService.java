@@ -15,6 +15,7 @@ import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
@@ -44,6 +45,7 @@ public class CommentService {
     private final CommentLikeRepository commentLikeRepository;
     private final NotificationService notificationService;
     private final BlockService blockService;
+    private final ReviewDetailCache reviewDetailCache;
 
     //1. 댓글 작성
     @Transactional
@@ -82,6 +84,7 @@ public class CommentService {
         }
         commentRepository.save(comment);
         reviewRepository.increaseCommentCount(review.getReviewId());
+        reviewDetailCache.evict(review.getReviewId());// commentCount가 스냅샷에 들어 있다
         notificationService.notifyComment(notifyTarget, member, review.getReviewId(), comment.getCommentId());
         return CommentCreateResponse.of(comment, member);
     }
@@ -180,6 +183,7 @@ public class CommentService {
         validateCommentOwnerAndReview(comment, reviewId, memberUserId);
         comment.softDelete();
         reviewRepository.decreaseCommentCount(comment.getReview().getReviewId());
+        reviewDetailCache.evict(comment.getReview().getReviewId());
     }
     // 5. 댓글 좋아요
     @Transactional

@@ -63,6 +63,8 @@ class MemberGenreOnboardingIntegrationTest extends TestContainerSupport {
     @MockBean RedisService redisService;
     @MockBean JwtProvider jwtProvider;
     @MockBean PasswordEncoder passwordEncoder;
+    // [실험 H] MemberService가 인증 캐시를 무효화한다 — 슬라이스에는 없는 빈이라 대체한다
+    @MockBean com.shelfeed.backend.global.security.CustomUserDetailsService userDetailsService;
 
     private Member member;
     private Genre g1;

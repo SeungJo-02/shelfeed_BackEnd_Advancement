@@ -45,6 +45,7 @@ class MemberServiceGenreTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock RedisService redisService;
     @Mock JwtProvider jwtProvider;
+    @Mock com.shelfeed.backend.global.security.CustomUserDetailsService userDetailsService;
 
     @InjectMocks MemberService memberService;
 

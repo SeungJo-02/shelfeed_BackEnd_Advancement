@@ -49,6 +49,15 @@ shelfeed:
     kafka-enabled: true         # [실험 E] 조회 이벤트를 Kafka로 보낸다. false면 요청 스레드가 바로 Redis에 누적
     event-dedup-ttl-seconds: 3600   # at-least-once 중복 전달을 걸러내는 창
 
+  review-cache:
+    # [실험 H] 감상 상세를 스냅샷으로 캐싱해 GET이 커넥션을 빌리지 않게 한다.
+    # false로 두면 매번 DB를 치므로 실험 C 상태를 코드 변경 없이 다시 잴 수 있다.
+    enabled: true
+    ttl-seconds: 60             # Redis(L2) 보관 시간 — DB 조회 자체를 없앤다
+    local-ttl-seconds: 5        # Caffeine(L1) 보관 시간 — Redis 왕복까지 없앤다.
+                                # 무효화가 다른 인스턴스에 늦게 닿는 시간이기도 해서 짧게 잡는다
+    relation-ttl-seconds: 600   # 회원별 좋아요/차단 집합 보관 시간
+
 spring.kafka:
   bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
   producer:

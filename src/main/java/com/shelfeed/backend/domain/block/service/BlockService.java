@@ -11,6 +11,7 @@ import com.shelfeed.backend.domain.member.entity.Member;
 import com.shelfeed.backend.domain.member.repository.MemberRepository;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
+import com.shelfeed.backend.global.cache.MemberRelationCache;
 import com.shelfeed.backend.global.common.helper.MemberLoader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +33,7 @@ public class BlockService {
     private final BlockRepository blockRepository;
     private final FollowRepository followRepository;
     private final FeedRepository feedRepository;
+    private final MemberRelationCache memberRelationCache;
 
     //1. 차단
     @Transactional
@@ -55,6 +57,9 @@ public class BlockService {
         feedRepository.deleteByMemberAndReview_Member(blocker, blocked);
         //내 감상을 상대방 피드에서 제거
         feedRepository.deleteByMemberAndReview_Member(blocked, blocker);
+
+        // [실험 H] 차단 집합은 양쪽 모두 바뀐다(차단은 양방향으로 본다).
+        evictBothSides(memberUserId, targetUserId);
     }
 
     //2. 차단 해제
@@ -67,6 +72,8 @@ public class BlockService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BLOCK_NOT_FOUND));
 
         blockRepository.delete(block);
+
+        evictBothSides(memberUserId, targetUserId);
     }
 
     //3. 차단 목록 조회
@@ -99,6 +106,12 @@ public class BlockService {
         Set<Long> ids = new HashSet<>(blockRepository.findBlockedIds(member));
         ids.addAll(blockRepository.findBlockingIds(member));
         return ids;
+    }
+
+    /** 차단은 양방향으로 판정하므로 두 사람의 캐시를 모두 버린다. */
+    private void evictBothSides(Long memberUserId, Long targetUserId) {
+        memberRelationCache.evictBlocks(memberUserId);
+        memberRelationCache.evictBlocks(targetUserId);
     }
 
     //팔로우 관계라면 카운트 해제

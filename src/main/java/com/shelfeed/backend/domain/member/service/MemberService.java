@@ -30,6 +30,7 @@ import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import com.shelfeed.backend.global.jwt.JwtProvider;
 import com.shelfeed.backend.global.redis.RedisService;
+import com.shelfeed.backend.global.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final RedisService redisService;
     private final JwtProvider jwtProvider;
+    private final CustomUserDetailsService userDetailsService;
 
     // ── 1. 온보딩
     @Transactional
@@ -180,6 +182,7 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
         }
 
         member.changePassword(passwordEncoder.encode(request.getNewPassword()));// 비번 변경
+        userDetailsService.evict(memberUserId);// [실험 H] 인증 캐시에 옛 비밀번호가 남지 않게 한다
 
         // 기존 토큰 없애고 새 토큰 발급
         String newAccessToken = jwtProvider.generateAccessToken(member);
@@ -264,6 +267,7 @@ private List<Genre> getValidatedGenres(List<Long> genreIds) {
             redisService.addToBlacklist(accessToken,remainingMs);
         }
         redisService.deleteRefreshToken(memberUserId);
+        userDetailsService.evict(memberUserId);// [실험 H] 탈퇴 회원이 캐시 TTL 동안 살아 있으면 안 된다
     }
 
 
