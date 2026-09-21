@@ -25,7 +25,8 @@ OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
            "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json",
            "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json",
            "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json",
-           "f": ROOT / "docker/grafana/dashboards/shelfeed-exp-f.json"}
+           "f": ROOT / "docker/grafana/dashboards/shelfeed-exp-f.json",
+           "g": ROOT / "docker/grafana/dashboards/shelfeed-exp-g.json"}
 
 # 알림 패널이 보여 줄 폴더. Grafana가 관리하는 룰만 나오게 묶는다.
 # docker/prometheus/rules/view-lock.yml 은 같은 룰의 Prometheus 문법판(참조용)인데
@@ -584,6 +585,15 @@ SUCC = (f'sum(rate(http_server_requests_seconds_count{{uri=~"{ALL_URI}",uri!="{V
 # 요청 1건이 커넥션을 두 번 빌린다(인증 필터의 회원 조회 + 서비스 트랜잭션). 풀 포화도는
 # HTTP 요청이 아니라 "커넥션 대여 횟수"로 봐야 상한과 같은 단위가 된다.
 # Kafka 클라이언트가 스스로 계산해 내보내는 비율이다. rate()로 다시 감싸면 안 된다.
+# ClickHouse 파이프라인. Kafka Engine 이 토픽을 직접 읽고 Materialized View 가 굴려 넣는다.
+CH_ROWS_READ  = 'rate(ClickHouseProfileEvents_KafkaRowsRead{job="clickhouse"}[1m])'
+# KafkaRowsWritten 은 ClickHouse 가 토픽으로 '쓸' 때 올라가는 값이라 여기서는 늘 0이다.
+# 실제로 저장된 행은 MergeTree 총 행수의 증가분으로 본다.
+CH_ROWS_WRITE = 'sum(rate(ClickHouseAsyncMetrics_TotalRowsOfMergeTreeTables{job="clickhouse"}[1m]))'
+CH_REJECTED   = 'rate(ClickHouseProfileEvents_KafkaRowsRejected{job="clickhouse"}[1m])'
+CH_ERRORS     = ('rate(ClickHouseProfileEvents_KafkaConsumerErrors{job="clickhouse"}[1m])'
+                 ' + rate(ClickHouseProfileEvents_KafkaCommitFailures{job="clickhouse"}[1m])')
+CH_STORED     = 'ClickHouseAsyncMetrics_TotalRowsOfMergeTreeTables{job="clickhouse"}'
 KAFKA_SEND = 'sum(kafka_producer_record_send_rate{application="shelfeed"})'
 KAFKA_CONSUME = 'sum(kafka_consumer_fetch_manager_records_consumed_rate{application="shelfeed"})'
 KAFKA_LAG = 'max(kafka_consumer_fetch_manager_records_lag_max{application="shelfeed"})'
@@ -670,6 +680,66 @@ def build_experiment(key: str) -> dict:
                 desc="acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것."),
         ]
         desc = "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다."
+    elif key == "g":
+        title = "Shelfeed — 실험 G · ClickHouse가 집계를 가져간다"
+        card = text_note(
+            "**가설** — 조회 이벤트를 ClickHouse가 **컨슈머 코드 없이** 직접 받아 집계까지 끝낸다. "
+            "그러면 '최근 1시간 인기글'·'순 방문자 수' 같은 무거운 질문을 MySQL이 더는 떠안지 않는다.\n\n"
+            "**바꾼 것** — Kafka Engine 테이블이 `review.viewed`를 직접 소비하고, Materialized View 둘이 "
+            "`view_events`(ReplacingMergeTree · 원본 보존, 같은 eventId 수렴)와 "
+            "`view_stats`(AggregatingMergeTree · 분 단위 countState/uniqState)로 굴려 넣는다. "
+            "컨슈머 그룹을 앱(`view-count`)과 다르게(`clickhouse-view-stats`) 둬서 **같은 이벤트를 둘이 각자 다 받는다** "
+            "— Kafka를 넣은 진짜 이유인 팬아웃이 여기서 쓰인다.\n\n"
+            "**앱은 아무것도 안 한다.** 프로듀서만 그대로고, 집계 코드도 컨슈머 서버도 없다.\n\n"
+            "**같은 질문, 같은 385,983행 (서버 측 실행 시간)**\n\n"
+            "| 질문 | MySQL | ClickHouse 원본 | ClickHouse 집계본 |\n"
+            "|---|---|---|---|\n"
+            "| 최근 1시간 TOP10 인기글 | **982 ms** | 10~15 ms | **9 ms** |\n"
+            "| 최근 1시간 순 방문자 수 | **399 ms** | 8~9 ms | **8 ms** |\n"
+            "| 저장 크기 | **110.4 MiB** | 16.74 MiB | 1.48 MiB |\n\n"
+            "TOP10은 109배, 순 방문자는 50배 빠르고 저장은 6.6배 작다. "
+            "덧붙여 **순 방문자 수는 원래 MySQL에서 불가능한 질문이었다** — `reviews.view_count`는 누적 숫자 하나뿐이라 "
+            "누가 봤는지가 없다. 위 MySQL 값은 비교를 위해 이벤트 테이블을 일부러 만들어 넣은 것이고, "
+            "실제로 그렇게 하면 **매일 110 MiB씩 쓰기 부하가 늘고 집계 1초 동안 커넥션 하나가 묶인다** — "
+            "이 글이 내내 다룬 바로 그 문제다.\n\n"
+            "**읽는 법** — ① 수집률이 앱 프로듀서 전송률과 겹치면 실시간으로 따라온 것이다. "
+            "② 거부·오류가 0이어야 한다. ③ 그동안 MySQL UPDATE와 행 락은 계속 바닥이어야 한다.", h=16)
+        tiles = [
+            _bstat("ClickHouse 수집률", "앱 전송률과 같아야", CH_ROWS_READ, unit="rowsps", decimals=0,
+                   desc="Kafka Engine 이 토픽에서 읽어들이는 행 수."),
+            _bstat("테이블에 저장되는 행", "수집률과 같아야", CH_ROWS_WRITE, unit="rowsps", decimals=0,
+                   desc="Materialized View 를 거쳐 MergeTree 에 실제로 쌓이는 속도. 수집률과 같아야 유실이 없다."),
+            _bstat("거부된 행", "0이어야", CH_REJECTED, decimals=0, steps=red(1),
+                   desc="파싱 실패 등으로 버려진 행."),
+            _bstat("Kafka 오류", "0이어야", CH_ERRORS, decimals=0, steps=red(1),
+                   desc="소비 오류 + 커밋 실패."),
+            _bstat("MySQL UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=2,
+                   desc="집계를 넘겼으니 MySQL 은 계속 한가해야 한다."),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"])),
+        ]
+        charts = [
+            timeseries("실시간으로 따라오나 — 앱 전송률 vs ClickHouse 수집률", [
+                prom(KAFKA_SEND, "앱 프로듀서 전송 (rec/s)", "A"),
+                prom(CH_ROWS_READ, "ClickHouse 수집 (rows/s)", "B"),
+                prom(CH_ROWS_WRITE, "ClickHouse 기록 (rows/s)", "C"),
+            ], unit="short", w=8, h=10,
+                desc="세 선이 겹치면 이벤트가 하나도 안 밀리고 집계까지 끝났다는 뜻이다. "
+                     "앱 컨슈머와 ClickHouse 가 같은 토픽을 각자 다 받는다 — 컨슈머 그룹이 다르기 때문."),
+            timeseries("MySQL은 한가한가 — UPDATE 실행률 vs 행 락 대기", [
+                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "A"),
+                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "B"),
+                prom("mysql_global_status_threads_running", "MySQL Threads running", "C"),
+            ], unit="short", w=8, h=10,
+                desc="집계를 ClickHouse 가 가져갔으니 MySQL 은 폭풍 중에도 바닥에 머물러야 한다. "
+                     "이벤트 테이블을 MySQL 에 뒀다면 여기가 초당 수백 건의 INSERT 로 올라간다."),
+            timeseries("무결성 — 거부된 행 · Kafka 오류", [
+                prom(CH_REJECTED, "거부된 행 (/s)", "A"),
+                prom(CH_ERRORS, "Kafka 오류 (/s)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="둘 다 0이어야 한다. 조회수를 세는 파이프라인이라 유실·오류가 그대로 통계 오차가 된다."),
+        ]
+        desc = "해결안 3단계 검증. ClickHouse 가 Kafka 를 직접 소비해 집계까지 끝내고, MySQL 은 그동안 한가한지 본다."
     elif key == "f":
         title = "Shelfeed — 실험 F · 락을 없앤 뒤 풀 8 → 40"
         card = text_note(

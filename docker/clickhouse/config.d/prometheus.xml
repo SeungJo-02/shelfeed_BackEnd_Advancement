@@ -1,0 +1,14 @@
+<clickhouse>
+    <!-- 이 디렉터리를 마운트하면 이미지 기본 config.d(docker_related_config.xml)가 가려진다.
+         거기 있던 외부 접속 허용 설정을 여기서 다시 준다. 없으면 컨테이너 밖에서 못 붙는다. -->
+    <listen_host>0.0.0.0</listen_host>
+
+    <!-- Prometheus 스크레이프 엔드포인트. 수집률·집계 지연을 Grafana에서 같이 본다. -->
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+    </prometheus>
+</clickhouse>

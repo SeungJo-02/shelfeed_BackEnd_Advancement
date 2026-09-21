@@ -19,3 +19,8 @@ scrape_configs:
   - job_name: 'mysqld-exporter'
     static_configs:
       - targets: ['mysqld-exporter:9104']
+
+  # ClickHouse — 조회 이벤트 수집·집계 파이프라인
+  - job_name: clickhouse
+    static_configs:
+      - targets: ["clickhouse:9363"]

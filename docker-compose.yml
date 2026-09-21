@@ -274,12 +274,14 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,INTERNAL://:29092
+      # 호스트에서 붙는 앱은 localhost:9092, 컨테이너끼리는 kafka:29092 를 쓴다.
+      # 광고 주소가 하나뿐이면 ClickHouse 컨테이너가 자기 localhost 로 붙으려다 실패한다.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -297,6 +299,38 @@ services:
         limits:
           memory: 1g
 
+  # ── ClickHouse (조회 이벤트 집계) ──────────────────────────
+  # Kafka Engine 으로 토픽을 직접 소비하고, Materialized View 가 AggregatingMergeTree 로 굴려 넣는다.
+  # 컨슈머 코드 없이 수집·집계·중복 제거가 DB 안에서 끝난다.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # native
+      - "9363:9363"   # prometheus
+    environment:
+      CLICKHOUSE_DB: shelfeed
+      CLICKHOUSE_USER: shelfeed
+      CLICKHOUSE_PASSWORD: shelfeed
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./docker/clickhouse/config.d:/etc/clickhouse-server/config.d:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
 volumes:
   mysql-data:
   mysql-perf-data:
@@ -306,3 +340,4 @@ volumes:
   tempo-data:
   elasticsearch-data:
   kafka-data:
+  clickhouse-data:
