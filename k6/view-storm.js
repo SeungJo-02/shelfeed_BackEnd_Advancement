@@ -56,6 +56,9 @@ const STORM     = __ENV.STORM     || '6m';
 const RECOVERY  = __ENV.RECOVERY  || '1m30s';
 const RECORD_VIEW = __ENV.RECORD_VIEW === '1';  // [실험 D] 조회 기록 API 호출 여부
 const RUN_ID = __ENV.RUN_ID || String(Date.now()); // 실행마다 다른 viewer 키 접두사 — 이전 런의 SET NX 키(TTL 30분)와 충돌하지 않게
+// VIEWER_KEY=iter(기본): 요청마다 다른 사람 → 중복 제거를 뚫고 쓰기 경로 상한을 잰다.
+// VIEWER_KEY=vu: VU 하나가 한 사람 → 같은 글 재조회는 SET NX에 걸린다(실제 서비스와 같은 조건).
+const VIEWER_KEY = __ENV.VIEWER_KEY || 'iter';
 
 // ── 인증 토큰 ────────────────────────────────────────────────────────
 // 비인증으로 돌리면 상세 조회가 짧은 경로를 타서 락 보유 시간이 절반이 된다.
@@ -209,7 +212,7 @@ export function hotStorm() {
   // (쓰기 경로가 초당 수백 건을 받아내는지를 재는 게 목적), 비회원 경로로 보낸다.
   if (RECORD_VIEW) {
     const v = http.post(`${BASE_URL}/api/v1/reviews/${HOT_ID}/view`, null, {
-      headers: { 'X-Viewer-Key': `${RUN_ID}-${__VU}-${__ITER}` },
+      headers: { 'X-Viewer-Key': VIEWER_KEY === 'vu' ? `${RUN_ID}-${__VU}` : `${RUN_ID}-${__VU}-${__ITER}` },
       tags: { api: 'view_record' },
     });
     viewRecordDuration.add(v.timings.duration);

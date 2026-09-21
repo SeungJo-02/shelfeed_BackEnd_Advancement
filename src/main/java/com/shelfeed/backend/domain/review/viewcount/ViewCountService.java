@@ -2,6 +2,7 @@ package com.shelfeed.backend.domain.review.viewcount;
 
 import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,6 +39,7 @@ public class ViewCountService {
     private final ReviewRepository reviewRepository;
     private final ReviewDetailCache reviewDetailCache;
     private final org.springframework.beans.factory.ObjectProvider<ViewEventProducer> producerProvider;
+    private final MeterRegistry meterRegistry;
 
     /** Kafka를 켜면 조회 이벤트가 토픽을 거쳐 컨슈머에서 누적된다. 끄면 요청 스레드가 바로 누적한다. */
     @Value("${shelfeed.view-count.kafka-enabled:false}")
@@ -64,8 +66,11 @@ public class ViewCountService {
         Boolean first = redis.opsForValue()
                 .setIfAbsent(dedupKey, "1", dedupTtlSeconds, TimeUnit.SECONDS);
         if (!Boolean.TRUE.equals(first)) {
+            // 대시보드가 view_dedup_total{result=hit|miss}로 "몇 %를 걸렀는지"를 본다.
+            meterRegistry.counter("view.dedup", "result", "hit").increment();
             return false;   // TTL 안에 이미 본 사람
         }
+        meterRegistry.counter("view.dedup", "result", "miss").increment();
         if (kafkaEnabled && producer != null) {
             // 요청 스레드는 여기서 끝난다. 누적은 컨슈머가 한다.
             producer.send(new ViewEvent(UUID.randomUUID().toString(), reviewId, viewer,
