@@ -1,0 +1,107 @@
+{
+ "run_at": "2026-09-21 22:55:52",
+ "rows": 385983,
+ "event_id": "4fc9da51-4ad1-4d12-8c39-f9502ba82915",
+ "queries": {
+  "q1_top10_1h": {
+   "label": "최근 1시간 가장 많이 본 글 TOP10",
+   "mysql_ms": {
+    "median": 520.9,
+    "min": 442.2,
+    "runs": [
+     705.7,
+     520.9,
+     458.6,
+     517.7,
+     442.2,
+     604.3,
+     528.4
+    ]
+   },
+   "clickhouse_ms": {
+    "median": 9.0,
+    "min": 4.0,
+    "runs": [
+     64.0,
+     12.0,
+     9.0,
+     10.0,
+     4.0,
+     8.0,
+     6.0
+    ]
+   },
+   "mysql_sql": "SELECT /*bench_q1*/ review_id, COUNT(*) c FROM view_events_bench WHERE viewed_at >= (SELECT MAX(viewed_at) FROM view_events_bench) - INTERVAL 1 HOUR GROUP BY review_id ORDER BY c DESC LIMIT 10",
+   "clickhouse_sql": "SELECT /*bench_q1*/ review_id, count() c FROM shelfeed.view_events_bench WHERE viewed_at >= (SELECT max(viewed_at) FROM shelfeed.view_events_bench) - INTERVAL 1 HOUR GROUP BY review_id ORDER BY c DESC LIMIT 10"
+  },
+  "q2_unique_viewers": {
+   "label": "글별 순 방문자 수 TOP10",
+   "mysql_ms": {
+    "median": 325.4,
+    "min": 278.5,
+    "runs": [
+     306.4,
+     313.1,
+     330.4,
+     339.3,
+     325.4,
+     278.5,
+     415.5
+    ]
+   },
+   "clickhouse_ms": {
+    "median": 12.0,
+    "min": 11.0,
+    "runs": [
+     12.0,
+     13.0,
+     22.0,
+     11.0,
+     12.0,
+     11.0,
+     15.0
+    ]
+   },
+   "mysql_sql": "SELECT /*bench_q2*/ review_id, COUNT(DISTINCT viewer) u FROM view_events_bench GROUP BY review_id ORDER BY u DESC LIMIT 10",
+   "clickhouse_sql": "SELECT /*bench_q2*/ review_id, uniqExact(viewer) u FROM shelfeed.view_events_bench GROUP BY review_id ORDER BY u DESC LIMIT 10"
+  },
+  "q3_point_lookup": {
+   "label": "event_id 단건 조회",
+   "mysql_ms": {
+    "median": 0.2,
+    "min": 0.1,
+    "runs": [
+     4.1,
+     0.2,
+     0.1,
+     0.1,
+     0.2,
+     0.2,
+     0.2
+    ]
+   },
+   "clickhouse_ms": {
+    "median": 3.0,
+    "min": 2.0,
+    "runs": [
+     9.0,
+     3.0,
+     3.0,
+     2.0,
+     4.0,
+     5.0,
+     3.0
+    ]
+   },
+   "mysql_sql": "SELECT /*bench_q3*/ * FROM view_events_bench WHERE event_id = '4fc9da51-4ad1-4d12-8c39-f9502ba82915'",
+   "clickhouse_sql": "SELECT /*bench_q3*/ * FROM shelfeed.view_events_bench WHERE event_id = '4fc9da51-4ad1-4d12-8c39-f9502ba82915'"
+  }
+ },
+ "storage_mib": {
+  "mysql_data": 71.8,
+  "mysql_index": 76.31,
+  "mysql_total": 148.11,
+  "clickhouse_on_disk": 15.54,
+  "clickhouse_uncompressed": 22.24
+ }
+}

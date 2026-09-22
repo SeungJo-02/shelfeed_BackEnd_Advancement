@@ -1213,3 +1213,36 @@ k6: 요청 2,486,543건(3,938/s), 실패 13건(0.00%). `hot_detail` p99 535ms, `
 ## 한 줄 요약
 
 캐시로 조회 이벤트가 7배(2,981rec/s)가 됐는데 ClickHouse는 122만 건을 한 건도 안 빠뜨리고 랙 0으로 받았고, 그동안 MySQL은 배경 쓰기 13/s만 했다. 앱 안의 컨슈머만 CPU 경합으로 밀렸다.
+
+---
+
+# 실측 23 — **읽기 경로 벤치 · 글 하나의 최근 1시간 조회수를 누가 답하나** (2026-09-22 15:30)
+
+리뷰 피드백: "event_id 단건 조회로 OLAP가 느리다고 판단한 건 용도가 틀린 비교다. 3ms면 Redis를 덧댈 이유도 안 된다."
+맞는 지적이다. 그래서 서비스가 실제로 묻는 질문으로 다시 쟀다 — 상세 화면이 캐시 적중 시 초당 3,000번 묻는
+**"이 글(review_id=3)의 최근 1시간 조회수"**. ClickHouse는 이벤트 원본이 아니라 분 단위 집계 테이블 `view_stats`에서
+`countMerge(views)`로 60행을 합친다(OLAP가 잘하는 질문). MySQL은 `reviews.view_count` PK 조회. Redis는 `GET view:count:{id}`.
+
+도구: `clickhouse-benchmark` / `mysqlslap` / `redis-benchmark`. ClickHouse 컨테이너 메모리 상한 2GB, 호스트 10코어.
+
+| 경로 | 동시 접속 | QPS | p50 | p99 | 비고 |
+|---|---|---|---|---|---|
+| ClickHouse `view_stats` countMerge | 1 | 458 | 2ms | 4ms | 한 번 묻는 값은 빠르다 |
+| ClickHouse `view_stats` countMerge | 50 | 1,303 | 30ms | 152ms | CPU 718% (10코어 중 7.2) |
+| ClickHouse `view_stats` countMerge | 100 | 1,421 | 60ms | 146ms | 천장 |
+| ClickHouse `view_stats` countMerge | 200 | — | 180ms | 504ms | **OOM(exit 137)으로 컨테이너 종료** |
+| MySQL `reviews.view_count` PK | 50 | 7,968 | — | — | 누적 숫자 하나라 "최근 1시간"을 못 답한다 |
+| Redis `GET view:count:{id}` | 50 | 221,729 | 0.12ms | 0.18ms | |
+| Redis `GET view:count:{id}` | 200 | 214,133 | 0.46ms | 1.36ms | |
+
+## 읽은 것
+
+**① 단건이 느린 게 아니었다.** 집계 테이블에서 한 글의 60분치를 합치는 데 p50 2ms·p99 4ms다. 이전 벤치(실측 18)의 "event_id 단건 3.0ms로 15배 느리다"는 OLAP에 던질 질문이 아니었고, 그 숫자로 Redis를 정당화한 건 논리 비약이었다.
+
+**② 문제는 횟수다.** 초당 3,000번 물으면 ClickHouse는 10코어를 다 쓰고도 1,400번까지만 답하고(p99 150ms), 200 동시 접속에서 2GB를 넘겨 죽었다. 상세 API p99 목표 1초 안에서 조회수 하나 읽는 데 0.5초를 쓸 수도, 분석 DB를 요청 경로에 세울 수도 없다.
+
+**③ 그래서 Redis는 "느려서"가 아니라 "횟수 때문에" 있다.** 집계는 ClickHouse가 분당 1번 하고, 결과를 스케줄러가 Redis에 넣고, 상세 API는 GET 한 번(200 동시에서 p99 1.4ms)으로 끝낸다. ClickHouse는 분당 쿼리 1개만 받는다.
+
+## 블로그 수정
+
+"단건 조회에 취약하다" 문단과 event_id 벤치 캡처를 이 벤치(대시보드 `shelfeed-bench-read-path`)로 바꾼다.

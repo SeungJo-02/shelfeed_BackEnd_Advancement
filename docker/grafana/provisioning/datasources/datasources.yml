@@ -28,3 +28,9 @@ datasources:
       httpMethod: GET
       serviceMap:
         datasourceUid: prometheus
+
+  # 벤치 결과처럼 스크립트가 만든 정적 숫자를 패널로 그리기 위한 내장 데이터소스
+  - name: TestData
+    type: grafana-testdata-datasource
+    uid: testdata
+    isDefault: false
