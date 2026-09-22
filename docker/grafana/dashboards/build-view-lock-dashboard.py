@@ -24,6 +24,7 @@ OUT_EXP = {"a": ROOT / "docker/grafana/dashboards/shelfeed-exp-a.json",
            "b": ROOT / "docker/grafana/dashboards/shelfeed-exp-b.json",
            "c": ROOT / "docker/grafana/dashboards/shelfeed-exp-c.json",
            "e": ROOT / "docker/grafana/dashboards/shelfeed-exp-e.json",
+           "d": ROOT / "docker/grafana/dashboards/shelfeed-exp-d.json",
            "g": ROOT / "docker/grafana/dashboards/shelfeed-exp-g.json",
            "h": ROOT / "docker/grafana/dashboards/shelfeed-exp-h.json"}
 
@@ -803,6 +804,50 @@ def build_experiment(key: str) -> dict:
                 desc="실험 D와 같은 그림이어야 한다. 중간에 Kafka가 들어가도 MySQL이 받는 쓰기는 그대로다."),
         ]
         desc = "해결안 2단계 검증. 조회 이벤트를 Kafka로 비동기화했을 때 지연이 늘지 않고 이벤트가 밀리지 않는지 본다."
+    elif key == "d":
+        title = "Shelfeed — 실험 D · 조회수를 Redis로, MySQL엔 분당 배치"
+        card = text_note(
+            "**가설** — 실험 C는 조회수를 아예 세지 않아 락을 없앴다. 실제 설계는 세지 않는 게 아니라 "
+            "**다른 곳에 센다.** 조회 이벤트를 Redis에 누적하고 스케줄러가 1분마다 리뷰당 UPDATE 한 건으로 "
+            "반영하면, 요청 1건이 UPDATE 1건을 만들던 1:1이 끊긴다. "
+            "**옮긴 그 경로가 초당 수백 건을 받아내는지가 이 실험의 질문이다.**\n\n"
+            "**바꾼 것** — `POST /reviews/{reviewId}/view` 신설(`SET key 1 NX EX` 중복 제거 → `INCR`), "
+            "`@Scheduled` 1분 주기 배치 반영. 상세 조회(GET)는 실험 C와 같이 순수 읽기. 풀은 8, 부하도 동일.\n\n"
+            "**읽는 법** — ① 조회 기록 처리량이 상세 조회와 같은 높이로 붙어 있으면 쓰기 경로가 부하를 다 받아낸 것이다. "
+            "② 그런데 **MySQL UPDATE 실행률은 바닥**이어야 한다 — 이 두 선의 간격이 1:1이 끊어진 폭이다. "
+            "③ 행 락 발생률 0은 실험 C와 같다. 다만 C는 조회수를 버렸고 **D는 하나도 잃지 않는다.**", h=9)
+        tiles = [
+            _bstat("감상글 상세 처리량", BASE["hot_rps"], HOT_RPS, unit="reqps", decimals=0),
+            _bstat("조회 기록 처리량", "없던 API", VIEW_RPS, unit="reqps", decimals=0,
+                   desc="Redis만 건드리는 경로. 상세 조회와 같은 높이여야 부하를 다 받아낸 것이다."),
+            _bstat("MySQL UPDATE 실행률", BASE["upd_rate"], UPD_RATE, unit="ops", decimals=2,
+                   desc="**이 실험의 숫자.** 리뷰당 1분에 1건이므로 바닥이어야 한다."),
+            _bstat("행 락 대기 발생률", BASE["lock_rate"], LOCK_RATE, unit="ops", decimals=0,
+                   steps=red(TH["shelfeed-rowlock-rate"])),
+            _bstat("성공률 최저", BASE["succ"], SUCC, unit="percentunit", calc="min", steps=grn(0.99)),
+            _bstat("조회 기록 p99", "없던 API", VIEW_P99, unit="s", steps=red(TH["shelfeed-p99"]),
+                   desc="Redis 왕복만 하므로 상세 조회보다 훨씬 빨라야 한다."),
+        ]
+        charts = [
+            timeseries("1:1이 끊어졌다 — 조회 기록 처리량 vs MySQL UPDATE 실행률", [
+                prom(VIEW_RPS, "조회 기록 요청 (/s)", "A"),
+                prom(UPD_RATE, "MySQL UPDATE 실행률 (/s)", "B"),
+            ], unit="short", w=8, h=10,
+                desc="위 선과 아래 선의 간격이 이 설계의 전부다. 조회는 초당 수백 건 들어오는데 "
+                     "MySQL 쓰기는 분당 리뷰 수만큼만 나간다. 기준 실행에서는 두 선이 겹쳐 있었다(302/s 대 302/s)."),
+            timeseries("지연 — 상세 조회 vs 조회 기록(Redis 경로)", [
+                prom(HOT_P99, "감상글 상세 p99", "A"),
+                prom(VIEW_P99, "조회 기록 p99", "B"),
+            ], unit="s", w=8, h=10, threshold=TH["shelfeed-p99"],
+                desc="조회 기록은 DB를 안 거치므로 상세 조회와 자릿수가 달라야 한다. "
+                     "여기가 느리면 병목을 Redis로 옮기기만 한 것이다."),
+            timeseries("행 락 · HikariCP", [
+                prom(LOCK_RATE, "행 락 대기 발생률 (/s)", "A"),
+                prom('hikaricp_connections_pending{application="shelfeed"}', "Pending", "B"),
+                prom('hikaricp_connections_active{application="shelfeed"}', "Active", "C"),
+            ], w=8, h=10, desc="행 락은 0이다. Pending은 남는다 — 병목이 풀로 옮겨간 실험 C와 같은 상태."),
+        ]
+        desc = "해결안 1단계 검증. 조회수를 Redis로 옮기고 분당 배치로 반영했을 때 쓰기 경로가 부하를 받아내는지 본다."
     elif key == "c":
         title = "Shelfeed — 실험 C · GET에서 조회수 쓰기 제거"
         card = text_note(

@@ -39,7 +39,7 @@
   },
   "panels": [
     {
-      "id": 208,
+      "id": 221,
       "type": "row",
       "title": "실험 G — 가설과 읽는 법",
       "collapsed": false,
@@ -53,7 +53,7 @@
       "description": "블로그 절: 어떻게 해결할까"
     },
     {
-      "id": 198,
+      "id": 211,
       "type": "text",
       "title": "",
       "options": {
@@ -69,7 +69,7 @@
       }
     },
     {
-      "id": 209,
+      "id": 222,
       "type": "row",
       "title": "기준(실측 11) → 실험",
       "collapsed": false,
@@ -83,7 +83,7 @@
       "description": "타일 제목의 '기준' 값과 비교해서 읽는다"
     },
     {
-      "id": 199,
+      "id": 212,
       "type": "stat",
       "title": "ClickHouse 수집률 · 기준 앱 전송률과 같아야",
       "description": "Kafka Engine 이 토픽에서 읽어들이는 행 수.",
@@ -145,7 +145,7 @@
       }
     },
     {
-      "id": 200,
+      "id": 213,
       "type": "stat",
       "title": "테이블에 저장되는 행 · 기준 수집률과 같아야",
       "description": "Materialized View 를 거쳐 MergeTree 에 실제로 쌓이는 속도. 수집률과 같아야 유실이 없다.",
@@ -207,7 +207,7 @@
       }
     },
     {
-      "id": 201,
+      "id": 214,
       "type": "stat",
       "title": "거부된 행 · 기준 0이어야",
       "description": "파싱 실패 등으로 버려진 행.",
@@ -272,7 +272,7 @@
       }
     },
     {
-      "id": 202,
+      "id": 215,
       "type": "stat",
       "title": "Kafka 오류 · 기준 0이어야",
       "description": "소비 오류 + 커밋 실패.",
@@ -337,7 +337,7 @@
       }
     },
     {
-      "id": 203,
+      "id": 216,
       "type": "stat",
       "title": "MySQL UPDATE 실행률 · 기준 302/s",
       "description": "집계를 넘겼으니 MySQL 은 계속 한가해야 한다.",
@@ -399,7 +399,7 @@
       }
     },
     {
-      "id": 204,
+      "id": 217,
       "type": "stat",
       "title": "행 락 대기 발생률 · 기준 297/s",
       "description": "",
@@ -465,7 +465,7 @@
       }
     },
     {
-      "id": 210,
+      "id": 223,
       "type": "row",
       "title": "증거",
       "collapsed": false,
@@ -479,7 +479,7 @@
       "description": "이 실험이 증명해야 할 그림"
     },
     {
-      "id": 205,
+      "id": 218,
       "type": "timeseries",
       "title": "Kafka 전송 vs ClickHouse 수집·기록",
       "description": "세 선이 겹치면 이벤트가 하나도 안 밀리고 집계까지 끝났다는 뜻이다. 앱 컨슈머와 ClickHouse 가 같은 토픽을 각자 다 받는다 — 컨슈머 그룹이 다르기 때문.",
@@ -575,7 +575,7 @@
       }
     },
     {
-      "id": 206,
+      "id": 219,
       "type": "timeseries",
       "title": "MySQL UPDATE 실행률 · 행 락 대기 · Threads running",
       "description": "집계를 ClickHouse 가 가져갔으니 MySQL 은 폭풍 중에도 바닥에 머물러야 한다. 이벤트 테이블을 MySQL 에 뒀다면 여기가 초당 수백 건의 INSERT 로 올라간다.",
@@ -671,7 +671,7 @@
       }
     },
     {
-      "id": 207,
+      "id": 220,
       "type": "timeseries",
       "title": "ClickHouse 거부된 행 · Kafka 오류",
       "description": "둘 다 0이어야 한다. 조회수를 세는 파이프라인이라 유실·오류가 그대로 통계 오차가 된다.",
