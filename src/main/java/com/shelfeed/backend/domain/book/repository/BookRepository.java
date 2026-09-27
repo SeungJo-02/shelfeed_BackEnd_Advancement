@@ -78,6 +78,18 @@ SELECT AVG(r.rating) FROM Review r WHERE r.book.bookId = :bookId AND r.isDeleted
             nativeQuery = true)
     Page<Book> findByCategoryPattern(@Param("pattern") String pattern, Pageable pageable);
 
+    /**
+     * 장르 패턴({@code genres.category_pattern})에 걸리는 도서들의 실제 {@code genre} 값 목록.
+     *
+     * <p>패턴은 정규식({@code [>-](자연)?과학}, {@code 경제 ?경영} 등)이라 {@code books.genre}와 문자열이 같지 않다.
+     * 추천처럼 {@code b.genre IN (...)}으로 등가 비교해야 하는 곳은 먼저 이걸로 패턴을 구체 값으로 풀어야 한다.
+     */
+    @Query(value = """
+            SELECT DISTINCT genre FROM books
+            WHERE category REGEXP :pattern AND genre IS NOT NULL
+            """, nativeQuery = true)
+    List<String> findDistinctGenresByCategoryPattern(@Param("pattern") String pattern);
+
     // ISBN 목록으로 일괄 조회 (N+1 방지)
     List<Book> findByIsbn13In(List<String> isbn13List);
 
