@@ -30,7 +30,7 @@ public class BookController {
     }
 
     // 1-1. 장르별 도서 조회  GET /api/v1/books/by-genre
-    // 검색과 달리 알라딘을 부르지 않고 이미 저장된 도서를 카테고리로 추린다.
+    // 검색과 달리 외부 카탈로그를 부르지 않고 이미 저장된 도서를 카테고리로 추린다.
     @GetMapping("/by-genre")
     public ApiResponse<BookGenreListResponse> getBooksByGenre(
             @ModelAttribute BookGenreRequest request,

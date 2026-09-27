@@ -38,10 +38,9 @@ jwt:
   access-expiration: 18000000   # 5시간 — PERF TEST ONLY, 스테이징/운영 배포 금지
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
-aladin:
+yes24:
   api:
-    ttbkey: mock-key-not-used
-    version: "20131101"
+    key: mock-key-not-used   # mock-catalog 프로파일이라 yes24RestTemplate 자체가 안 뜬다 — 값은 없어도 됨
 
 management:
   info:
@@ -59,4 +58,4 @@ app:
     history-enabled: false  # 검색 히스토리 락 경합 제거 — LIKE 풀스캔 병목만 순수 측정
 
 info:
-  profile: mock-aladin,perf-seed
+  profile: mock-catalog,perf-seed

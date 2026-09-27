@@ -38,6 +38,7 @@ public enum ErrorCode {//enum 타입은 public 불가(자동 private) + 객체 �
     SUSPENDED_MEMBER(403,"A018", "정지된 계정입니다."),
     //도서
     BOOK_NOT_FOUND(404, "B001", "존재하지 않는 도서입니다."),
+    CATALOG_UNAVAILABLE(503, "B002", "도서 정보 제공처(YES24)에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),
     //장르
     GENRE_NOT_FOUND(404, "G001", "존재하지 않는 장르입니다."),
     //일반

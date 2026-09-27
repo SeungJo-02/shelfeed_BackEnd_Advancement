@@ -5,5 +5,5 @@ export DURATION=3m
 export USER_COUNT=50
 export INFLUXDB_URL="http://localhost:8086/k6"
 
-# 로컬은 mock-aladin,perf-seed 프로파일 체크 필요
+# 로컬은 mock-catalog,perf-seed 프로파일 체크 필요
 export SKIP_PROFILE_CHECK=0
