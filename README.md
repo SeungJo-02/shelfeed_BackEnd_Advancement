@@ -19,11 +19,31 @@ docker compose ps
 
 ---
 
+## DB 마이그레이션 — 예전 덤프로 복원한 로컬 DB
+
+2026-09 YES24 전환으로 `books.aladin_item_id` 컬럼이 `external_item_id`로 바뀌었다.
+`ddl-auto=update`는 컬럼 **rename을 못 하고** 빈 `external_item_id`를 새로 추가하므로, 운영 백업 덤프(`shelfeed-backup-*.tgz`의
+`rds-shelfeed-*.sql.gz`) 등 전환 이전 덤프로 복원한 DB는 앱을 띄우기 전에 한 번만 실행한다
+(`perf-seed` 프로파일은 `ddl-auto=validate`라 실행하지 않으면 부팅이 실패한다):
+
+```sql
+ALTER TABLE books RENAME COLUMN aladin_item_id TO external_item_id;
+```
+
+이미 앱을 띄워서 빈 `external_item_id`가 생겼다면:
+
+```sql
+UPDATE books SET external_item_id = aladin_item_id WHERE external_item_id IS NULL;
+ALTER TABLE books DROP COLUMN aladin_item_id;
+```
+
+---
+
 ## Step 1 — Spring Boot 성능 테스트 모드로 실행
 
 ```bash
 JAVA_TOOL_OPTIONS="-Xmx1g -Xms512m" \
-  ./gradlew bootRun --args='--spring.profiles.active=mock-aladin,perf-seed'
+  ./gradlew bootRun --args='--spring.profiles.active=mock-catalog,perf-seed'
 ```
 
 로그에서 아래 메시지가 나올 때까지 대기:
