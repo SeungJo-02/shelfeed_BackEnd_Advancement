@@ -89,10 +89,10 @@ oauth2:
     client-secret: ${GOOGLE_CLIENT_SECRET}
     redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/auth/callback/google}
 
-aladin:
+# YES24 Open API — 도서 검색·ISBN 조회 (알라딘 OpenAPI 종료 대체). developers.yes24.com 에서 발급.
+yes24:
   api:
-    ttbkey: ${ALADIN_API_KEY}
-    version: "20131101"
+    key: ${YES24_API_KEY}
 
 clova:
   ocr:

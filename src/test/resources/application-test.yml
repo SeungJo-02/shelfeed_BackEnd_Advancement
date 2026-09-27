@@ -28,10 +28,9 @@ jwt:
   access-expiration: 3600000
   refresh-expiration: 604800000
 
-aladin:
+yes24:
   api:
-    ttbkey: test-key
-    version: "20131101"
+    key: test-key
 
 oauth2:
   google:

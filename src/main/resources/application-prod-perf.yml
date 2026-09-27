@@ -2,7 +2,7 @@
 #
 # 사용:
 #   SPRING_PROFILES_ACTIVE=prod,prod-perf,perf-seed
-#   - prod        : 운영 환경 베이스 (Redis, S3, Aladin 등)
+#   - prod        : 운영 환경 베이스 (Redis, S3, YES24 등)
 #   - prod-perf   : 부하 테스트용 RDS 분리 (datasource 덮어씀)
 #   - perf-seed   : 100만건 도서 시딩 (PerfBookSeeder)
 #

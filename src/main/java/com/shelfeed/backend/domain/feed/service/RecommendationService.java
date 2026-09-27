@@ -92,19 +92,28 @@ public class RecommendationService {
                             (String) row[0], (Long) row[1] * LIBRARY_WEIGHT, Long::sum));
         }
 
-        // data.sql에 category_pattern 채워져 있음. 온보딩 완료 회원에게 자동 반영됨.
+        // 온보딩 장르의 category_pattern은 정규식이라 books.genre와 등가 비교가 안 된다.
+        // 패턴에 걸리는 실제 genre 값으로 풀어서 점수를 준다 (한 장르가 여러 genre 값으로 펼쳐질 수 있다).
         memberGenreRepository.findAllByMemberWithGenre(me)
-                .forEach(mg -> {
-                    String pattern = mg.getGenre().getCategoryPattern();
-                    if (pattern != null && !pattern.isBlank()) {
-                        scoreMap.merge(pattern, GENRE_WEIGHT, Long::sum);
-                    }
-                });
+                .forEach(mg -> resolveGenreValues(mg.getGenre().getCategoryPattern())
+                        .forEach(genre -> scoreMap.merge(genre, GENRE_WEIGHT, Long::sum)));
 
         return scoreMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(TOP_CATEGORY_LIMIT)
                 .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    /**
+     * {@code genres.category_pattern}(정규식) → 그 패턴에 실제로 걸리는 {@code books.genre} 값들.
+     * 빈 패턴이면 빈 목록. 결과는 {@code ReviewRepository.findRecommendedByGenres}의 {@code IN} 절에 그대로 쓸 수 있다.
+     */
+    List<String> resolveGenreValues(String pattern) {
+        if (pattern == null || pattern.isBlank()) return List.of();
+        return bookRepository.findDistinctGenresByCategoryPattern(pattern).stream()
+                .filter(g -> g != null && !g.isBlank())
+                .distinct()
                 .toList();
     }
 }

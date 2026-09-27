@@ -1,8 +1,7 @@
 package com.shelfeed.backend.global.init;
 
-import com.shelfeed.backend.domain.book.client.AladinClient;
-import com.shelfeed.backend.domain.book.client.dto.AladinItem;
-import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
+import com.shelfeed.backend.domain.book.client.BookCatalogClient;
+import com.shelfeed.backend.domain.book.client.dto.CatalogBookItem;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.feed.entity.Feed;
@@ -35,8 +34,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
@@ -47,7 +44,7 @@ import com.shelfeed.backend.domain.member.service.MemberUserIdGenerator;
 @RequiredArgsConstructor
 public class DataSeeder implements ApplicationRunner {
 
-    private final AladinClient aladinApiClient;
+    private final BookCatalogClient catalogClient;
     private final BookRepository bookRepository;
     private final MemberRepository memberRepository;
     private final LibraryRepository libraryRepository;
@@ -269,7 +266,7 @@ public class DataSeeder implements ApplicationRunner {
         log.info("[DataSeeder] 저장된 도서 수: {}", books.size());
 
         if (books.isEmpty()) {
-            log.warn("[DataSeeder] 알라딘 API에서 도서를 가져오지 못했습니다. 중단합니다.");
+            log.warn("[DataSeeder] 외부 카탈로그(YES24)에서 도서를 가져오지 못했습니다. 중단합니다.");
             return;
         }
 
@@ -283,7 +280,7 @@ public class DataSeeder implements ApplicationRunner {
 
     private List<Book> fetchAndSaveBooks() {
         if (bookRepository.count() > 0) {
-            log.info("[DataSeeder] 도서 데이터가 이미 존재합니다. 알라딘 API 호출을 건너뜁니다.");
+            log.info("[DataSeeder] 도서 데이터가 이미 존재합니다. 카탈로그 API 호출을 건너뜁니다.");
             return bookRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
         }
 
@@ -292,12 +289,12 @@ public class DataSeeder implements ApplicationRunner {
 
         for (String keyword : KEYWORDS) {
             try {
-                int start = random.nextInt(3) + 1;
-                int maxResults = 8 + random.nextInt(5); // 키워드당 8~12권 → 전체 40~60권
-                AladinSearchResponse response = aladinApiClient.search(keyword, start, maxResults);
-                if (response == null || response.getItems() == null) continue;
+                int page = random.nextInt(3) + 1;
+                int pageSize = 8 + random.nextInt(5); // 키워드당 8~12권 → 전체 40~60권
+                List<CatalogBookItem> items = catalogClient.search(keyword, page, pageSize);
+                if (items == null || items.isEmpty()) continue;
 
-                for (AladinItem item : response.getItems()) {
+                for (CatalogBookItem item : items) {
                     if (item.getIsbn13() == null || item.getIsbn13().isBlank()) continue;
 
                     Book book = bookRepository.findByIsbn13(item.getIsbn13()).orElseGet(() ->
@@ -306,13 +303,14 @@ public class DataSeeder implements ApplicationRunner {
                                     truncate(item.getTitle(), 500),
                                     truncate(item.getAuthor(), 50),
                                     truncate(item.getPublisher(), 200),
-                                    item.getCover(),
+                                    truncate(item.getCoverImageUrl(), 500),
                                     item.getDescription(),
-                                    item.getSubInfo() != null ? item.getSubInfo().getItemPage() : null,
-                                    parsePubDate(item.getPubDate()),
-                                    item.getItemId() != null ? item.getItemId().toString() : null,
-                                    truncate(item.getCategoryName(), 100),
-                                    extractGenre(item.getCategoryName())
+                                    item.getTotalPages(),
+                                    item.getPublishedDate(),
+                                    truncate(item.getExternalItemId(), 50),
+                                    truncate(item.getCategory(), 100),
+                                    // 시드 장르도 분류의 2번째 계층(예: 소설/시/희곡)을 쓴다 — BookPersistenceService와 동일 기준
+                                    truncate(item.getGenre(), 100)
                             ))
                     );
                     result.add(book);
@@ -371,7 +369,7 @@ public class DataSeeder implements ApplicationRunner {
                 ReviewVisibility visibility = random.nextInt(10) < 8
                         ? ReviewVisibility.PUBLIC : ReviewVisibility.PRIVATE;
 
-                // totalPages가 null이면 0으로 처리 (알라딘 API가 페이지 수를 미제공하는 경우 존재)
+                // totalPages가 null이면 0으로 처리 (검색 응답(detail=N)에는 페이지 수가 없다)
                 int readPages = book.getTotalPages() != null ? book.getTotalPages() : 0;
                 reviewRepository.save(Review.create(
                         member, book, lb,
@@ -484,21 +482,6 @@ public class DataSeeder implements ApplicationRunner {
         log.info("[DataSeeder] 감상 좋아요 생성 완료");
     }
 
-    //출간일 없어도 서버 실행 중단 방지
-    private LocalDate parsePubDate(String pubDate) {
-        if (pubDate == null || pubDate.isBlank()) return null;
-        try {
-            return LocalDate.parse(pubDate);
-        } catch (DateTimeParseException e) {
-            return null;
-        }
-    }
-    // 장르 선택(가장 말단 장르)
-    private String extractGenre(String categoryName) {
-        if (categoryName == null || categoryName.isBlank()) return null;
-        String[] parts = categoryName.split(">");
-        return truncate(parts[parts.length - 1].trim(), 100);
-    }
     // 길이 자르기
     private String truncate(String value, int max) {
         if (value == null) return null;
