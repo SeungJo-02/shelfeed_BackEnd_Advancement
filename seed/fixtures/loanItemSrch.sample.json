@@ -1,0 +1,1973 @@
+{
+ "response": {
+  "request": {
+   "startDt": "2014-01-01",
+   "endDt": "2014-12-31",
+   "kdc": "8",
+   "pageNo": "1",
+   "pageSize": "300",
+   "format": "json"
+  },
+  "resultNum": 123,
+  "numFound": 123,
+  "docs": [
+   {
+    "doc": {
+     "no": "1",
+     "ranking": "1",
+     "bookname": "소년이 온다",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "publication_year": "2014",
+     "isbn13": "9788900000007",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "5010",
+     "bookImageURL": "https://image.aladin.co.kr/product/1000/1/cover/8900000007_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "2",
+     "ranking": "2",
+     "bookname": "채식주의자",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "publication_year": "2007",
+     "isbn13": "9788900000014",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "4967",
+     "bookImageURL": "https://image.aladin.co.kr/product/1001/1/cover/8900000014_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "3",
+     "ranking": "3",
+     "bookname": "불편한 편의점",
+     "authors": "김호연 지음",
+     "publisher": "나무옆의자",
+     "publication_year": "2021",
+     "isbn13": "9788900000021",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "4938",
+     "bookImageURL": "https://image.aladin.co.kr/product/1002/1/cover/8900000021_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "4",
+     "ranking": "4",
+     "bookname": "아몬드",
+     "authors": "손원평 지음",
+     "publisher": "창비",
+     "publication_year": "2017",
+     "isbn13": "9788900000028",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "4909",
+     "bookImageURL": "https://image.aladin.co.kr/product/1003/1/cover/8900000028_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "5",
+     "ranking": "5",
+     "bookname": "달러구트 꿈 백화점",
+     "authors": "이미예 지음",
+     "publisher": "팩토리나인",
+     "publication_year": "2020",
+     "isbn13": "9788900000035",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "4853",
+     "bookImageURL": "https://image.aladin.co.kr/product/1004/1/cover/8900000035_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "6",
+     "ranking": "6",
+     "bookname": "작별하지 않는다",
+     "authors": "한강 지음",
+     "publisher": "문학동네",
+     "publication_year": "2021",
+     "isbn13": "9788900000042",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "4817",
+     "bookImageURL": "https://image.aladin.co.kr/product/1005/1/cover/8900000042_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "7",
+     "ranking": "7",
+     "bookname": "데미안",
+     "authors": "헤르만 헤세 지음; 전영애 옮김",
+     "publisher": "민음사",
+     "publication_year": "2000",
+     "isbn13": "9788900000049",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "4795",
+     "bookImageURL": "https://image.aladin.co.kr/product/1006/1/cover/8900000049_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "8",
+     "ranking": "8",
+     "bookname": "1984",
+     "authors": "조지 오웰 지음; 정회성 옮김",
+     "publisher": "민음사",
+     "publication_year": "2003",
+     "isbn13": "9788900000056",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "4744",
+     "bookImageURL": "https://image.aladin.co.kr/product/1007/1/cover/8900000056_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "9",
+     "ranking": "9",
+     "bookname": "나미야 잡화점의 기적",
+     "authors": "히가시노 게이고 지음; 양윤옥 옮김",
+     "publisher": "현대문학",
+     "publication_year": "2012",
+     "isbn13": "9788900000063",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "833.6",
+     "loan_count": "4715",
+     "bookImageURL": "https://image.aladin.co.kr/product/1008/1/cover/8900000063_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "10",
+     "ranking": "10",
+     "bookname": "용의자 X의 헌신",
+     "authors": "히가시노 게이고 지음",
+     "publisher": "재인",
+     "publication_year": "2006",
+     "isbn13": "9788900000070",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "833.6",
+     "loan_count": "4685",
+     "bookImageURL": "https://image.aladin.co.kr/product/1009/1/cover/8900000070_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "11",
+     "ranking": "11",
+     "bookname": "노르웨이의 숲",
+     "authors": "무라카미 하루키 지음",
+     "publisher": "민음사",
+     "publication_year": "2013",
+     "isbn13": "9788900000077",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "4631",
+     "bookImageURL": "https://image.aladin.co.kr/product/1010/1/cover/8900000077_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "12",
+     "ranking": "12",
+     "bookname": "어린 왕자",
+     "authors": "생텍쥐페리 지음",
+     "publisher": "열린책들",
+     "publication_year": "2015",
+     "isbn13": "9788900000084",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "841",
+     "loan_count": "4609",
+     "bookImageURL": "https://image.aladin.co.kr/product/1011/1/cover/8900000084_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "13",
+     "ranking": "13",
+     "bookname": "언어의 온도",
+     "authors": "이기주 지음",
+     "publisher": "말글터",
+     "publication_year": "2016",
+     "isbn13": "9788900000091",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "4562",
+     "bookImageURL": "https://image.aladin.co.kr/product/1012/1/cover/8900000091_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "14",
+     "ranking": "14",
+     "bookname": "죽고 싶지만 떡볶이는 먹고 싶어",
+     "authors": "백세희 지음",
+     "publisher": "흔",
+     "publication_year": "2018",
+     "isbn13": "9788900000098",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "4520",
+     "bookImageURL": "https://image.aladin.co.kr/product/1013/1/cover/8900000098_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "15",
+     "ranking": "15",
+     "bookname": "지구 끝의 온실",
+     "authors": "김초엽 지음",
+     "publisher": "자이언트북스",
+     "publication_year": "2021",
+     "isbn13": "9788900000105",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "4484",
+     "bookImageURL": "https://image.aladin.co.kr/product/1014/1/cover/8900000105_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "16",
+     "ranking": "16",
+     "bookname": "무진기행",
+     "authors": "김승옥 지음",
+     "publisher": "민음사",
+     "publication_year": "2007",
+     "isbn13": "9788900000112",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.6",
+     "loan_count": "4458",
+     "bookImageURL": "https://image.aladin.co.kr/product/1015/1/cover/8900000112_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "17",
+     "ranking": "17",
+     "bookname": "서랍에 저녁을 넣어 두었다",
+     "authors": "한강 지음",
+     "publisher": "문학과지성사",
+     "publication_year": "2013",
+     "isbn13": "9788900000119",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "811.7",
+     "loan_count": "4421",
+     "bookImageURL": "https://image.aladin.co.kr/product/1016/1/cover/8900000119_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "18",
+     "ranking": "18",
+     "bookname": "입 속의 검은 잎",
+     "authors": "기형도 지음",
+     "publisher": "문학과지성사",
+     "publication_year": "1989",
+     "isbn13": "9788900000126",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "811.7",
+     "loan_count": "4373",
+     "bookImageURL": "https://image.aladin.co.kr/product/1017/1/cover/8900000126_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "19",
+     "ranking": "19",
+     "bookname": "미움받을 용기",
+     "authors": "기시미 이치로, 고가 후미타케 지음",
+     "publisher": "인플루엔셜",
+     "publication_year": "2014",
+     "isbn13": "9788900000133",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "4341",
+     "bookImageURL": "https://image.aladin.co.kr/product/1018/1/cover/8900000133_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "20",
+     "ranking": "20",
+     "bookname": "아주 작은 습관의 힘",
+     "authors": "제임스 클리어 지음",
+     "publisher": "비즈니스북스",
+     "publication_year": "2019",
+     "isbn13": "9788900000140",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "4299",
+     "bookImageURL": "https://image.aladin.co.kr/product/1019/1/cover/8900000140_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "21",
+     "ranking": "21",
+     "bookname": "데일 카네기 인간관계론",
+     "authors": "데일 카네기 지음",
+     "publisher": "현대지성",
+     "publication_year": "2019",
+     "isbn13": "9788900000147",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "4277",
+     "bookImageURL": "https://image.aladin.co.kr/product/1020/1/cover/8900000147_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "22",
+     "ranking": "22",
+     "bookname": "원씽",
+     "authors": "게리 켈러, 제이 파파산 지음",
+     "publisher": "비즈니스북스",
+     "publication_year": "2013",
+     "isbn13": "9788900000154",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "325.211",
+     "loan_count": "4236",
+     "bookImageURL": "https://image.aladin.co.kr/product/1021/1/cover/8900000154_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "23",
+     "ranking": "23",
+     "bookname": "부의 추월차선",
+     "authors": "엠제이 드마코 지음",
+     "publisher": "토트",
+     "publication_year": "2013",
+     "isbn13": "9788900000161",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "325.1",
+     "loan_count": "4187",
+     "bookImageURL": "https://image.aladin.co.kr/product/1022/1/cover/8900000161_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "24",
+     "ranking": "24",
+     "bookname": "돈의 속성",
+     "authors": "김승호 지음",
+     "publisher": "스노우폭스북스",
+     "publication_year": "2020",
+     "isbn13": "9788900000168",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "327.04",
+     "loan_count": "4167",
+     "bookImageURL": "https://image.aladin.co.kr/product/1023/1/cover/8900000168_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "25",
+     "ranking": "25",
+     "bookname": "경제학 콘서트",
+     "authors": "팀 하포드 지음",
+     "publisher": "웅진지식하우스",
+     "publication_year": "2006",
+     "isbn13": "9788900000175",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "320.1",
+     "loan_count": "4115",
+     "bookImageURL": "https://image.aladin.co.kr/product/1024/1/cover/8900000175_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "26",
+     "ranking": "26",
+     "bookname": "죽은 경제학자의 살아있는 아이디어",
+     "authors": "토드 부크홀츠 지음",
+     "publisher": "김영사",
+     "publication_year": "2009",
+     "isbn13": "9788900000182",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "321.1",
+     "loan_count": "4082",
+     "bookImageURL": "https://image.aladin.co.kr/product/1025/1/cover/8900000182_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "27",
+     "ranking": "27",
+     "bookname": "철학은 어떻게 삶의 무기가 되는가",
+     "authors": "야마구치 슈 지음",
+     "publisher": "다산초당",
+     "publication_year": "2019",
+     "isbn13": "9788900000189",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "100",
+     "loan_count": "4058",
+     "bookImageURL": "https://image.aladin.co.kr/product/1026/1/cover/8900000189_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "28",
+     "ranking": "28",
+     "bookname": "소크라테스 익스프레스",
+     "authors": "에릭 와이너 지음",
+     "publisher": "어크로스",
+     "publication_year": "2021",
+     "isbn13": "9788900000196",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "160",
+     "loan_count": "4021",
+     "bookImageURL": "https://image.aladin.co.kr/product/1027/1/cover/8900000196_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "29",
+     "ranking": "29",
+     "bookname": "정의란 무엇인가",
+     "authors": "마이클 샌델 지음",
+     "publisher": "와이즈베리",
+     "publication_year": "2014",
+     "isbn13": "9788900000203",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "189",
+     "loan_count": "3982",
+     "bookImageURL": "https://image.aladin.co.kr/product/1028/1/cover/8900000203_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "30",
+     "ranking": "30",
+     "bookname": "사피엔스",
+     "authors": "유발 하라리 지음",
+     "publisher": "김영사",
+     "publication_year": "2015",
+     "isbn13": "9788900000210",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "181.7",
+     "loan_count": "3928",
+     "bookImageURL": "https://image.aladin.co.kr/product/1029/1/cover/8900000210_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "31",
+     "ranking": "31",
+     "bookname": "팩트풀니스",
+     "authors": "한스 로슬링 지음",
+     "publisher": "김영사",
+     "publication_year": "2019",
+     "isbn13": "9788900000217",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "001.3",
+     "loan_count": "3908",
+     "bookImageURL": "https://image.aladin.co.kr/product/1030/1/cover/8900000217_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "32",
+     "ranking": "32",
+     "bookname": "클린 코드",
+     "authors": "로버트 C. 마틴 지음",
+     "publisher": "인사이트",
+     "publication_year": "2013",
+     "isbn13": "9788900000224",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.133",
+     "loan_count": "3871",
+     "bookImageURL": "https://image.aladin.co.kr/product/1031/1/cover/8900000224_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "33",
+     "ranking": "33",
+     "bookname": "리팩터링",
+     "authors": "마틴 파울러 지음",
+     "publisher": "한빛미디어",
+     "publication_year": "2020",
+     "isbn13": "9788900000231",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.11",
+     "loan_count": "3828",
+     "bookImageURL": "https://image.aladin.co.kr/product/1032/1/cover/8900000231_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "34",
+     "ranking": "34",
+     "bookname": "이펙티브 자바",
+     "authors": "조슈아 블로크 지음",
+     "publisher": "인사이트",
+     "publication_year": "2018",
+     "isbn13": "9788900000238",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.1",
+     "loan_count": "3780",
+     "bookImageURL": "https://image.aladin.co.kr/product/1033/1/cover/8900000238_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "35",
+     "ranking": "35",
+     "bookname": "혼자 공부하는 파이썬",
+     "authors": "윤인성 지음",
+     "publisher": "한빛미디어",
+     "publication_year": "2019",
+     "isbn13": "9788900000245",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.8",
+     "loan_count": "3749",
+     "bookImageURL": "https://image.aladin.co.kr/product/1034/1/cover/8900000245_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "36",
+     "ranking": "36",
+     "bookname": "성경의 인물",
+     "authors": "김양재 지음",
+     "publisher": "두란노",
+     "publication_year": "2010",
+     "isbn13": "9788900000252",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "231",
+     "loan_count": "3706",
+     "bookImageURL": "https://image.aladin.co.kr/product/1035/1/cover/8900000252_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "37",
+     "ranking": "37",
+     "bookname": "법륜 스님의 행복",
+     "authors": "법륜 지음",
+     "publisher": "나무의마음",
+     "publication_year": "2016",
+     "isbn13": "9788900000259",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "220",
+     "loan_count": "3685",
+     "bookImageURL": "https://image.aladin.co.kr/product/1036/1/cover/8900000259_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "38",
+     "ranking": "38",
+     "bookname": "예수님처럼",
+     "authors": "맥스 루케이도 지음",
+     "publisher": "복있는사람",
+     "publication_year": "2015",
+     "isbn13": "9788900000266",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "248",
+     "loan_count": "3635",
+     "bookImageURL": "https://image.aladin.co.kr/product/1037/1/cover/8900000266_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "39",
+     "ranking": "39",
+     "bookname": "총, 균, 쇠",
+     "authors": "재레드 다이아몬드 지음",
+     "publisher": "문학사상",
+     "publication_year": "2005",
+     "isbn13": "9788900000273",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "300.1",
+     "loan_count": "3603",
+     "bookImageURL": "https://image.aladin.co.kr/product/1038/1/cover/8900000273_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "40",
+     "ranking": "40",
+     "bookname": "선량한 차별주의자",
+     "authors": "김지혜 지음",
+     "publisher": "창비",
+     "publication_year": "2019",
+     "isbn13": "9788900000280",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "330",
+     "loan_count": "3570",
+     "bookImageURL": "https://image.aladin.co.kr/product/1039/1/cover/8900000280_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "41",
+     "ranking": "41",
+     "bookname": "82년생 김지영",
+     "authors": "조남주 지음",
+     "publisher": "민음사",
+     "publication_year": "2016",
+     "isbn13": "9788900000287",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "334",
+     "loan_count": "3524",
+     "bookImageURL": "https://image.aladin.co.kr/product/1040/1/cover/8900000287_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "42",
+     "ranking": "42",
+     "bookname": "공정하다는 착각",
+     "authors": "마이클 샌델 지음",
+     "publisher": "와이즈베리",
+     "publication_year": "2020",
+     "isbn13": "9788900000294",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "340",
+     "loan_count": "3500",
+     "bookImageURL": "https://image.aladin.co.kr/product/1041/1/cover/8900000294_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "43",
+     "ranking": "43",
+     "bookname": "최재천의 공부",
+     "authors": "최재천 지음",
+     "publisher": "김영사",
+     "publication_year": "2022",
+     "isbn13": "9788900000301",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "370",
+     "loan_count": "3449",
+     "bookImageURL": "https://image.aladin.co.kr/product/1042/1/cover/8900000301_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "44",
+     "ranking": "44",
+     "bookname": "코스모스",
+     "authors": "칼 세이건 지음",
+     "publisher": "사이언스북스",
+     "publication_year": "2006",
+     "isbn13": "9788900000308",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "404",
+     "loan_count": "3427",
+     "bookImageURL": "https://image.aladin.co.kr/product/1043/1/cover/8900000308_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "45",
+     "ranking": "45",
+     "bookname": "시간의 역사",
+     "authors": "스티븐 호킹 지음",
+     "publisher": "까치",
+     "publication_year": "1998",
+     "isbn13": "9788900000315",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "420",
+     "loan_count": "3381",
+     "bookImageURL": "https://image.aladin.co.kr/product/1044/1/cover/8900000315_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "46",
+     "ranking": "46",
+     "bookname": "이기적 유전자",
+     "authors": "리처드 도킨스 지음",
+     "publisher": "을유문화사",
+     "publication_year": "2018",
+     "isbn13": "9788900000322",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "472",
+     "loan_count": "3352",
+     "bookImageURL": "https://image.aladin.co.kr/product/1045/1/cover/8900000322_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "47",
+     "ranking": "47",
+     "bookname": "수학이 필요한 순간",
+     "authors": "김민형 지음",
+     "publisher": "인플루엔셜",
+     "publication_year": "2018",
+     "isbn13": "9788900000329",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "413",
+     "loan_count": "3303",
+     "bookImageURL": "https://image.aladin.co.kr/product/1046/1/cover/8900000329_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "48",
+     "ranking": "48",
+     "bookname": "면역의 힘",
+     "authors": "제나 마치오키 지음",
+     "publisher": "윌북",
+     "publication_year": "2021",
+     "isbn13": "9788900000336",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "511",
+     "loan_count": "3264",
+     "bookImageURL": "https://image.aladin.co.kr/product/1047/1/cover/8900000336_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "49",
+     "ranking": "49",
+     "bookname": "마흔에 읽는 니체",
+     "authors": "장재형 지음",
+     "publisher": "유노북스",
+     "publication_year": "2022",
+     "isbn13": "9788900000343",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "517",
+     "loan_count": "3242",
+     "bookImageURL": "https://image.aladin.co.kr/product/1048/1/cover/8900000343_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "50",
+     "ranking": "50",
+     "bookname": "백년 허리",
+     "authors": "정선근 지음",
+     "publisher": "사이언스북스",
+     "publication_year": "2015",
+     "isbn13": "9788900000350",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "512",
+     "loan_count": "3205",
+     "bookImageURL": "https://image.aladin.co.kr/product/1049/1/cover/8900000350_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "51",
+     "ranking": "51",
+     "bookname": "백종원의 집밥",
+     "authors": "백종원 지음",
+     "publisher": "서울문화사",
+     "publication_year": "2016",
+     "isbn13": "9788900000357",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "594.5",
+     "loan_count": "3170",
+     "bookImageURL": "https://image.aladin.co.kr/product/1050/1/cover/8900000357_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "52",
+     "ranking": "52",
+     "bookname": "삐뽀삐뽀 119 소아과",
+     "authors": "하정훈 지음",
+     "publisher": "유니책방",
+     "publication_year": "2016",
+     "isbn13": "9788900000364",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "598.1",
+     "loan_count": "3119",
+     "bookImageURL": "https://image.aladin.co.kr/product/1051/1/cover/8900000364_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "53",
+     "ranking": "53",
+     "bookname": "심플하게 산다",
+     "authors": "도미니크 로로 지음",
+     "publisher": "바다출판사",
+     "publication_year": "2012",
+     "isbn13": "9788900000371",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "594",
+     "loan_count": "3087",
+     "bookImageURL": "https://image.aladin.co.kr/product/1052/1/cover/8900000371_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "54",
+     "ranking": "54",
+     "bookname": "방구석 미술관",
+     "authors": "조원재 지음",
+     "publisher": "블랙피쉬",
+     "publication_year": "2018",
+     "isbn13": "9788900000378",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "600.4",
+     "loan_count": "3042",
+     "bookImageURL": "https://image.aladin.co.kr/product/1053/1/cover/8900000378_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "55",
+     "ranking": "55",
+     "bookname": "다시, 그림이다",
+     "authors": "데이비드 호크니 지음",
+     "publisher": "디자인하우스",
+     "publication_year": "2012",
+     "isbn13": "9788900000385",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "650.4",
+     "loan_count": "3019",
+     "bookImageURL": "https://image.aladin.co.kr/product/1054/1/cover/8900000385_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "56",
+     "ranking": "56",
+     "bookname": "이토록 아름다운 수학이라면",
+     "authors": "최영기 지음",
+     "publisher": "21세기북스",
+     "publication_year": "2019",
+     "isbn13": "9788900000392",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "670",
+     "loan_count": "2967",
+     "bookImageURL": "https://image.aladin.co.kr/product/1055/1/cover/8900000392_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "57",
+     "ranking": "57",
+     "bookname": "슬램덩크",
+     "authors": "이노우에 다케히코 지음",
+     "publisher": "대원씨아이",
+     "publication_year": "2018",
+     "isbn13": "9788900000399",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "657.7",
+     "loan_count": "2946",
+     "bookImageURL": "https://image.aladin.co.kr/product/1056/1/cover/8900000399_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "58",
+     "ranking": "58",
+     "bookname": "원피스",
+     "authors": "오다 에이치로 지음",
+     "publisher": "대원씨아이",
+     "publication_year": "2020",
+     "isbn13": "9788900000406",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "657.7",
+     "loan_count": "2892",
+     "bookImageURL": "https://image.aladin.co.kr/product/1057/1/cover/8900000406_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "59",
+     "ranking": "59",
+     "bookname": "귀멸의 칼날",
+     "authors": "고토게 코요하루 지음",
+     "publisher": "학산문화사",
+     "publication_year": "2019",
+     "isbn13": "9788900000413",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "657.7",
+     "loan_count": "2873",
+     "bookImageURL": "https://image.aladin.co.kr/product/1058/1/cover/8900000413_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "60",
+     "ranking": "60",
+     "bookname": "해커스 토익",
+     "authors": "David Cho 지음",
+     "publisher": "해커스어학연구소",
+     "publication_year": "2020",
+     "isbn13": "9788900000420",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "740",
+     "loan_count": "2823",
+     "bookImageURL": "https://image.aladin.co.kr/product/1059/1/cover/8900000420_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "61",
+     "ranking": "61",
+     "bookname": "우리말 우리글",
+     "authors": "이오덕 지음",
+     "publisher": "한길사",
+     "publication_year": "2009",
+     "isbn13": "9788900000427",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "710",
+     "loan_count": "2795",
+     "bookImageURL": "https://image.aladin.co.kr/product/1060/1/cover/8900000427_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "62",
+     "ranking": "62",
+     "bookname": "일본어 무작정 따라하기",
+     "authors": "후지이 아사리 지음",
+     "publisher": "길벗이지톡",
+     "publication_year": "2018",
+     "isbn13": "9788900000434",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "747",
+     "loan_count": "2760",
+     "bookImageURL": "https://image.aladin.co.kr/product/1061/1/cover/8900000434_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "63",
+     "ranking": "63",
+     "bookname": "한국사 편지",
+     "authors": "박은봉 지음",
+     "publisher": "책과함께어린이",
+     "publication_year": "2009",
+     "isbn13": "9788900000441",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "911",
+     "loan_count": "2719",
+     "bookImageURL": "https://image.aladin.co.kr/product/1062/1/cover/8900000441_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "64",
+     "ranking": "64",
+     "bookname": "조선왕조실록",
+     "authors": "박영규 지음",
+     "publisher": "웅진지식하우스",
+     "publication_year": "2004",
+     "isbn13": "9788900000448",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "910",
+     "loan_count": "2679",
+     "bookImageURL": "https://image.aladin.co.kr/product/1063/1/cover/8900000448_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "65",
+     "ranking": "65",
+     "bookname": "사피엔스의 역사",
+     "authors": "제레드 다이아몬드 지음",
+     "publisher": "김영사",
+     "publication_year": "2017",
+     "isbn13": "9788900000455",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "920.4",
+     "loan_count": "2646",
+     "bookImageURL": "https://image.aladin.co.kr/product/1064/1/cover/8900000455_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "66",
+     "ranking": "66",
+     "bookname": "호모 데우스",
+     "authors": "유발 하라리 지음",
+     "publisher": "김영사",
+     "publication_year": "2017",
+     "isbn13": "9788900000462",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "909",
+     "loan_count": "2613",
+     "bookImageURL": "https://image.aladin.co.kr/product/1065/1/cover/8900000462_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "67",
+     "ranking": "67",
+     "bookname": "나의 문화유산답사기",
+     "authors": "유홍준 지음",
+     "publisher": "창비",
+     "publication_year": "2011",
+     "isbn13": "9788900000469",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "981.02",
+     "loan_count": "2572",
+     "bookImageURL": "https://image.aladin.co.kr/product/1066/1/cover/8900000469_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "68",
+     "ranking": "68",
+     "bookname": "유럽 여행 100배 즐기기",
+     "authors": "서정미 지음",
+     "publisher": "알에이치코리아",
+     "publication_year": "2019",
+     "isbn13": "9788900000476",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "982",
+     "loan_count": "2532",
+     "bookImageURL": "https://image.aladin.co.kr/product/1067/1/cover/8900000476_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "69",
+     "ranking": "69",
+     "bookname": "론리플래닛 일본",
+     "authors": "론리플래닛 지음",
+     "publisher": "안그라픽스",
+     "publication_year": "2018",
+     "isbn13": "9788900000483",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "980.24",
+     "loan_count": "2493",
+     "bookImageURL": "https://image.aladin.co.kr/product/1068/1/cover/8900000483_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "70",
+     "ranking": "70",
+     "bookname": "브리태니커 필수 교양사전",
+     "authors": "브리태니커 편집부 지음",
+     "publisher": "아이세움",
+     "publication_year": "2010",
+     "isbn13": "9788900000490",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "0",
+     "loan_count": "2454",
+     "bookImageURL": "https://image.aladin.co.kr/product/1069/1/cover/8900000490_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "71",
+     "ranking": "71",
+     "bookname": "소년이 온다 2",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "publication_year": "2014",
+     "isbn13": "9788900000497",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2415",
+     "bookImageURL": "https://image.aladin.co.kr/product/1070/1/cover/8900000497_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "72",
+     "ranking": "72",
+     "bookname": "채식주의자 2",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "publication_year": "2007",
+     "isbn13": "9788900000504",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2380",
+     "bookImageURL": "https://image.aladin.co.kr/product/1071/1/cover/8900000504_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "73",
+     "ranking": "73",
+     "bookname": "불편한 편의점 2",
+     "authors": "김호연 지음",
+     "publisher": "나무옆의자",
+     "publication_year": "2021",
+     "isbn13": "9788900000511",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2338",
+     "bookImageURL": "https://image.aladin.co.kr/product/1072/1/cover/8900000511_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "74",
+     "ranking": "74",
+     "bookname": "아몬드 2",
+     "authors": "손원평 지음",
+     "publisher": "창비",
+     "publication_year": "2017",
+     "isbn13": "9788900000518",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2317",
+     "bookImageURL": "https://image.aladin.co.kr/product/1073/1/cover/8900000518_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "75",
+     "ranking": "75",
+     "bookname": "달러구트 꿈 백화점 2",
+     "authors": "이미예 지음",
+     "publisher": "팩토리나인",
+     "publication_year": "2020",
+     "isbn13": "9788900000525",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2271",
+     "bookImageURL": "https://image.aladin.co.kr/product/1074/1/cover/8900000525_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "76",
+     "ranking": "76",
+     "bookname": "작별하지 않는다 2",
+     "authors": "한강 지음",
+     "publisher": "문학동네",
+     "publication_year": "2021",
+     "isbn13": "9788900000532",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "813.7",
+     "loan_count": "2241",
+     "bookImageURL": "https://image.aladin.co.kr/product/1075/1/cover/8900000532_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "77",
+     "ranking": "77",
+     "bookname": "데미안 2",
+     "authors": "헤르만 헤세 지음; 전영애 옮김",
+     "publisher": "민음사",
+     "publication_year": "2000",
+     "isbn13": "9788900000539",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "2203",
+     "bookImageURL": "https://image.aladin.co.kr/product/1076/1/cover/8900000539_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "78",
+     "ranking": "78",
+     "bookname": "1984 2",
+     "authors": "조지 오웰 지음; 정회성 옮김",
+     "publisher": "민음사",
+     "publication_year": "2003",
+     "isbn13": "9788900000546",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "2161",
+     "bookImageURL": "https://image.aladin.co.kr/product/1077/1/cover/8900000546_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "79",
+     "ranking": "79",
+     "bookname": "나미야 잡화점의 기적 2",
+     "authors": "히가시노 게이고 지음; 양윤옥 옮김",
+     "publisher": "현대문학",
+     "publication_year": "2012",
+     "isbn13": "9788900000553",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "833.6",
+     "loan_count": "2128",
+     "bookImageURL": "https://image.aladin.co.kr/product/1078/1/cover/8900000553_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "80",
+     "ranking": "80",
+     "bookname": "용의자 X의 헌신 2",
+     "authors": "히가시노 게이고 지음",
+     "publisher": "재인",
+     "publication_year": "2006",
+     "isbn13": "9788900000560",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "833.6",
+     "loan_count": "2086",
+     "bookImageURL": "https://image.aladin.co.kr/product/1079/1/cover/8900000560_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "81",
+     "ranking": "81",
+     "bookname": "노르웨이의 숲 2",
+     "authors": "무라카미 하루키 지음",
+     "publisher": "민음사",
+     "publication_year": "2013",
+     "isbn13": "9788900000567",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "843",
+     "loan_count": "2059",
+     "bookImageURL": "https://image.aladin.co.kr/product/1080/1/cover/8900000567_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "82",
+     "ranking": "82",
+     "bookname": "어린 왕자 2",
+     "authors": "생텍쥐페리 지음",
+     "publisher": "열린책들",
+     "publication_year": "2015",
+     "isbn13": "9788900000574",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "841",
+     "loan_count": "2005",
+     "bookImageURL": "https://image.aladin.co.kr/product/1081/1/cover/8900000574_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "83",
+     "ranking": "83",
+     "bookname": "언어의 온도 2",
+     "authors": "이기주 지음",
+     "publisher": "말글터",
+     "publication_year": "2016",
+     "isbn13": "9788900000581",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "1969",
+     "bookImageURL": "https://image.aladin.co.kr/product/1082/1/cover/8900000581_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "84",
+     "ranking": "84",
+     "bookname": "죽고 싶지만 떡볶이는 먹고 싶어 2",
+     "authors": "백세희 지음",
+     "publisher": "흔",
+     "publication_year": "2018",
+     "isbn13": "9788900000588",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "1945",
+     "bookImageURL": "https://image.aladin.co.kr/product/1083/1/cover/8900000588_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "85",
+     "ranking": "85",
+     "bookname": "지구 끝의 온실 2",
+     "authors": "김초엽 지음",
+     "publisher": "자이언트북스",
+     "publication_year": "2021",
+     "isbn13": "9788900000595",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.7",
+     "loan_count": "1905",
+     "bookImageURL": "https://image.aladin.co.kr/product/1084/1/cover/8900000595_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "86",
+     "ranking": "86",
+     "bookname": "무진기행 2",
+     "authors": "김승옥 지음",
+     "publisher": "민음사",
+     "publication_year": "2007",
+     "isbn13": "9788900000602",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "814.6",
+     "loan_count": "1860",
+     "bookImageURL": "https://image.aladin.co.kr/product/1085/1/cover/8900000602_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "87",
+     "ranking": "87",
+     "bookname": "서랍에 저녁을 넣어 두었다 2",
+     "authors": "한강 지음",
+     "publisher": "문학과지성사",
+     "publication_year": "2013",
+     "isbn13": "9788900000609",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "811.7",
+     "loan_count": "1828",
+     "bookImageURL": "https://image.aladin.co.kr/product/1086/1/cover/8900000609_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "88",
+     "ranking": "88",
+     "bookname": "입 속의 검은 잎 2",
+     "authors": "기형도 지음",
+     "publisher": "문학과지성사",
+     "publication_year": "1989",
+     "isbn13": "9788900000616",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "811.7",
+     "loan_count": "1785",
+     "bookImageURL": "https://image.aladin.co.kr/product/1087/1/cover/8900000616_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "89",
+     "ranking": "89",
+     "bookname": "미움받을 용기 2",
+     "authors": "기시미 이치로, 고가 후미타케 지음",
+     "publisher": "인플루엔셜",
+     "publication_year": "2014",
+     "isbn13": "9788900000623",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "1759",
+     "bookImageURL": "https://image.aladin.co.kr/product/1088/1/cover/8900000623_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "90",
+     "ranking": "90",
+     "bookname": "아주 작은 습관의 힘 2",
+     "authors": "제임스 클리어 지음",
+     "publisher": "비즈니스북스",
+     "publication_year": "2019",
+     "isbn13": "9788900000630",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "1720",
+     "bookImageURL": "https://image.aladin.co.kr/product/1089/1/cover/8900000630_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "91",
+     "ranking": "91",
+     "bookname": "데일 카네기 인간관계론 2",
+     "authors": "데일 카네기 지음",
+     "publisher": "현대지성",
+     "publication_year": "2019",
+     "isbn13": "9788900000637",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "199.1",
+     "loan_count": "1671",
+     "bookImageURL": "https://image.aladin.co.kr/product/1090/1/cover/8900000637_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "92",
+     "ranking": "92",
+     "bookname": "원씽 2",
+     "authors": "게리 켈러, 제이 파파산 지음",
+     "publisher": "비즈니스북스",
+     "publication_year": "2013",
+     "isbn13": "9788900000644",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "325.211",
+     "loan_count": "1635",
+     "bookImageURL": "https://image.aladin.co.kr/product/1091/1/cover/8900000644_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "93",
+     "ranking": "93",
+     "bookname": "부의 추월차선 2",
+     "authors": "엠제이 드마코 지음",
+     "publisher": "토트",
+     "publication_year": "2013",
+     "isbn13": "9788900000651",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "325.1",
+     "loan_count": "1613",
+     "bookImageURL": "https://image.aladin.co.kr/product/1092/1/cover/8900000651_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "94",
+     "ranking": "94",
+     "bookname": "돈의 속성 2",
+     "authors": "김승호 지음",
+     "publisher": "스노우폭스북스",
+     "publication_year": "2020",
+     "isbn13": "9788900000658",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "327.04",
+     "loan_count": "1577",
+     "bookImageURL": "https://image.aladin.co.kr/product/1093/1/cover/8900000658_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "95",
+     "ranking": "95",
+     "bookname": "경제학 콘서트 2",
+     "authors": "팀 하포드 지음",
+     "publisher": "웅진지식하우스",
+     "publication_year": "2006",
+     "isbn13": "9788900000665",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "320.1",
+     "loan_count": "1532",
+     "bookImageURL": "https://image.aladin.co.kr/product/1094/1/cover/8900000665_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "96",
+     "ranking": "96",
+     "bookname": "죽은 경제학자의 살아있는 아이디어 2",
+     "authors": "토드 부크홀츠 지음",
+     "publisher": "김영사",
+     "publication_year": "2009",
+     "isbn13": "9788900000672",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "321.1",
+     "loan_count": "1495",
+     "bookImageURL": "https://image.aladin.co.kr/product/1095/1/cover/8900000672_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "97",
+     "ranking": "97",
+     "bookname": "철학은 어떻게 삶의 무기가 되는가 2",
+     "authors": "야마구치 슈 지음",
+     "publisher": "다산초당",
+     "publication_year": "2019",
+     "isbn13": "9788900000679",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "100",
+     "loan_count": "1459",
+     "bookImageURL": "https://image.aladin.co.kr/product/1096/1/cover/8900000679_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "98",
+     "ranking": "98",
+     "bookname": "소크라테스 익스프레스 2",
+     "authors": "에릭 와이너 지음",
+     "publisher": "어크로스",
+     "publication_year": "2021",
+     "isbn13": "9788900000686",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "160",
+     "loan_count": "1430",
+     "bookImageURL": "https://image.aladin.co.kr/product/1097/1/cover/8900000686_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "99",
+     "ranking": "99",
+     "bookname": "정의란 무엇인가 2",
+     "authors": "마이클 샌델 지음",
+     "publisher": "와이즈베리",
+     "publication_year": "2014",
+     "isbn13": "9788900000693",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "189",
+     "loan_count": "1389",
+     "bookImageURL": "https://image.aladin.co.kr/product/1098/1/cover/8900000693_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "100",
+     "ranking": "100",
+     "bookname": "사피엔스 2",
+     "authors": "유발 하라리 지음",
+     "publisher": "김영사",
+     "publication_year": "2015",
+     "isbn13": "9788900000700",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "181.7",
+     "loan_count": "1355",
+     "bookImageURL": "https://image.aladin.co.kr/product/1099/1/cover/8900000700_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "101",
+     "ranking": "101",
+     "bookname": "팩트풀니스 2",
+     "authors": "한스 로슬링 지음",
+     "publisher": "김영사",
+     "publication_year": "2019",
+     "isbn13": "9788900000707",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "001.3",
+     "loan_count": "1314",
+     "bookImageURL": "https://image.aladin.co.kr/product/1100/1/cover/8900000707_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "102",
+     "ranking": "102",
+     "bookname": "클린 코드 2",
+     "authors": "로버트 C. 마틴 지음",
+     "publisher": "인사이트",
+     "publication_year": "2013",
+     "isbn13": "9788900000714",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.133",
+     "loan_count": "1265",
+     "bookImageURL": "https://image.aladin.co.kr/product/1101/1/cover/8900000714_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "103",
+     "ranking": "103",
+     "bookname": "리팩터링 2",
+     "authors": "마틴 파울러 지음",
+     "publisher": "한빛미디어",
+     "publication_year": "2020",
+     "isbn13": "9788900000721",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.11",
+     "loan_count": "1228",
+     "bookImageURL": "https://image.aladin.co.kr/product/1102/1/cover/8900000721_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "104",
+     "ranking": "104",
+     "bookname": "이펙티브 자바 2",
+     "authors": "조슈아 블로크 지음",
+     "publisher": "인사이트",
+     "publication_year": "2018",
+     "isbn13": "9788900000728",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.1",
+     "loan_count": "1197",
+     "bookImageURL": "https://image.aladin.co.kr/product/1103/1/cover/8900000728_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "105",
+     "ranking": "105",
+     "bookname": "혼자 공부하는 파이썬 2",
+     "authors": "윤인성 지음",
+     "publisher": "한빛미디어",
+     "publication_year": "2019",
+     "isbn13": "9788900000735",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "005.8",
+     "loan_count": "1167",
+     "bookImageURL": "https://image.aladin.co.kr/product/1104/1/cover/8900000735_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "106",
+     "ranking": "106",
+     "bookname": "성경의 인물 2",
+     "authors": "김양재 지음",
+     "publisher": "두란노",
+     "publication_year": "2010",
+     "isbn13": "9788900000742",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "231",
+     "loan_count": "1117",
+     "bookImageURL": "https://image.aladin.co.kr/product/1105/1/cover/8900000742_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "107",
+     "ranking": "107",
+     "bookname": "법륜 스님의 행복 2",
+     "authors": "법륜 지음",
+     "publisher": "나무의마음",
+     "publication_year": "2016",
+     "isbn13": "9788900000749",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "220",
+     "loan_count": "1079",
+     "bookImageURL": "https://image.aladin.co.kr/product/1106/1/cover/8900000749_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "108",
+     "ranking": "108",
+     "bookname": "예수님처럼 2",
+     "authors": "맥스 루케이도 지음",
+     "publisher": "복있는사람",
+     "publication_year": "2015",
+     "isbn13": "9788900000756",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "248",
+     "loan_count": "1050",
+     "bookImageURL": "https://image.aladin.co.kr/product/1107/1/cover/8900000756_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "109",
+     "ranking": "109",
+     "bookname": "총, 균, 쇠 2",
+     "authors": "재레드 다이아몬드 지음",
+     "publisher": "문학사상",
+     "publication_year": "2005",
+     "isbn13": "9788900000763",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "300.1",
+     "loan_count": "1024",
+     "bookImageURL": "https://image.aladin.co.kr/product/1108/1/cover/8900000763_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "110",
+     "ranking": "110",
+     "bookname": "선량한 차별주의자 2",
+     "authors": "김지혜 지음",
+     "publisher": "창비",
+     "publication_year": "2019",
+     "isbn13": "9788900000770",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "330",
+     "loan_count": "985",
+     "bookImageURL": "https://image.aladin.co.kr/product/1109/1/cover/8900000770_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "111",
+     "ranking": "111",
+     "bookname": "82년생 김지영 2",
+     "authors": "조남주 지음",
+     "publisher": "민음사",
+     "publication_year": "2016",
+     "isbn13": "9788900000777",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "334",
+     "loan_count": "944",
+     "bookImageURL": "https://image.aladin.co.kr/product/1110/1/cover/8900000777_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "112",
+     "ranking": "112",
+     "bookname": "공정하다는 착각 2",
+     "authors": "마이클 샌델 지음",
+     "publisher": "와이즈베리",
+     "publication_year": "2020",
+     "isbn13": "9788900000784",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "340",
+     "loan_count": "902",
+     "bookImageURL": "https://image.aladin.co.kr/product/1111/1/cover/8900000784_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "113",
+     "ranking": "113",
+     "bookname": "최재천의 공부 2",
+     "authors": "최재천 지음",
+     "publisher": "김영사",
+     "publication_year": "2022",
+     "isbn13": "9788900000791",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "370",
+     "loan_count": "868",
+     "bookImageURL": "https://image.aladin.co.kr/product/1112/1/cover/8900000791_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "114",
+     "ranking": "114",
+     "bookname": "코스모스 2",
+     "authors": "칼 세이건 지음",
+     "publisher": "사이언스북스",
+     "publication_year": "2006",
+     "isbn13": "9788900000798",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "404",
+     "loan_count": "830",
+     "bookImageURL": "https://image.aladin.co.kr/product/1113/1/cover/8900000798_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "115",
+     "ranking": "115",
+     "bookname": "시간의 역사 2",
+     "authors": "스티븐 호킹 지음",
+     "publisher": "까치",
+     "publication_year": "1998",
+     "isbn13": "9788900000805",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "420",
+     "loan_count": "782",
+     "bookImageURL": "https://image.aladin.co.kr/product/1114/1/cover/8900000805_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "116",
+     "ranking": "116",
+     "bookname": "이기적 유전자 2",
+     "authors": "리처드 도킨스 지음",
+     "publisher": "을유문화사",
+     "publication_year": "2018",
+     "isbn13": "9788900000812",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "472",
+     "loan_count": "759",
+     "bookImageURL": "https://image.aladin.co.kr/product/1115/1/cover/8900000812_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "117",
+     "ranking": "117",
+     "bookname": "수학이 필요한 순간 2",
+     "authors": "김민형 지음",
+     "publisher": "인플루엔셜",
+     "publication_year": "2018",
+     "isbn13": "9788900000819",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "413",
+     "loan_count": "719",
+     "bookImageURL": "https://image.aladin.co.kr/product/1116/1/cover/8900000819_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "118",
+     "ranking": "118",
+     "bookname": "면역의 힘 2",
+     "authors": "제나 마치오키 지음",
+     "publisher": "윌북",
+     "publication_year": "2021",
+     "isbn13": "9788900000826",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "511",
+     "loan_count": "676",
+     "bookImageURL": "https://image.aladin.co.kr/product/1117/1/cover/8900000826_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "119",
+     "ranking": "119",
+     "bookname": "마흔에 읽는 니체 2",
+     "authors": "장재형 지음",
+     "publisher": "유노북스",
+     "publication_year": "2022",
+     "isbn13": "9788900000833",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "517",
+     "loan_count": "653",
+     "bookImageURL": "https://image.aladin.co.kr/product/1118/1/cover/8900000833_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "120",
+     "ranking": "120",
+     "bookname": "백년 허리 2",
+     "authors": "정선근 지음",
+     "publisher": "사이언스북스",
+     "publication_year": "2015",
+     "isbn13": "9788900000840",
+     "addition_symbol": "03810",
+     "vol": "",
+     "class_no": "512",
+     "loan_count": "600",
+     "bookImageURL": "https://image.aladin.co.kr/product/1119/1/cover/8900000840_1.jpg"
+    }
+   },
+   {
+    "doc": {
+     "no": "121",
+     "bookname": "ISBN 없는 책",
+     "authors": "미상",
+     "publisher": "미상",
+     "publication_year": "2020",
+     "isbn13": "",
+     "class_no": "813.7",
+     "loan_count": "9999",
+     "bookImageURL": ""
+    }
+   },
+   {
+    "no": "122",
+    "bookname": "감싸지지 않은 도서",
+    "authors": "테스트 지음",
+    "publisher": "테스트",
+    "publication_year": "2021",
+    "isbn13": "9791100000001",
+    "class_no": "813.7",
+    "loan_count": "10",
+    "bookImageURL": ""
+   },
+   {
+    "doc": {
+     "no": "123",
+     "bookname": "소년이 온다",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "publication_year": "2014",
+     "isbn13": "9788900000007",
+     "class_no": "813.7",
+     "loan_count": "77777",
+     "bookImageURL": ""
+    }
+   }
+  ]
+ }
+}

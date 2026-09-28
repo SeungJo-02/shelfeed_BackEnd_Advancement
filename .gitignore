@@ -37,3 +37,9 @@ k6/results/*.json
 
 ### Let's Encrypt / certbot (인증서·개인키 — 절대 커밋 금지) ###
 certbot/
+
+### Seed data (정보나루 수집 결과 — 저장소에는 샘플만) ###
+seed/data/*
+!seed/data/books.sample.csv
+__pycache__/
+*.pyc
