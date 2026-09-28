@@ -19,23 +19,27 @@ docker compose ps
 
 ---
 
-## DB 마이그레이션 — 예전 덤프로 복원한 로컬 DB
+## DB 마이그레이션 — Flyway
 
-2026-09 YES24 전환으로 `books.aladin_item_id` 컬럼이 `external_item_id`로 바뀌었다.
-`ddl-auto=update`는 컬럼 **rename을 못 하고** 빈 `external_item_id`를 새로 추가하므로, 운영 백업 덤프(`shelfeed-backup-*.tgz`의
-`rds-shelfeed-*.sql.gz`) 등 전환 이전 덤프로 복원한 DB는 앱을 띄우기 전에 한 번만 실행한다
-(`perf-seed` 프로파일은 `ddl-auto=validate`라 실행하지 않으면 부팅이 실패한다):
+스키마는 **Flyway**가 관리하고 Hibernate는 검증만 한다(모든 프로파일 `ddl-auto=validate`).
+앱을 띄우면 `src/main/resources/db/migration`의 스크립트가 순서대로 적용된다. 별도 명령은 없다.
 
-```sql
-ALTER TABLE books RENAME COLUMN aladin_item_id TO external_item_id;
-```
+| 파일 | 역할 |
+|------|------|
+| `V1__baseline.sql` | YES24 전환(#68) 시점 엔티티의 전체 스키마 |
+| `V2__rename_aladin_item_id.sql` | 옛 덤프의 `books.aladin_item_id` → `external_item_id` 보정(멱등) |
+| `V3__ensure_member_user_id_seq.sql` | #57 이전 덤프에 없는 `member_user_id_seq`를 보충(`CREATE TABLE IF NOT EXISTS`) |
+| `R__genres_seed.sql` | 장르 15개 시드. 내용이 바뀌면 다시 실행된다(`ON DUPLICATE KEY UPDATE`) |
 
-이미 앱을 띄워서 빈 `external_item_id`가 생겼다면:
-
-```sql
-UPDATE books SET external_item_id = aladin_item_id WHERE external_item_id IS NULL;
-ALTER TABLE books DROP COLUMN aladin_item_id;
-```
+- **새 DB**: V1 → V2·V3(할 일 없음) → R 시드 순으로 적용된다.
+- **기존 로컬 DB**(`flyway_schema_history`가 없는 DB, 예전 덤프 복원 포함): `baseline-on-migrate`로 V1이 이미 적용된 것으로 간주하고 V2부터 적용한다.
+  `aladin_item_id`만 있으면 RENAME, `ddl-auto=update`가 먼저 돌아 두 컬럼이 공존하면 값을 옮기고 옛 컬럼을 DROP한다.
+  PR #57(회원 번호 DB 시퀀스) 이후 스키마의 DB라면 수동 ALTER는 필요 없다. 그보다 오래된 덤프는 `member_user_id_seq`가 없는데 V3가 만들어 준다.
+  그래도 기동 시 Hibernate validate가 실패하면(V1 이후 다른 드리프트) 스키마를 비우고 V1부터 다시 만들거나, 차이를 메우는 `V{n}__*.sql`을 추가한다.
+- **새 변경**은 `V{n}__snake_case.sql`을 추가한다(V1은 고치지 않는다). 시드처럼 반복 실행이 필요한 것은 `R__이름.sql`.
+- 통합 테스트(`./gradlew test`)는 Testcontainers MySQL에 같은 마이그레이션을 적용하므로 스크립트 오류가 테스트에서 잡힌다.
+- 주의: V1은 `utf8mb4_0900_ai_ci`를 고정하지만 baseline된 기존 DB는 자기 collation을 유지한다(validate는 collation을 검사하지 않는다). 정렬 순서와 unique 키의 대소문자 구분이 새 DB와 다를 수 있다.
+- 주의: 장르 시드(15행)는 perf 프로파일에도 들어간다(영향 미미). 다만 #68 이전 덤프로 복원한 perf DB는 기동 시 V2가 `books` 전체 UPDATE와 DROP COLUMN 재구축을 쿼리 타임아웃 밖에서 실행한다.
 
 ---
 

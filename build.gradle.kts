@@ -70,6 +70,10 @@ dependencies {
     // Database
     runtimeOnly("com.mysql:mysql-connector-j")
 
+    // Flyway — 스키마 마이그레이션 (ddl-auto=validate 와 짝). 버전은 Spring Boot BOM이 관리한다.
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
+
     // Dotenv (.env 파일 로드)
     implementation("me.paulschwarz:spring-dotenv:4.0.0")
 
