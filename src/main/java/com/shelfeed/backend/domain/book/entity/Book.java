@@ -42,7 +42,7 @@ public class Book extends BaseTimeEntity {
 
     /**
      * 외부 카탈로그 상품 번호 (YES24 itemId, 과거 알라딘 itemId). 공급자 교체 시에도 컬럼은 유지한다.
-     * 예전 덤프(aladin_item_id)로 복원한 DB는 README의 "DB 마이그레이션" 절대로 컬럼명을 바꿔야 한다 — ddl-auto=update는 rename을 못 한다.
+     * 예전 덤프의 aladin_item_id 컬럼은 Flyway V2__rename_aladin_item_id.sql 이 기동 시 자동으로 보정한다.
      */
     @Column(length = 50)
     private String externalItemId;

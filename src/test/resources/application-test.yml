@@ -1,7 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate      # Flyway 마이그레이션(V1/V2/R__)이 Testcontainers MySQL 에 적용되고 Hibernate 는 검증만 한다
     show-sql: true
     properties:
       hibernate:

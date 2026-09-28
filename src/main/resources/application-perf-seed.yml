@@ -24,10 +24,6 @@ spring:
         order_updates: true
         query_timeout: 5      # 쿼리 실행 5초 초과 시 강제 종료
 
-  sql:
-    init:
-      mode: never
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}

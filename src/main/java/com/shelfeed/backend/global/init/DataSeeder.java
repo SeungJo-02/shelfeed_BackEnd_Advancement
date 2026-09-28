@@ -415,7 +415,7 @@ public class DataSeeder implements ApplicationRunner {
     private void createMemberGenres(List<Member> members) {
         List<Genre> allGenres = genreRepository.findAll();
         if (allGenres.isEmpty()) {
-            log.warn("[DataSeeder] 장르 데이터 없음 — data.sql 실행 여부 확인");
+            log.warn("[DataSeeder] 장르 데이터 없음 — Flyway R__genres_seed.sql 적용 여부 확인");
             return;
         }
         Random random = new Random();
