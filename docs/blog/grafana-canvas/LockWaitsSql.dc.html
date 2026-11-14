@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.pnl { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  display:flex; flex-direction:column; overflow:hidden; }
+.pnl.alarm { border:1px solid #F2495C; box-shadow:0 0 0 1px rgba(242,73,92,0.25); }
+.hd { height:28px; padding:0 10px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.ti { font-size:13px; font-weight:500; color:#CCCCDC; letter-spacing:-0.01em; }
+.inf { width:14px; height:14px; border-radius:50%; border:1px solid rgba(204,204,220,0.65); color:rgba(204,204,220,0.65);
+  font-size:9px; font-style:italic; line-height:12px; text-align:center; font-family:Georgia,serif; }
+.bd { padding:0 10px 8px; display:flex; flex-direction:column; gap:2px; flex-grow:1; }
+.chart { width:100%; display:block; }
+.ax { fill:rgba(204,204,220,0.65); font-size:11px; font-family:Inter,sans-serif; }
+.lg { width:100%; border-collapse:collapse; font-size:12px; margin-top:2px; }
+.lg th { color:rgba(204,204,220,0.65); font-weight:400; text-align:right; padding:2px 8px; font-size:11px;
+  border-bottom:1px solid rgba(204,204,220,0.07); }
+.lg th:first-child { text-align:left; }
+.lg td { padding:3px 8px; text-align:right; color:#CCCCDC; font-variant-numeric:tabular-nums; }
+.lg td.nm { text-align:left; color:rgba(204,204,220,0.65); display:flex; align-items:center; gap:8px; }
+.lg i { width:14px; height:3px; border-radius:2px; display:inline-block; flex-shrink:0; }
+.q { margin-top:6px; padding-top:6px; border-top:1px solid rgba(204,204,220,0.07);
+  font-family:'Roboto Mono',ui-monospace,monospace; font-size:10.5px; color:rgba(204,204,220,0.65);
+  line-height:1.5; word-break:break-all; }
+.rowti { font-size:13px; font-weight:600; color:#CCCCDC; padding:2px 0 0 2px;
+  display:flex; align-items:center; gap:7px; }
+.rowti::before { content:''; width:0; height:0; border-left:5px solid rgba(204,204,220,0.65);
+  border-top:4px solid transparent; border-bottom:4px solid transparent; }
+.nav { height:40px; display:flex; align-items:center; gap:10px; padding:0 4px;
+  border-bottom:1px solid rgba(204,204,220,0.07); margin-bottom:4px; }
+.crumb { font-size:13px; color:rgba(204,204,220,0.65); }
+.crumb b { color:#CCCCDC; font-weight:500; }
+.spacer { flex-grow:1; }
+.chip { height:26px; padding:0 10px; display:flex; align-items:center; gap:6px;
+  border:1px solid rgba(204,204,220,0.07); border-radius:2px; font-size:12px; color:#CCCCDC;
+  background:rgba(204,204,220,0.03); }
+.stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.st { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  padding:8px 10px 0; position:relative; overflow:hidden; height:120px;
+  display:flex; flex-direction:column; }
+.st.alarm { border:1px solid #F2495C; }
+.st .k { font-size:11.5px; color:rgba(204,204,220,0.65); }
+.st .v { font-size:30px; font-weight:500; line-height:1.15; margin-top:2px;
+  font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+.st .b { font-size:11px; color:rgba(204,204,220,0.65); margin-top:1px; }
+.st svg { position:absolute; left:0; right:0; bottom:0; width:100%; height:34px; display:block; }
+
+.term { background:#0B0C0E; border:1px solid rgba(204,204,220,0.07); border-radius:4px; overflow:hidden; }
+.tbar { height:30px; display:flex; align-items:center; gap:7px; padding:0 11px;
+  background:#16181C; border-bottom:1px solid rgba(204,204,220,0.07); }
+.tbar i { width:11px; height:11px; border-radius:50%; display:block; }
+.tbar span { margin-left:8px; font-size:11.5px; color:rgba(204,204,220,0.65); }
+pre { margin:0; padding:14px 16px; font-family:'Roboto Mono',ui-monospace,monospace;
+  font-size:12px; line-height:1.75; color:#C9D1D9; white-space:pre-wrap; }
+.kw { color:#B877D9; } .st2 { color:#73BF69; } .cm { color:#6E7681; }
+.hl { color:#F2495C; font-weight:500; } .num { color:#FF9830; }
+</style>
+</helmet>
+<div class="wrap">
+<div class="term"><div class="tbar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i>
+<i style="background:#28C840"></i><span>mysql — shelfeed@mysql-perf:3308</span></div>
+<pre>mysql&gt; <span class="kw">SELECT</span> * <span class="kw">FROM</span> sys.innodb_lock_waits\G
+<span class="cm">-- MySQL 8.0 : performance_schema.data_lock_waits 기반 뷰</span>
+
+wait_started    : 2026-08-25 21:47:12
+wait_age        : <span class="num">00:00:04</span>
+locked_table    : <span class="st2">`shelfeed`.`reviews`</span>
+locked_index    : PRIMARY
+locked_type     : RECORD
+waiting_query   : <span class="hl">UPDATE reviews SET view_count = view_count + 1
+                  WHERE review_id = 4812</span>
+blocking_query  : <span class="hl">UPDATE reviews SET view_count = view_count + 1
+                  WHERE review_id = 4812</span>
+
+<span class="cm">-- 막는 쪽과 막히는 쪽이 같은 쿼리, 같은 id 다.
+-- 서로 다른 두 요청이 충돌한 게 아니라, 같은 요청 수십 개가 한 줄로 서 있었다.</span>
+
+mysql&gt; <span class="kw">SHOW GLOBAL STATUS LIKE</span> <span class="st2">'Innodb_row_lock%'</span>;
+
+Innodb_row_lock_current_waits : <span class="num">23</span>
+Innodb_row_lock_waits         : <span class="num">18,442</span>   <span class="cm">(평시 시간당 12)</span>
+Innodb_row_lock_time_avg      : <span class="hl">3,910 ms</span>
+</pre></div>
+<div style="border:1px solid rgba(204,204,220,0.07);border-radius:3px;padding:9px 12px;font-size:12.5px;line-height:1.6;color:rgba(204,204,220,0.65)">
+락 대기 <b style="color:#CCCCDC">3,910ms</b>가 HikariCP Max usage <b style="color:#CCCCDC">5,100ms</b>의 대부분이다.
+그 커넥션을 기다린 뒷줄 요청의 acquire가 <b style="color:#CCCCDC">4,900ms</b>까지 올라갔고, p99 6.2초의 대부분이 이 한 행 앞의 줄에서 나온다.
+</div></div>
+</x-dc>
+</body>
+</html>

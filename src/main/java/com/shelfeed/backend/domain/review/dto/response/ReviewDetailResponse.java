@@ -24,6 +24,7 @@ public class ReviewDetailResponse {
     private boolean isSpoiler;
     private ReviewVisibility reviewVisibility;
     private ReviewStatus reviewStatus;
+    private int viewCount;
     private int likeCount;
     private int commentCount;
     @JsonProperty("isLiked")
@@ -74,6 +75,7 @@ public class ReviewDetailResponse {
                 .isSpoiler(review.isSpoiler())
                 .reviewVisibility(review.getReviewVisibility())
                 .reviewStatus(review.getReviewStatus())
+                .viewCount(review.getViewCount())
                 .likeCount(review.getLikeCount())
                 .commentCount(review.getCommentCount())
                 .isLiked(isLiked)

@@ -6,6 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 8   # 장애 재현 시나리오와 동일 — 풀 고갈 관측용 (기본값 10)
+      connection-timeout: 5000   # 운영(application-prod.yml)과 동일 5초 — 풀 대기가 이걸 넘으면 5xx
 
   jpa:
     hibernate:
@@ -20,3 +21,60 @@ spring:
             port: ${MAIL_PORT:465}
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
+
+jwt:
+  access-expiration: 21600000   # 6시간 — 로컬 부하 테스트용 (k6 토큰 재발급 없이 여러 번 실행). 운영은 application.yml 의 1시간
+
+server:
+  tomcat:
+    threads:
+      max: 2000            # 로컬 부하 재현용 — 기본 200이면 톰캣 스레드가 대기열을 막아 풀 앞 대기가 안 쌓인다
+    accept-count: 2000
+    max-connections: 10000
+    mbeanregistry:
+      enabled: true        # tomcat_threads_* 메트릭 노출
+
+shelfeed:
+  view-count:
+    # 같은 사람의 같은 글 재조회를 이 시간 동안 한 번으로 친다(운영 기준 1800 = 30분).
+    # [실험 D] 쓰기 경로가 초당 수백 건을 받아내는지 재려면 중복 제거가 부하를 다 먹으면 안 된다.
+    # k6는 요청마다 다른 X-Viewer-Key를 보내므로 TTL과 무관하게 전부 통과한다.
+    dedup-ttl-seconds: 1800
+    flush-interval-ms: 60000   # 누적분을 MySQL에 반영하는 주기 — 리뷰당 UPDATE 1건
+    # 결론은 Redis 누적 + 분당 배치만으로 충분했다(실험 D·H). 기본값을 그 결론에 맞춘다.
+    # true 로 바꾸면 조회 이벤트가 Kafka 토픽을 거쳐 컨슈머에서 누적된다(실험 E 재현).
+    # 그때는 docker compose 의 kafka 컨테이너가 떠 있어야 한다.
+    kafka-enabled: false
+    event-dedup-ttl-seconds: 3600   # at-least-once 중복 전달을 걸러내는 창
+
+  review-cache:
+    # [실험 H] 감상 상세를 스냅샷으로 캐싱해 GET이 커넥션을 빌리지 않게 한다.
+    # false로 두면 매번 DB를 치므로 실험 C 상태를 코드 변경 없이 다시 잴 수 있다.
+    enabled: true
+    ttl-seconds: 60             # Redis(L2) 보관 시간 — DB 조회 자체를 없앤다
+    local-ttl-seconds: 5        # Caffeine(L1) 보관 시간 — Redis 왕복까지 없앤다.
+                                # 무효화가 다른 인스턴스에 늦게 닿는 시간이기도 해서 짧게 잡는다
+    relation-ttl-seconds: 600   # 회원별 좋아요/차단 집합 보관 시간
+
+spring.kafka:
+  bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    acks: "1"                   # 리더만 확인. 로컬 단일 노드라 all과 같지만 의도를 남긴다
+    linger-ms: 20               # 20ms 모아 보낸다 — 초당 수백 건이면 배치가 크게 잡힌다
+    batch-size: 65536
+    compression-type: lz4
+    properties:
+      spring.json.add.type.headers: false
+  consumer:
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    group-id: view-count
+    auto-offset-reset: latest
+    max-poll-records: 2000      # 배치 리스너로 한 번에 받는 최대 건수
+    properties:
+      spring.json.trusted.packages: "com.shelfeed.backend.domain.review.viewcount"
+      spring.json.value.default.type: com.shelfeed.backend.domain.review.viewcount.ViewEvent
+  listener:
+    type: batch

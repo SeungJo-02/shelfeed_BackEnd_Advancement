@@ -1,0 +1,737 @@
+{
+  "uid": "shelfeed-exp-a",
+  "title": "Shelfeed — 실험 A · 풀 8 → 20",
+  "description": "해결 대안 A 검증. 풀 크기를 늘리는 것이 왜 답이 아닌지를 실측으로 보인다.",
+  "tags": [
+    "shelfeed",
+    "view-count",
+    "row-lock",
+    "experiment"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": true,
+  "annotations": {
+    "list": [
+      {
+        "name": "알람 상태 변화",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "target": {
+          "type": "dashboard",
+          "limit": 100,
+          "matchAny": false,
+          "tags": []
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 156,
+      "type": "row",
+      "title": "실험 A — 가설과 읽는 법",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": [],
+      "description": "블로그 절: 어떻게 해결할까"
+    },
+    {
+      "id": 146,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**가설** — 풀을 늘려도 **처리량 천장은 그대로**다. 한 행의 처리량 = 1 ÷ 락 보유 시간이고, 풀 크기는 그 식에 없다. 늘어나는 건 락 앞에 선 세션 수뿐이다.\n\n**바꾼 것** — `application-local.yml` `maximum-pool-size: 8 → 20`. 나머지(부하·코드)는 기준 실행과 동일.\n\n**결과** (정착 폭풍 6분끼리 비교 · 기준 21:38:30~21:44:30, 실험 23:05:30~23:11:30)\n\n① **천장은 그대로였다** — 상세 처리량 277 → 267/s. 풀을 2.5배로 늘렸는데 처리량은 오히려 3.6% 내려갔다.\n\n② **줄은 옮겨간 게 아니라 하나 더 생겼다** — 처음엔 Pending이 내려갈 것으로 봤지만 1,883 → 1,832로 거의 안 움직였고, 락 앞 세션만 6.2 → 18.3으로 3배가 됐다. 동시 요청 총량은 Tomcat 스레드 상한(2,000 · 실측 busy ≈1,950)이 정하고 있어서, 풀을 12개 늘린 것은 그 줄에서 보이지도 않는다.\n\n③ **모델은 맞았다** — 대기 ≈ 보유 시간 × 앞선 세션 수. 27.0ms ÷ 6.16 = 4.4ms, 96.3ms ÷ 18.32 = 5.3ms. 락 보유 시간은 풀 크기와 무관하게 그대로다.\n\n④ **중립이 아니라 손해였다** — 커넥션 점유 시간 15.6 → 44.0ms, p99 최대 9.99 → 22.2s, MySQL QPS 4,615 → 4,062."
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": 157,
+      "type": "row",
+      "title": "기준(실측 11) → 실험",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "panels": [],
+      "description": "타일 제목의 '기준' 값과 비교해서 읽는다"
+    },
+    {
+      "id": 147,
+      "type": "stat",
+      "title": "감상글 상세 처리량 · 기준 307/s",
+      "description": "천장. 락 보유 시간이 정하고 풀 크기는 못 바꾼다 — 실측 277 → 267/s.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=\"/api/v1/reviews/{reviewId}\"}[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "감상글 상세 처리량 · 기준 307/s",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 11
+      }
+    },
+    {
+      "id": 148,
+      "type": "stat",
+      "title": "감상글 상세 p99 · 기준 9.99s",
+      "description": "안 내려가면 사용자에게 이득이 없다 — 실측은 오히려 악화(평균 9.09 → 10.63s).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "감상글 상세 p99 · 기준 9.99s",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 11
+      }
+    },
+    {
+      "id": 149,
+      "type": "stat",
+      "title": "성공률 최저 · 기준 49.63%",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "성공률 최저 · 기준 49.63%",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 11
+      }
+    },
+    {
+      "id": 150,
+      "type": "stat",
+      "title": "HikariCP Pending · 기준 1,991",
+      "description": "예상과 달리 거의 안 내려갔다(1,883 → 1,832). 대기 총량은 Tomcat 스레드 상한이 정한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "HikariCP Pending · 기준 1,991",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 11
+      }
+    },
+    {
+      "id": 151,
+      "type": "stat",
+      "title": "락 앞에 선 세션 · 기준 7 (풀 8)",
+      "description": "풀 크기 − 1 까지 올라간다 — 실측 평균 18.3, 최대 19(풀 20).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mysql_global_status_innodb_row_lock_current_waits",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "락 앞에 선 세션 · 기준 7 (풀 8)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 11
+      }
+    },
+    {
+      "id": 152,
+      "type": "stat",
+      "title": "행 락 평균 대기 · 기준 27ms",
+      "description": "앞에 선 세션이 3배가 된 만큼 3.6배 길어졌다(27.0 → 96.3ms). 대기 ≈ 보유 시간 × 앞선 세션 수.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_innodb_row_lock_time[1m]) / clamp_min(rate(mysql_global_status_innodb_row_lock_waits[1m]), 1e-9)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "행 락 평균 대기 · 기준 27ms",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 11
+      }
+    },
+    {
+      "id": 158,
+      "type": "row",
+      "title": "증거",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": [],
+      "description": "이 실험이 증명해야 할 그림"
+    },
+    {
+      "id": 153,
+      "type": "timeseries",
+      "title": "감상글 상세 처리량 vs 행 락 대기 발생률",
+      "description": "두 선이 기준 높이에서 안 움직였다. 풀 크기는 한 행의 처리량과 무관하다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=\"/api/v1/reviews/{reviewId}\"}[1m]))",
+          "legendFormat": "감상글 상세 처리량 (req/s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
+          "legendFormat": "행 락 대기 발생률 (ops/s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      }
+    },
+    {
+      "id": 154,
+      "type": "timeseries",
+      "title": "락 대기 세션 vs 풀 크기",
+      "description": "세션 수가 풀 크기 선에 붙어 올라간다(풀 20 → 19개). 앱 앞 Pending은 그대로였으니, 줄이 옮겨간 게 아니라 하나 더 생긴 것.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mysql_global_status_innodb_row_lock_current_waits",
+          "legendFormat": "락 앞에 선 세션",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "max(hikaricp_connections_max{application=\"shelfeed\"})",
+          "legendFormat": "풀 크기",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 8,
+        "y": 17
+      }
+    },
+    {
+      "id": 155,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기(acquire) vs 행 락 대기",
+      "description": "acquire는 줄지 않았고(3.47 → 3.50s) 행 락 대기만 3.6배가 됐다. 앞줄은 그대로인데 DB 안 줄이 추가된 것.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "legendFormat": "평균 acquire (앱 앞에서 기다림)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "(rate(mysql_global_status_innodb_row_lock_time[1m]) / clamp_min(rate(mysql_global_status_innodb_row_lock_waits[1m]), 1e-9)) / 1000",
+          "legendFormat": "행 락 평균 대기 (DB 안에서 기다림)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 17
+      }
+    }
+  ]
+}

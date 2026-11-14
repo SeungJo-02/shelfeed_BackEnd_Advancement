@@ -1,0 +1,2629 @@
+{
+  "uid": "shelfeed-view-lock",
+  "title": "Shelfeed — 서비스 운영 대시보드",
+  "description": "행 순서 = 블로그 절 순서. 임계 점선은 view-lock-rules.yaml에서 생성 시점에 주입된다.",
+  "tags": [
+    "shelfeed",
+    "view-count",
+    "row-lock"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "annotations": {
+    "list": [
+      {
+        "name": "알람 상태 변화",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "target": {
+          "type": "dashboard",
+          "limit": 100,
+          "matchAny": false,
+          "tags": []
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 138,
+      "type": "row",
+      "title": "개요",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": [],
+      "description": "블로그 절: 블로그 도입부"
+    },
+    {
+      "id": 100,
+      "type": "stat",
+      "title": "유입 (전체 RPS)",
+      "description": "폭풍 구간 최대 유입. 평시 대비 배수는 캡션이 책임진다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "유입 (전체 RPS)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": 101,
+      "type": "stat",
+      "title": "감상글 상세 p99",
+      "description": "알람 ⓪와 같은 식. 1초를 넘으면 빨강.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "감상글 상세 p99",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "성공률 (2xx+3xx)",
+      "description": "떨어지는 지표라 Min으로 읽는다. Max로 두면 100%가 찍혀 아무 말도 못 한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "성공률 (2xx+3xx)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      }
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "HikariCP Pending",
+      "description": "알람 ①은 pending > 0 이다. pending은 정수라 첫 '나쁜' 값은 0+1이고, 색이 바뀌는 지점을 알람 임계에서 유도한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "HikariCP Pending",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 1
+      }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "행 락 평균 대기",
+      "description": "알람 ④. 임계 100ms.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_innodb_row_lock_time[1m]) / clamp_min(rate(mysql_global_status_innodb_row_lock_waits[1m]), 1e-9)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "행 락 평균 대기",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      }
+    },
+    {
+      "id": 139,
+      "type": "row",
+      "title": "HTTP",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "panels": [],
+      "description": "블로그 절: 감상글 하나가 뜨자 로그인까지 느려졌다"
+    },
+    {
+      "id": 105,
+      "type": "timeseries",
+      "title": "API p99 — 감상글 상세 vs 그 외 전체",
+      "description": "두 라인이 같은 시각에 같은 모양으로 꺾이는지를 본다. 그게 공유 자원 문제의 지문이다. · 점선 = 알람 ⓪ 임계 1s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "legendFormat": "감상글 상세 /reviews/{id}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "legendFormat": "그 외 API 전체",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "id": 106,
+      "type": "timeseries",
+      "title": "API별 p99 — uri 개별",
+      "description": "본문이 인용하는 피드·검색·로그인 각각의 p99. 이 셋은 uri가 달라 서버 쪽에서 분리된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\"}[1m])))",
+          "legendFormat": "{{uri}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      }
+    },
+    {
+      "id": 107,
+      "type": "timeseries",
+      "title": "부하 — API별 RPS",
+      "description": "한 줄만 솟고 나머지는 평탄한지 본다. 이 라인은 '인기글'이 아니라 '감상글 상세 전체'다 — Micrometer가 uri를 템플릿해 인기글과 다른 글이 합쳐진다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m]))",
+          "legendFormat": "{{uri}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      }
+    },
+    {
+      "id": 108,
+      "type": "timeseries",
+      "title": "k6 체감 지연 — api 태그별 p99",
+      "description": "클라이언트가 본 지연. hot_detail(인기글 한 건)과 bg_*를 나누는 유일한 방법 — Prometheus는 두 요청이 같은 uri 라벨에 합쳐져 분리하지 못한다.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-k6"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "SELECT percentile(\"value\", 99) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"api\" fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-k6"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      }
+    },
+    {
+      "id": 109,
+      "type": "timeseries",
+      "title": "k6 API별 RPS — api 태그별",
+      "description": "hot_detail만 오르고 bg_feed·bg_search·bg_login은 평탄한지 본다.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-k6"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "SELECT count(\"value\") / 10 FROM \"http_reqs\" WHERE $timeFilter GROUP BY time(10s), \"api\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-k6"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      }
+    },
+    {
+      "id": 110,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**읽는 법** — 유입이 는 건 감상글 상세 하나뿐인데 p99는 넷이 같은 시각에 같은 모양으로 꺾인다. 부하는 선형으로 느는데 지연이 비선형으로 터졌고, 조회수와 무관한 API가 같이 느려졌다. 개별 API 문제가 아니라 **넷이 공유하는 자원**의 문제다."
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "id": 140,
+      "type": "row",
+      "title": "HTTP",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "panels": [],
+      "description": "블로그 절: 사용자에게는 지연이 아니라 실패로 보였다"
+    },
+    {
+      "id": 111,
+      "type": "timeseries",
+      "title": "성공률 — 2xx+3xx 비율",
+      "description": "Max/Min/Last로 읽는다. y축을 0~100으로 고정해야 하락폭이 과장되지 않는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m])) * 100",
+          "legendFormat": "성공률",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "min",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      }
+    },
+    {
+      "id": 112,
+      "type": "timeseries",
+      "title": "실패 — 5xx 비율",
+      "description": "커넥션 타임아웃에 걸린 요청이 여기로 빠진다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\"}[1m])) * 100",
+          "legendFormat": "error rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 39
+      }
+    },
+    {
+      "id": 113,
+      "type": "timeseries",
+      "title": "HTTP 5xx 건수 (분당)",
+      "description": "옆의 '커넥션 획득 타임아웃'과 같은 모양·같은 높이인지 겹쳐 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 39
+      }
+    },
+    {
+      "id": 114,
+      "type": "stat",
+      "title": "폭풍 구간 누적 5xx",
+      "description": "본문에 쓸 총 건수. $__range 전체의 합이라 instant 질의로 한 번만 계산한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[$__range]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "폭풍 구간 누적 5xx",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 48
+      }
+    },
+    {
+      "id": 115,
+      "type": "timeseries",
+      "title": "커넥션 획득 타임아웃 건수",
+      "description": "5xx의 원인이 풀 타임아웃임을 말이 아니라 그림으로 잇는 패널. 위 5xx 곡선과 포개지면 인과가 증명된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(hikaricp_connections_timeout_total{application=\"shelfeed\"}[1m])",
+          "legendFormat": "acquire timeout",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 18,
+        "x": 6,
+        "y": 48
+      }
+    },
+    {
+      "id": 116,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**읽는 법** — 커넥션 타임아웃은 **5초**다. 풀에서 그 안에 커넥션을 못 받으면 예외가 나고 500으로 떨어진다. 그래서 응답이 느려진 것으로 끝나지 않고 실패하는 구간이 생긴다. **p99 수 초는 사용자 눈에 지연이 아니라 장애다.**"
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      }
+    },
+    {
+      "id": 141,
+      "type": "row",
+      "title": "MySQL",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      },
+      "panels": [],
+      "description": "블로그 절: DB는 한가했다"
+    },
+    {
+      "id": 117,
+      "type": "timeseries",
+      "title": "MySQL Threads running / connected",
+      "description": "**락을 기다리는 세션도 running으로 센다.** running이 올라도 DB가 바쁜 것과 같지 않다. · 점선 = 알람 ⑤ 임계 20",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mysql_global_status_threads_connected",
+          "legendFormat": "Threads connected",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "mysql_global_status_threads_running",
+          "legendFormat": "Threads running",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 57
+      }
+    },
+    {
+      "id": 118,
+      "type": "timeseries",
+      "title": "슬로우 쿼리 발생률",
+      "description": "long_query_time을 넘긴 쿼리만 센다. 경합은 여기에 안 잡힌다. · 점선 = 알람 ⑥ 임계 0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_slow_queries[1m])",
+          "legendFormat": "slow queries/sec",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 57
+      }
+    },
+    {
+      "id": 119,
+      "type": "timeseries",
+      "title": "MySQL QPS",
+      "description": "처리량이 오히려 늘었는지 본다. 늘었다면 DB가 일을 못 해서 느린 게 아니다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_queries[1m])",
+          "legendFormat": "queries/sec",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 57
+      }
+    },
+    {
+      "id": 120,
+      "type": "timeseries",
+      "title": "호스트 CPU 사용률",
+      "description": "**cAdvisor가 없어 MySQL 컨테이너 CPU는 못 잰다.** 이건 node-exporter가 본 호스트 CPU다. DB 무죄의 근거는 CPU보다 QPS와 슬로우 쿼리 쪽에 둔다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100",
+          "legendFormat": "host cpu",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 57
+      }
+    },
+    {
+      "id": 121,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**읽는 법** — DB가 더 많은 일을 하느라 느려진 게 아니다. 처리량은 오히려 늘었고 슬로우 쿼리는 없다. **DB는 바쁘지 않은데 앱은 느렸다. 앱이 DB를 기다리고 있었다.**"
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 65
+      }
+    },
+    {
+      "id": 142,
+      "type": "row",
+      "title": "커넥션 풀",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "panels": [],
+      "description": "블로그 절: 커넥션 풀이 비어 있었다"
+    },
+    {
+      "id": 122,
+      "type": "stat",
+      "title": "Active",
+      "description": "풀 상한 8에 닿으면 빨강.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_active{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "Active",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 69
+      }
+    },
+    {
+      "id": 123,
+      "type": "stat",
+      "title": "Idle",
+      "description": "0으로 떨어지는 순간이 풀이 빈 순간이다. Min으로 읽는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_idle{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "Idle",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 69
+      }
+    },
+    {
+      "id": 124,
+      "type": "stat",
+      "title": "Pending",
+      "description": "풀 앞에 줄 선 요청 수. 색 기준은 알람 ①(pending > 0)에서 유도.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "Pending",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 69
+      }
+    },
+    {
+      "id": 125,
+      "type": "stat",
+      "title": "Max (풀 상한)",
+      "description": "maximumPoolSize",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_max{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "Max (풀 상한)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 69
+      }
+    },
+    {
+      "id": 126,
+      "type": "stat",
+      "title": "평균 acquire",
+      "description": "커넥션을 받기까지 기다린 시간의 1분 평균(폭풍 구간 최대). _max 게이지 대신 평균을 쓰는 이유: _max는 감쇠 창이라 워밍업 스파이크가 몇 분 남아 평시 구간까지 5초로 보인다. 타임아웃 5초에 닿았다는 사실은 '커넥션 획득 타임아웃 건수' 패널이 증명한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "평균 acquire",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 69
+      }
+    },
+    {
+      "id": 127,
+      "type": "stat",
+      "title": "평균 usage",
+      "description": "커넥션을 쥐고 있던 시간의 1분 평균. 이 값이 작은데 acquire가 크면 '오래 잡아서'가 아니라 '짧게 잡는 걸 한 줄로 세워서' 풀이 비는 것이다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hikaricp_connections_usage_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_usage_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "평균 usage",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 69
+      }
+    },
+    {
+      "id": 128,
+      "type": "timeseries",
+      "title": "HikariCP — Active / Idle / Pending",
+      "description": "Idle이 0으로 꺼지는 순간과 Pending이 솟는 순간이 겹치는지 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "legendFormat": "Pending",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "hikaricp_connections_active{application=\"shelfeed\"}",
+          "legendFormat": "Active",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "hikaricp_connections_idle{application=\"shelfeed\"}",
+          "legendFormat": "Idle",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "D",
+          "expr": "hikaricp_connections_max{application=\"shelfeed\"}",
+          "legendFormat": "Max (풀 상한)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      }
+    },
+    {
+      "id": 129,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기(acquire) vs 점유(usage) 시간 — 평균",
+      "description": "rate(_sum)/rate(_count) 1분 평균. _max 게이지를 쓰지 않는 이유는 감쇠 창 잔여가 평시 구간을 오염시키기 때문이다. 읽는 법: acquire는 수 초로 오르는데 usage는 수십 ms에 머물면 — 커넥션을 오래 잡는 게 아니라 짧게 잡는 걸 한 줄로 세우고 있다는 뜻이다. creation이 0이면 커넥션을 새로 만드느라 느린 것도 아니다. · 점선 2개 = 알람 ② 임계 1s(주황) · 커넥션 타임아웃 5s(빨강)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "legendFormat": "평균 acquire (기다린 시간)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hikaricp_connections_usage_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_usage_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "legendFormat": "평균 usage (쥐고 있던 시간)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "rate(hikaricp_connections_creation_seconds_sum{application=\"shelfeed\"}[1m]) / clamp_min(rate(hikaricp_connections_creation_seconds_count{application=\"shelfeed\"}[1m]), 1e-9)",
+          "legendFormat": "평균 creation",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5.0
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      }
+    },
+    {
+      "id": 130,
+      "type": "timeseries",
+      "title": "Tomcat busy threads",
+      "description": "풀 앞 대기열의 정체. Pending이 크게 쌓이려면 톰캣 스레드가 그만큼 열려 있어야 한다 — 재현 조건을 드러내는 패널이다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "tomcat_threads_busy_threads",
+          "legendFormat": "busy threads",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      }
+    },
+    {
+      "id": 131,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**읽는 법** — 풀이 작아서가 아니다. **나간 커넥션이 돌아오지 않아서 비었다.** 그렇다면 무엇을 기다리고 있었나 — 다음 행이 그 답이다."
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 90
+      }
+    },
+    {
+      "id": 143,
+      "type": "row",
+      "title": "MySQL",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 93
+      },
+      "panels": [],
+      "description": "블로그 절: 커넥션을 붙잡고 있던 건 한 행의 락이었다"
+    },
+    {
+      "id": 132,
+      "type": "timeseries",
+      "title": "행 락 대기 발생률 (waits/sec)",
+      "description": "초당 몇 건이 락 앞에 섰나. · 점선 = 알람 ③ 임계 10/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
+          "legendFormat": "row lock waits/sec",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 94
+      }
+    },
+    {
+      "id": 133,
+      "type": "timeseries",
+      "title": "현재 행 락 대기 세션 수",
+      "description": "**이 대시보드에서 가장 중요한 패널.** 최대치가 풀 크기와 같으면 '커넥션 전부가 같은 행 앞에 서 있다'가 그림 하나로 증명된다. 발생률 패널과 단위가 달라 반드시 분리해야 한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mysql_global_status_innodb_row_lock_current_waits",
+          "legendFormat": "현재 대기 중",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "max(hikaricp_connections_max{application=\"shelfeed\"})",
+          "legendFormat": "풀 크기",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 94
+      }
+    },
+    {
+      "id": 134,
+      "type": "timeseries",
+      "title": "행 락 평균 대기 시간",
+      "description": "한 건당 대기는 짧을 수 있다. 풀 크기가 락 앞 대기열의 상한이기 때문이다. · 점선 = 알람 ④ 임계 100ms",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_innodb_row_lock_time[1m]) / clamp_min(rate(mysql_global_status_innodb_row_lock_waits[1m]), 1e-9)",
+          "legendFormat": "평균 락 대기 시간",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 94
+      }
+    },
+    {
+      "id": 135,
+      "type": "stat",
+      "title": "락 대기가 풀 시간에서 차지한 비율",
+      "description": "row_lock_time은 누적 밀리초다. rate는 ms/s → /1000 이면 s/s, 곧 평균 동시 락 대기 세션 수다. 풀 크기로 나누면 풀 시간의 몇 %가 락 대기였는지가 나온다. unit이 percent이므로 식에 *100이 있고 percentunit을 쓰면 안 된다. 분모를 scalar()로 감싼 이유: 좌변은 mysqld-exporter의 instance/job 라벨을 달고 있고 집계 함수를 거친 우변은 라벨이 없어 그냥 나누면 벡터 매칭이 실패해 빈 결과가 된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(rate(mysql_global_status_innodb_row_lock_time[1m]) / 1000) / scalar(max(hikaricp_connections_max{application=\"shelfeed\"})) * 100",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "락 대기가 풀 시간에서 차지한 비율",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 103
+      }
+    },
+    {
+      "id": 136,
+      "type": "stat",
+      "title": "감상글 상세 요청 중 락 앞에 선 비율",
+      "description": "분모는 '인기글'이 아니라 감상글 상세 전체다. Prometheus가 uri를 템플릿하기 때문이며 본문에 인용할 때도 그렇게 부른다. 100으로 clamp한 이유: 분자(mysqld-exporter)와 분모(앱)의 스크레이프 위상이 달라 1분 rate가 순간적으로 100%를 넘는다(실측 101%). 한 요청은 그 행에 최대 한 번 대기하므로 참값은 100% 이하다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_max(rate(mysql_global_status_innodb_row_lock_waits[1m]) / scalar(sum(rate(http_server_requests_seconds_count{uri=\"/api/v1/reviews/{reviewId}\"}[1m]))) * 100, 100)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "감상글 상세 요청 중 락 앞에 선 비율",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 103
+      }
+    },
+    {
+      "id": 137,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**읽는 법** — 한 건이 오래 기다린 게 아니라 **모든 커넥션이 거기 묶여 있었다.** 락 앞에 설 수 있는 세션은 풀 크기 8개가 상한이고, 나머지는 DB에 들어가지도 못하고 앞 행의 Pending으로 쌓인다. 그래서 한 건당 대기는 짧아도 총량은 전혀 짧지 않다. **원인은 한 행인데 피해는 서비스 전체였다.**"
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 108
+      }
+    }
+  ]
+}

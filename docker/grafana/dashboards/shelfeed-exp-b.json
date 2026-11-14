@@ -1,0 +1,762 @@
+{
+  "uid": "shelfeed-exp-b",
+  "title": "Shelfeed — 실험 B · UPDATE를 트랜잭션 끝으로",
+  "description": "해결 대안 B 검증. 락 보유 시간이 변수임을 보이되, 쓰기가 남고 장애가 사라지지 않는다는 한계도 같이 보인다.",
+  "tags": [
+    "shelfeed",
+    "view-count",
+    "row-lock",
+    "experiment"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": true,
+  "annotations": {
+    "list": [
+      {
+        "name": "알람 상태 변화",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "target": {
+          "type": "dashboard",
+          "limit": 100,
+          "matchAny": false,
+          "tags": []
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 169,
+      "type": "row",
+      "title": "실험 B — 가설과 읽는 법",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": [],
+      "description": "블로그 절: 어떻게 해결할까"
+    },
+    {
+      "id": 159,
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "**가설** — 락 보유 시간 = UPDATE 이후 트랜잭션 나머지 전체다. UPDATE를 커밋 직전으로 옮기면 보유 시간이 줄고 한 행의 처리량 천장이 올라간다.\n\n**바꾼 것** — `ReviewService.getReview()`의 `incrementViewCount()`를 첫 줄에서 return 직전으로. 풀은 8 그대로, 부하도 동일.\n\n**결과** (정착 폭풍 6분 · 기준 21:38:30~21:44:30, 실험 23:37:30~23:43:30)\n\n① **효과는 컸다** — 처리량 277 → 372/s(+34%), k6 실패율 19.7 → 2.5%(8배 감소), 행 락 평균 대기 27.0 → 11.6ms, 커넥션 점유 15.6 → 10.6ms, MySQL QPS 4,615 → 6,650.\n\n② **그래도 장애는 사라지지 않았다** — p99 8.18s, Pending 1,860. 천장이 올라갔을 뿐 2,000 VU는 새 천장도 한참 넘는다. 큐 모델 그대로: 1,860 ÷ 372 ≈ 5.0s.\n\n③ **경합 건수는 오히려 늘었다** — 행 락 발생률 241 → 357/s. 인기글 요청당 락 대기 0.87 → 0.96건. **10건 중 9건은 여전히 락 앞에 선다. 달라진 건 서 있는 시간이다.**\n\n④ **보유 시간은 0.1ms가 아니라 2.7ms까지만 줄었다** — digest 기준 UPDATE 실제 일 0.14ms + COMMIT 0.85ms ≈ 1.0ms인데 실측 보유 시간은 2.7ms다. 나머지는 앱에 있다 — 응답 객체를 만들고 스프링이 커밋을 보내기까지, Tomcat 스레드 1,869개가 CPU를 다투는 사이 이 스레드가 밀린다. **락 보유 시간에는 앱이 커밋을 보내기까지의 시간도 포함된다.**\n\n⑤ **그리고 UPDATE 실행률은 245 → 363/s로 늘었다.** 쓰기가 줄어서 좋아진 게 아니라 락을 쥐는 시간이 짧아져서 좋아졌다. 읽기 요청이 쓰기를 만드는 구조는 그대로고, 조회수 정의(봇·중복·체류)도 손대지 못했다. **효과가 없어서 기각하는 게 아니라, 효과가 커서 임시 완화책으로 채택하되 근본 조치는 따로 필요하다.**"
+      },
+      "transparent": true,
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": 170,
+      "type": "row",
+      "title": "기준(실측 11) → 실험",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": [],
+      "description": "타일 제목의 '기준' 값과 비교해서 읽는다"
+    },
+    {
+      "id": 160,
+      "type": "stat",
+      "title": "감상글 상세 p99 · 기준 9.99s",
+      "description": "9.09 → 8.18s. 좋아졌지만 평시(수십 ms)와는 거리가 멀다 — 부하가 새 천장도 넘는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "감상글 상세 p99 · 기준 9.99s",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "id": 161,
+      "type": "stat",
+      "title": "성공률 최저 · 기준 49.63%",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\",status=~\"2..|3..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "성공률 최저 · 기준 49.63%",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 15
+      }
+    },
+    {
+      "id": 162,
+      "type": "stat",
+      "title": "HikariCP Pending · 기준 1,991",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "HikariCP Pending · 기준 1,991",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 15
+      }
+    },
+    {
+      "id": 163,
+      "type": "stat",
+      "title": "행 락 대기 발생률 · 기준 297/s",
+      "description": "예상과 반대로 241 → 357/s로 늘었다. 처리량이 는 만큼 경합 건수도 늘었다 — 짧아진 건 건당 대기(27.0 → 11.6ms)다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "행 락 대기 발생률 · 기준 297/s",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "id": 164,
+      "type": "stat",
+      "title": "락 대기 풀 점유율 · 기준 80.1%",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(rate(mysql_global_status_innodb_row_lock_time[1m]) / 1000) / scalar(max(hikaricp_connections_max{application=\"shelfeed\"})) * 100",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "락 대기 풀 점유율 · 기준 80.1%",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 15
+      }
+    },
+    {
+      "id": 165,
+      "type": "stat",
+      "title": "UPDATE 실행률 · 기준 302/s",
+      "description": "**줄기는커녕 245 → 363/s로 늘었다.** 읽기 경로의 쓰기는 그대로다 — 이 실험이 근본 해결이 아닌 이유.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_commands_total{command=\"update\"}[1m])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "UPDATE 실행률 · 기준 302/s",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 15
+      }
+    },
+    {
+      "id": 171,
+      "type": "row",
+      "title": "증거",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "panels": [],
+      "description": "이 실험이 증명해야 할 그림"
+    },
+    {
+      "id": 166,
+      "type": "timeseries",
+      "title": "UPDATE 실행률 vs 행 락 대기 발생률",
+      "description": "두 선이 나란히 올라간다. 쓰기도 경합도 늘었는데 서비스는 좋아졌다 — 짧아진 것은 건수가 아니라 락을 쥐고 있는 시간(27.0 → 11.6ms)이다. · 점선 = 알람 ③ 임계 10/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mysql_global_status_commands_total{command=\"update\"}[1m])",
+          "legendFormat": "UPDATE 실행률 (ops/s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "rate(mysql_global_status_innodb_row_lock_waits[1m])",
+          "legendFormat": "행 락 대기 발생률 (ops/s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 21
+      }
+    },
+    {
+      "id": 167,
+      "type": "timeseries",
+      "title": "API p99 — 감상글 상세 vs 그 외 전체",
+      "description": "두 선이 9.09/9.26s → 8.18/8.03s로 같이 내려왔지만 임계 1s 위에 남아 있다. 피해가 줄었을 뿐 사라지지 않았다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/api/v1/reviews/{reviewId}\"}[1m])))",
+          "legendFormat": "감상글 상세 p99 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/v1/.*\", uri!=\"/api/v1/reviews/{reviewId}\", uri!=\"/api/v1/reviews/{reviewId}/view\"}[1m])))",
+          "legendFormat": "그 외 API 전체 p99 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 8,
+        "y": 21
+      }
+    },
+    {
+      "id": 168,
+      "type": "timeseries",
+      "title": "HikariCP 커넥션 — Active / Idle / Pending",
+      "description": "Active는 여전히 8(=Max), Pending 1,860으로 기준과 같다. 풀은 그대로 고갈됐고 회전만 빨라졌다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{application=\"shelfeed\"}",
+          "legendFormat": "Pending (개)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "hikaricp_connections_active{application=\"shelfeed\"}",
+          "legendFormat": "Active (개)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "hikaricp_connections_idle{application=\"shelfeed\"}",
+          "legendFormat": "Idle (개)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "max",
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 21
+      }
+    }
+  ]
+}

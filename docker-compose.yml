@@ -98,6 +98,10 @@ services:
     image: prom/prometheus:v3.2.0
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/rules:/etc/prometheus/rules:ro
+      # TSDB를 named volume에 둔다. 없으면 컨테이너를 재생성할 때마다 측정 데이터가 사라진다
+      # (influxdb-data가 있어 k6 결과만 살아남고 서버측 지표는 날아간 적이 있다).
+      - prometheus-data:/prometheus
     ports:
       - "9090:9090"
     command:
@@ -261,10 +265,79 @@ services:
           cpus: '0.2'
           memory: 768M
 
+  # ── Kafka (조회수 이벤트 비동기 처리) ─────────────────────
+  # KRaft 모드 — ZooKeeper 없이 단일 노드로 뜬다. 로컬 재현용이라 복제본은 1이다.
+  kafka:
+    image: apache/kafka:3.9.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,INTERNAL://:29092
+      # 호스트에서 붙는 앱은 localhost:9092, 컨테이너끼리는 kafka:29092 를 쓴다.
+      # 광고 주소가 하나뿐이면 ClickHouse 컨테이너가 자기 localhost 로 붙으려다 실패한다.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # ── ClickHouse (조회 이벤트 집계) ──────────────────────────
+  # Kafka Engine 으로 토픽을 직접 소비하고, Materialized View 가 AggregatingMergeTree 로 굴려 넣는다.
+  # 컨슈머 코드 없이 수집·집계·중복 제거가 DB 안에서 끝난다.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # native
+      - "9363:9363"   # prometheus
+    environment:
+      CLICKHOUSE_DB: shelfeed
+      CLICKHOUSE_USER: shelfeed
+      CLICKHOUSE_PASSWORD: shelfeed
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./docker/clickhouse/config.d:/etc/clickhouse-server/config.d:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
 volumes:
   mysql-data:
   mysql-perf-data:
   grafana-data:
   influxdb-data:
+  prometheus-data:
   tempo-data:
   elasticsearch-data:
+  kafka-data:
+  clickhouse-data:

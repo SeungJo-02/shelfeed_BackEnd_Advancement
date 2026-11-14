@@ -1,0 +1,41 @@
+# 알람 수신처.
+#
+# 로컬에서는 Grafana UI(Alerting → Alert rules)에서 발화 상태가 바로 보이므로
+# 전송이 실패해도 재현·회고에는 지장이 없다. 실제로 알림을 받으려면 아래 url 을
+# Slack Incoming Webhook 주소로 바꾸면 된다.
+#
+#   Slack: https://hooks.slack.com/services/XXX/YYY/ZZZ
+#
+# 주의: 여기서 root policy 를 정의하면 Grafana 기본 정책을 덮어쓴다.
+#       group_by 를 alertname 으로 잡아 같은 룰의 중복 발화를 하나로 묶는다.
+
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: shelfeed-alerts
+    receivers:
+      - uid: shelfeed-webhook
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: http://host.docker.internal:9999/alerts
+          httpMethod: POST
+
+policies:
+  - orgId: 1
+    receiver: shelfeed-alerts
+    group_by:
+      - alertname
+      - service
+    group_wait: 10s
+    group_interval: 1m
+    repeat_interval: 4h
+    routes:
+      # 락 경합 계열은 즉시 묶어서 보낸다 — 17분짜리 사건에서 4시간 repeat 는 의미가 없다.
+      - receiver: shelfeed-alerts
+        object_matchers:
+          - ['incident', '=', 'view-count-row-lock']
+        group_wait: 0s
+        group_interval: 30s
+        repeat_interval: 10m

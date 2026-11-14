@@ -1,0 +1,73 @@
+# 조회수 행 락 경합 탐지 알람
+#
+# 사건 요약: 인기 감상글 하나에 조회가 몰리자 같은 행에 대한 UPDATE 가 직렬화되고,
+# 커넥션이 락 대기로 묶이면서 풀이 비어 조회수와 무관한 API 까지 함께 느려졌다.
+# 슬로우 쿼리 로그(long_query_time=1)와 DB 리소스 지표로는 구조적으로 탐지되지 않는다.
+#
+# ①②는 원인을 모르지만 가장 빨리 울리고, ③④는 5분 걸리는 대신 원인을 지목한다.
+# 둘을 같이 걸어 ①로 알아채고 ③④로 좁힌다.
+#
+# 메트릭 이름은 prometheus/mysqld_exporter v0.16.0 · Micrometer(Spring Boot 3) 기준.
+# 적용 전 실제 이름 확인:
+#   curl -s localhost:9104/metrics | grep row_lock
+#   curl -s localhost:8080/actuator/prometheus | grep hikaricp
+
+groups:
+  - name: view-count-row-lock
+    rules:
+      # ① 커넥션 대기 — 락 경합의 가장 빠른 신호.
+      #    "지금 커넥션을 못 받고 기다리는 요청이 있다"는 뜻이라 락이든 슬로우 쿼리든
+      #    커넥션 누수든 공유 자원이 막히는 모든 사고에 먼저 울린다. 원인은 알려주지 않는다.
+      - alert: HikariCPConnectionsPending
+        expr: hikaricp_connections_pending{application="shelfeed"} > 0
+        for: 3m
+        labels:
+          severity: warning
+          service: shelfeed
+        annotations:
+          summary: "커넥션 풀 대기 발생 ({{ $labels.pool }})"
+          description: >-
+            3분 넘게 커넥션을 기다리는 요청이 있습니다 (현재 {{ $value }}건).
+            풀 사이즈를 올리기 전에 대시보드 shelfeed-view-lock 의
+            'acquire vs usage' 패널을 먼저 확인하세요 — usage 가 더 크면 풀 문제가 아닙니다.
+
+      # ② 커넥션 획득 지연. 평시 45.9ms → 임계 1s.
+      - alert: HikariCPAcquireSlow
+        expr: hikaricp_connections_acquire_seconds_max{application="shelfeed"} > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: shelfeed
+        annotations:
+          summary: "커넥션 획득에 1초 이상 소요 ({{ $labels.pool }})"
+          description: "최대 획득 시간 {{ $value | humanizeDuration }}. 평시는 50ms 미만입니다."
+
+      # ③ 행 락 대기 발생률. 같은 행에 요청이 몰려 직렬화되기 시작하면 여기가 먼저 오른다.
+      - alert: InnodbRowLockWaitsHigh
+        expr: rate(mysql_global_status_innodb_row_lock_waits[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: mysql
+        annotations:
+          summary: "InnoDB 행 락 대기 급증 ({{ $value | printf \"%.1f\" }}/s)"
+          description: >-
+            평시 대비 행 락 대기가 급증했습니다. 읽기 경로에서 카운터성 UPDATE 를 하고 있는
+            엔드포인트가 있는지 확인하세요. sys.innodb_lock_waits 로 어느 행인지 바로 볼 수 있습니다.
+
+      # ④ 행 락 평균 대기 시간 (ms). row_lock_time 은 밀리초 단위 누적값이다.
+      #    이 값이 오르는데 Threads running·슬로우 쿼리가 평온하면 그게 락 경합의 지문.
+      - alert: InnodbRowLockWaitTimeHigh
+        expr: >-
+          rate(mysql_global_status_innodb_row_lock_time[5m])
+          / rate(mysql_global_status_innodb_row_lock_waits[5m]) > 100
+        for: 5m
+        labels:
+          severity: critical
+          service: mysql
+        annotations:
+          summary: "InnoDB 행 락 평균 대기 {{ $value | printf \"%.0f\" }}ms"
+          description: >-
+            락 하나를 평균 {{ $value | printf "%.0f" }}ms 쥐고 있습니다.
+            직렬화 구간의 처리량 상한은 1/락보유시간이라, 커넥션 풀을 늘려도 처리량은 늘지 않습니다.
+            트랜잭션 안에서 UPDATE 위치와 외부 호출을 먼저 확인하세요.

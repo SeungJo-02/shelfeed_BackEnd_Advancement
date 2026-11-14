@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.pnl { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  display:flex; flex-direction:column; overflow:hidden; }
+.pnl.alarm { border:1px solid #F2495C; box-shadow:0 0 0 1px rgba(242,73,92,0.25); }
+.hd { height:28px; padding:0 10px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.ti { font-size:13px; font-weight:500; color:#CCCCDC; letter-spacing:-0.01em; }
+.inf { width:14px; height:14px; border-radius:50%; border:1px solid rgba(204,204,220,0.65); color:rgba(204,204,220,0.65);
+  font-size:9px; font-style:italic; line-height:12px; text-align:center; font-family:Georgia,serif; }
+.bd { padding:0 10px 8px; display:flex; flex-direction:column; gap:2px; flex-grow:1; }
+.chart { width:100%; display:block; }
+.ax { fill:rgba(204,204,220,0.65); font-size:11px; font-family:Inter,sans-serif; }
+.lg { width:100%; border-collapse:collapse; font-size:12px; margin-top:2px; }
+.lg th { color:rgba(204,204,220,0.65); font-weight:400; text-align:right; padding:2px 8px; font-size:11px;
+  border-bottom:1px solid rgba(204,204,220,0.07); }
+.lg th:first-child { text-align:left; }
+.lg td { padding:3px 8px; text-align:right; color:#CCCCDC; font-variant-numeric:tabular-nums; }
+.lg td.nm { text-align:left; color:rgba(204,204,220,0.65); display:flex; align-items:center; gap:8px; }
+.lg i { width:14px; height:3px; border-radius:2px; display:inline-block; flex-shrink:0; }
+.q { margin-top:6px; padding-top:6px; border-top:1px solid rgba(204,204,220,0.07);
+  font-family:'Roboto Mono',ui-monospace,monospace; font-size:10.5px; color:rgba(204,204,220,0.65);
+  line-height:1.5; word-break:break-all; }
+.rowti { font-size:13px; font-weight:600; color:#CCCCDC; padding:2px 0 0 2px;
+  display:flex; align-items:center; gap:7px; }
+.rowti::before { content:''; width:0; height:0; border-left:5px solid rgba(204,204,220,0.65);
+  border-top:4px solid transparent; border-bottom:4px solid transparent; }
+.nav { height:40px; display:flex; align-items:center; gap:10px; padding:0 4px;
+  border-bottom:1px solid rgba(204,204,220,0.07); margin-bottom:4px; }
+.crumb { font-size:13px; color:rgba(204,204,220,0.65); }
+.crumb b { color:#CCCCDC; font-weight:500; }
+.spacer { flex-grow:1; }
+.chip { height:26px; padding:0 10px; display:flex; align-items:center; gap:6px;
+  border:1px solid rgba(204,204,220,0.07); border-radius:2px; font-size:12px; color:#CCCCDC;
+  background:rgba(204,204,220,0.03); }
+.stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.st { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  padding:8px 10px 0; position:relative; overflow:hidden; height:120px;
+  display:flex; flex-direction:column; }
+.st.alarm { border:1px solid #F2495C; }
+.st .k { font-size:11.5px; color:rgba(204,204,220,0.65); }
+.st .v { font-size:30px; font-weight:500; line-height:1.15; margin-top:2px;
+  font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+.st .b { font-size:11px; color:rgba(204,204,220,0.65); margin-top:1px; }
+.st svg { position:absolute; left:0; right:0; bottom:0; width:100%; height:34px; display:block; }
+</style>
+</helmet>
+<div class="wrap">
+<div class="pnl"><div class="hd"><span class="ti">행 락 평균 대기 시간</span><span class="inf">i</span></div><div class="bd"><svg class="chart" viewBox="0 0 922 290" preserveAspectRatio="none" role="img">
+<line x1="58" y1="266.0" x2="906" y2="266.0" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="50" y="270.0" text-anchor="end" class="ax">0</text>
+<line x1="58" y1="202.5" x2="906" y2="202.5" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="50" y="206.5" text-anchor="end" class="ax">1 s</text>
+<line x1="58" y1="139.0" x2="906" y2="139.0" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="50" y="143.0" text-anchor="end" class="ax">2 s</text>
+<line x1="58" y1="75.5" x2="906" y2="75.5" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="50" y="79.5" text-anchor="end" class="ax">3 s</text>
+<line x1="58" y1="12.0" x2="906" y2="12.0" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="50" y="16.0" text-anchor="end" class="ax">4 s</text>
+<line x1="58.0" y1="12" x2="58.0" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="58.0" y="281" text-anchor="middle" class="ax">21:35</text>
+<line x1="179.1" y1="12" x2="179.1" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="179.1" y="281" text-anchor="middle" class="ax">21:40</text>
+<line x1="300.3" y1="12" x2="300.3" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="300.3" y="281" text-anchor="middle" class="ax">21:45</text>
+<line x1="421.4" y1="12" x2="421.4" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="421.4" y="281" text-anchor="middle" class="ax">21:50</text>
+<line x1="542.6" y1="12" x2="542.6" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="542.6" y="281" text-anchor="middle" class="ax">21:55</text>
+<line x1="663.7" y1="12" x2="663.7" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="663.7" y="281" text-anchor="middle" class="ax">22:00</text>
+<line x1="784.9" y1="12" x2="784.9" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="784.9" y="281" text-anchor="middle" class="ax">22:05</text>
+<line x1="906.0" y1="12" x2="906.0" y2="266" stroke="rgba(204,204,220,0.07)" stroke-width="1"/>
+<text x="906.0" y="281" text-anchor="middle" class="ax">22:10</text>
+<line x1="58" y1="259.6" x2="906" y2="259.6" stroke="#F2495C" stroke-width="1.5" stroke-dasharray="10 6" opacity="0.9"/>
+<polygon points="58,266.0 58.0,265.7 64.1,265.8 70.1,265.7 76.2,265.7 82.2,265.7 88.3,265.7 94.3,265.7 100.4,265.7 106.5,265.8 112.5,265.8 118.6,265.7 124.6,265.8 130.7,265.7 136.7,265.7 142.8,265.7 148.9,265.8 154.9,265.7 161.0,265.7 167.0,265.8 173.1,265.8 179.1,265.7 185.2,265.7 191.3,265.7 197.3,265.8 203.4,265.7 209.4,265.7 215.5,265.8 221.5,265.7 227.6,265.8 233.7,265.7 239.7,265.7 245.8,265.7 251.8,265.7 257.9,265.7 263.9,265.8 270.0,265.7 276.1,265.8 282.1,265.7 288.2,265.7 294.2,265.8 300.3,265.8 306.3,264.8 312.4,262.2 318.5,257.8 324.5,252.1 330.6,244.9 336.6,236.9 342.7,227.5 348.7,217.7 354.8,206.0 360.9,194.1 366.9,183.3 373.0,168.8 379.0,155.8 385.1,143.7 391.1,129.8 397.2,116.1 403.3,103.9 409.3,90.2 415.4,82.4 421.4,68.9 427.5,57.6 433.5,52.5 439.6,42.2 445.7,32.7 451.7,29.8 457.8,28.5 463.8,22.1 469.9,35.2 475.9,32.1 482.0,45.4 488.1,17.7 494.1,33.0 500.2,33.9 506.2,35.2 512.3,26.9 518.3,23.9 524.4,39.9 530.5,40.6 536.5,24.6 542.6,32.8 548.6,37.0 554.7,38.2 560.7,34.8 566.8,26.8 572.9,44.4 578.9,33.5 585.0,26.4 591.0,35.0 597.1,25.2 603.1,45.3 609.2,33.7 615.3,28.1 621.3,44.3 627.4,37.3 633.4,36.8 639.5,34.7 645.5,46.3 651.6,33.4 657.7,37.7 663.7,43.2 669.8,34.4 675.8,25.0 681.9,42.0 687.9,35.1 694.0,26.4 700.1,36.8 706.1,38.5 712.2,37.4 718.2,42.9 724.3,21.8 730.3,26.8 736.4,47.4 742.5,32.0 748.5,37.5 754.6,34.0 760.6,20.6 766.7,34.4 772.7,59.6 778.8,100.8 784.9,145.3 790.9,188.4 797.0,227.5 803.0,255.4 809.1,265.7 815.1,265.8 821.2,265.7 827.3,265.8 833.3,265.7 839.4,265.7 845.4,265.7 851.5,265.7 857.5,265.8 863.6,265.7 869.7,265.8 875.7,265.7 881.8,265.8 887.8,265.7 893.9,265.8 899.9,265.7 906.0,265.8 906,266.0" fill="#F2495C" opacity="0.08"/>
+<polyline points="58.0,265.7 64.1,265.8 70.1,265.7 76.2,265.7 82.2,265.7 88.3,265.7 94.3,265.7 100.4,265.7 106.5,265.8 112.5,265.8 118.6,265.7 124.6,265.8 130.7,265.7 136.7,265.7 142.8,265.7 148.9,265.8 154.9,265.7 161.0,265.7 167.0,265.8 173.1,265.8 179.1,265.7 185.2,265.7 191.3,265.7 197.3,265.8 203.4,265.7 209.4,265.7 215.5,265.8 221.5,265.7 227.6,265.8 233.7,265.7 239.7,265.7 245.8,265.7 251.8,265.7 257.9,265.7 263.9,265.8 270.0,265.7 276.1,265.8 282.1,265.7 288.2,265.7 294.2,265.8 300.3,265.8 306.3,264.8 312.4,262.2 318.5,257.8 324.5,252.1 330.6,244.9 336.6,236.9 342.7,227.5 348.7,217.7 354.8,206.0 360.9,194.1 366.9,183.3 373.0,168.8 379.0,155.8 385.1,143.7 391.1,129.8 397.2,116.1 403.3,103.9 409.3,90.2 415.4,82.4 421.4,68.9 427.5,57.6 433.5,52.5 439.6,42.2 445.7,32.7 451.7,29.8 457.8,28.5 463.8,22.1 469.9,35.2 475.9,32.1 482.0,45.4 488.1,17.7 494.1,33.0 500.2,33.9 506.2,35.2 512.3,26.9 518.3,23.9 524.4,39.9 530.5,40.6 536.5,24.6 542.6,32.8 548.6,37.0 554.7,38.2 560.7,34.8 566.8,26.8 572.9,44.4 578.9,33.5 585.0,26.4 591.0,35.0 597.1,25.2 603.1,45.3 609.2,33.7 615.3,28.1 621.3,44.3 627.4,37.3 633.4,36.8 639.5,34.7 645.5,46.3 651.6,33.4 657.7,37.7 663.7,43.2 669.8,34.4 675.8,25.0 681.9,42.0 687.9,35.1 694.0,26.4 700.1,36.8 706.1,38.5 712.2,37.4 718.2,42.9 724.3,21.8 730.3,26.8 736.4,47.4 742.5,32.0 748.5,37.5 754.6,34.0 760.6,20.6 766.7,34.4 772.7,59.6 778.8,100.8 784.9,145.3 790.9,188.4 797.0,227.5 803.0,255.4 809.1,265.7 815.1,265.8 821.2,265.7 827.3,265.8 833.3,265.7 839.4,265.7 845.4,265.7 851.5,265.7 857.5,265.8 863.6,265.7 869.7,265.8 875.7,265.7 881.8,265.8 887.8,265.7 893.9,265.8 899.9,265.7 906.0,265.8" fill="none" stroke="#F2495C" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="348.7" y1="12" x2="348.7" y2="266" stroke="#F2495C" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.85"/>
+<polygon points="343.7,266 353.7,266 348.7,259" fill="#F2495C"/>
+</svg><table class="lg"><thead><tr><th></th><th>Max</th><th>Mean</th><th>Last *</th></tr></thead><tbody>
+<tr><td class="nm"><i style="background:#F2495C"></i>평균 락 대기 시간</td><td>3.91 s</td><td>1.73 s</td><td>3.9 ms</td></tr>
+</tbody></table><div class="q">rate(mysql_global_status_innodb_row_lock_time[1m]) / rate(mysql_global_status_innodb_row_lock_waits[1m]) &nbsp;·&nbsp; 점선 = 알람 임계 100ms</div></div></div>
+<div style="border:1px solid rgba(204,204,220,0.07);border-radius:3px;padding:9px 12px;font-size:12.5px;line-height:1.6;color:rgba(204,204,220,0.65)">
+Threads running 3 · 슬로우 쿼리 0 이 평온한 채로 <b style="color:#CCCCDC">이 두 값만 오르는 게 락 경합의 지문이다.</b>
+사건 당시 이 패널은 <b style="color:#F2495C">대시보드에 없었다.</b>
+</div></div>
+</x-dc>
+</body>
+</html>

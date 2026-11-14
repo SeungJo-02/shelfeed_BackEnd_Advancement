@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; }
+body { margin:0; background:#111217; color:#CCCCDC;
+  font-family:Inter,'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; }
+a { color:#5794F2; } a:hover { color:#8AB8FF; }
+.wrap { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.pnl { background:#181B1F; border:1px solid rgba(204,204,220,0.07); border-radius:3px;
+  display:flex; flex-direction:column; overflow:hidden; }
+.hd { height:28px; padding:0 10px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.ti { font-size:13px; font-weight:500; color:#CCCCDC; letter-spacing:-0.01em; }
+.rowti { font-size:13px; font-weight:600; color:#CCCCDC; padding:2px 0 0 2px;
+  display:flex; align-items:center; gap:7px; }
+.rowti::before { content:''; width:0; height:0; border-left:5px solid rgba(204,204,220,0.65);
+  border-top:4px solid transparent; border-bottom:4px solid transparent; }
+.flow { display:flex; align-items:stretch; gap:6px; }
+.node { flex:1 1 0; min-width:0; background:#181B1F; border:1px solid rgba(204,204,220,0.10);
+  border-radius:5px; padding:13px 13px; display:flex; flex-direction:column; gap:6px; }
+.node.ch { flex:1.55 1 0; border:1px solid #F2495C; box-shadow:0 0 0 1px rgba(242,73,92,0.20); }
+.node .n { font-size:13.5px; font-weight:600; color:#CCCCDC; display:flex; align-items:center; gap:7px; }
+.node .n i { width:8px; height:8px; border-radius:2px; display:inline-block; flex-shrink:0; }
+.node .d { font-size:12.5px; line-height:1.55; color:rgba(204,204,220,0.65); word-break:keep-all; }
+.node .d code { font-family:'Roboto Mono',ui-monospace,monospace; font-size:11.5px; color:#CCCCDC; }
+.badge { align-self:flex-start; margin-top:auto; font-size:12px; color:#F2495C;
+  border:1px solid rgba(242,73,92,0.55); border-radius:3px; padding:2px 7px;
+  background:rgba(242,73,92,0.10); }
+.arw { width:26px; height:14px; flex-shrink:0; align-self:center; display:block; }
+.cap { font-size:12.5px; color:rgba(204,204,220,0.65); padding:0 3px; line-height:1.55; }
+.cap b { color:#CCCCDC; font-weight:500; }
+.term { background:#0B0C0E; border:1px solid rgba(204,204,220,0.07); border-radius:4px;
+  overflow:hidden; min-height:471px; }
+.tbar { height:30px; display:flex; align-items:center; gap:7px; padding:0 11px;
+  background:#16181C; border-bottom:1px solid rgba(204,204,220,0.07); }
+.tbar i { width:11px; height:11px; border-radius:50%; display:block; }
+.tbar span { margin-left:8px; font-size:11.5px; color:rgba(204,204,220,0.65); }
+pre { margin:0; padding:16px 18px; font-family:'Roboto Mono',ui-monospace,monospace;
+  font-size:13px; line-height:1.95; color:#C9D1D9; white-space:pre-wrap; }
+.kw { color:#B877D9; } .st2 { color:#73BF69; } .cm { color:#6E7681; }
+.hl { color:#F2495C; font-weight:500; } .num { color:#FF9830; }
+</style>
+</helmet>
+<div class="wrap">
+<div class="rowti">해결 파이프라인 — 읽기 경로에서 쓰기를 걷어내고 집계를 뒷단으로</div>
+<div class="flow">
+<div class="node"><div class="n"><i style="background:#8AB8FF"></i>Client</div><div class="d">3초 체류 후 1회<br>sendBeacon</div></div>
+<svg class="arw" viewBox="0 0 26 14" role="img" aria-label="다음 단계"><line x1="0" y1="7" x2="17" y2="7" stroke="rgba(204,204,220,0.45)" stroke-width="1.5"></line><polygon points="17,2.8 26,7 17,11.2" fill="rgba(204,204,220,0.45)"></polygon></svg>
+<div class="node"><div class="n"><i style="background:#73BF69"></i>Spring Boot</div><div class="d">SET NX EX 로 중복 차단<br>즉시 <code>204</code> 응답</div></div>
+<svg class="arw" viewBox="0 0 26 14" role="img" aria-label="다음 단계"><line x1="0" y1="7" x2="17" y2="7" stroke="rgba(204,204,220,0.45)" stroke-width="1.5"></line><polygon points="17,2.8 26,7 17,11.2" fill="rgba(204,204,220,0.45)"></polygon></svg>
+<div class="node"><div class="n"><i style="background:#B877D9"></i>Kafka</div><div class="d">토픽<br><code>review.view.v1</code></div></div>
+<svg class="arw" viewBox="0 0 26 14" role="img" aria-label="다음 단계"><line x1="0" y1="7" x2="17" y2="7" stroke="rgba(204,204,220,0.45)" stroke-width="1.5"></line><polygon points="17,2.8 26,7 17,11.2" fill="rgba(204,204,220,0.45)"></polygon></svg>
+<div class="node ch"><div class="n"><i style="background:#FADE2A"></i>ClickHouse</div><div class="d">Kafka Engine &rarr; MV &rarr; AggregatingMergeTree</div><div class="badge">컨슈머 코드 없음</div></div>
+<svg class="arw" viewBox="0 0 26 14" role="img" aria-label="다음 단계"><line x1="0" y1="7" x2="17" y2="7" stroke="rgba(204,204,220,0.45)" stroke-width="1.5"></line><polygon points="17,2.8 26,7 17,11.2" fill="rgba(204,204,220,0.45)"></polygon></svg>
+<div class="node"><div class="n"><i style="background:#FF9830"></i>Scheduler</div><div class="d">1분마다<br><code>uniqMerge</code> 집계</div></div>
+<svg class="arw" viewBox="0 0 26 14" role="img" aria-label="다음 단계"><line x1="0" y1="7" x2="17" y2="7" stroke="rgba(204,204,220,0.45)" stroke-width="1.5"></line><polygon points="17,2.8 26,7 17,11.2" fill="rgba(204,204,220,0.45)"></polygon></svg>
+<div class="node"><div class="n"><i style="background:#5794F2"></i>Redis</div><div class="d">1분 주기 갱신<br>API는 캐시만 읽음</div></div>
+</div>
+<div class="cap">읽기 경로에 <b>DB 쓰기가 0</b>이다. 조회수 집계는 전부 뒷단에서 일어나고, API는 Redis에 올라온 값을 읽기만 한다.</div>
+<div class="rowti">ClickHouse DDL — 테이블 셋으로 끝난다</div>
+<div class="term"><div class="tbar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i>
+<i style="background:#28C840"></i><span>clickhouse-client — shelfeed@clickhouse:9000</span></div>
+<pre><span class="kw">CREATE TABLE</span> view_queue (event_id UUID, review_id UInt64, viewer_id String, ts DateTime)
+<span class="kw">ENGINE</span> = Kafka <span class="kw">SETTINGS</span> kafka_topic_list=<span class="st2">'review.view.v1'</span>, kafka_group_name=<span class="st2">'ch_view_sink'</span>, kafka_format=<span class="st2">'JSONEachRow'</span>;
+
+<span class="kw">CREATE TABLE</span> view_stats (review_id UInt64, hour DateTime,
+       views AggregateFunction(uniq, UUID), viewers AggregateFunction(uniq, String))
+<span class="kw">ENGINE</span> = AggregatingMergeTree <span class="kw">ORDER BY</span> (review_id, hour);
+
+<span class="kw">CREATE MATERIALIZED VIEW</span> view_mv <span class="kw">TO</span> view_stats <span class="kw">AS</span>
+<span class="kw">SELECT</span> review_id, toStartOfHour(ts) <span class="kw">AS</span> hour,
+       <span class="hl">uniqState(event_id)</span>  <span class="kw">AS</span> views,    <span class="cm">-- event_id 기준 근사 집계(중복 무시)</span>
+       uniqState(viewer_id) <span class="kw">AS</span> viewers   <span class="cm">-- 순 방문자</span>
+<span class="kw">FROM</span> view_queue <span class="kw">GROUP BY</span> review_id, hour;
+
+<span class="cm">-- 읽기는 ClickHouse를 직접 치지 않는다. 스케줄러가 1분마다 uniqMerge 결과를 Redis에 MSET</span>
+</pre></div>
+</div>
+</x-dc>
+</body>
+</html>

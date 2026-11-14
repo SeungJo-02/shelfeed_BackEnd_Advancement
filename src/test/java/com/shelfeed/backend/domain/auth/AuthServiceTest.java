@@ -46,6 +46,7 @@ class AuthServiceTest {
     @Mock MemberUserIdGenerator memberUserIdGenerator;
     @Mock PasswordEncoder passwordEncoder;
     @Mock EmailService emailService;
+    @Mock com.shelfeed.backend.global.security.CustomUserDetailsService userDetailsService;
 
     @InjectMocks AuthService authService;
 

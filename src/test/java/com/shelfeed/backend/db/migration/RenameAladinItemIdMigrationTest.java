@@ -19,13 +19,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * V2__rename_aladin_item_id 의 세 분기를 실제 MySQL 에서 검증한다.
+ * 컬럼을 손대는 마이그레이션을 실제 MySQL 에서 검증한다.
+ * V2(books.aladin_item_id 보정)의 세 분기와 V4(reviews.view_count 추가)의 멱등 분기를 본다.
  *
  * <p>공유 컨테이너({@code TestContainerSupport})는 이미 Flyway 가 적용된 상태라 "옛 스키마"를 만들 수 없어
  * 전용 컨테이너를 쓴다. 상태별로 DB 를 새로 만들고 V1 을 실행한 뒤 컬럼을 되돌려 옛 덤프를 흉내 낸다.
  * {@code flyway_schema_history} 는 만들지 않으므로 baseline-on-migrate 경로(V1 건너뜀 → V2 부터)가 그대로 탄다.
  */
-@DisplayName("Flyway V2: books.aladin_item_id → external_item_id 보정")
+@DisplayName("Flyway 마이그레이션: V2 컬럼 보정 · V4 조회수 컬럼 추가")
 class RenameAladinItemIdMigrationTest {
 
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
@@ -78,10 +79,41 @@ class RenameAladinItemIdMigrationTest {
         Flyway flyway = migrate(db);
 
         assertThat(columns(db)).containsExactly("external_item_id");
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
         assertThat(query(db, "SELECT COUNT(*) FROM genres")).containsExactly("15");
         assertThat(query(db, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='" + db
                 + "' AND table_name='member_user_id_seq'")).containsExactly("1");
+        // V4: 조회수 컬럼이 like_count 와 같은 정의(int NOT NULL)로 생겼는지
+        assertThat(query(db, "SELECT CONCAT(COLUMN_TYPE,' ',IS_NULLABLE) FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA='" + db + "' AND TABLE_NAME='reviews' AND COLUMN_NAME='view_count'"))
+                .containsExactly("int NO");
+    }
+
+    @Test
+    @DisplayName("V4: 컬럼이 이미 있는 DB(ddl-auto=update 가 먼저 돈 경우)에서는 값을 보존하고 no-op 이다")
+    void viewCountMigrationIsIdempotent() throws Exception {
+        String db = "legacy_view_count";
+        prepareLegacySchema(db, false);
+        // ddl-auto=update 로 컬럼이 이미 만들어진 상태를 흉내 낸다. 쌓여 있던 조회수도 함께.
+        exec(db, "ALTER TABLE reviews ADD COLUMN view_count int NOT NULL DEFAULT 0");
+        exec(db, "INSERT INTO members (created_at,updated_at,email,password,nickname,member_user_id,role,status,"
+                + "library_visibility,notification_preferences,email_verified,onboarding_completed,"
+                + "follower_count,following_count,review_count) "
+                + "VALUES (NOW(),NOW(),'v@shelfeed.com','x','v',900001,'USER','ACTIVE','PUBLIC','{}',b'1',b'1',0,0,0)");
+        exec(db, "INSERT INTO books (created_at,updated_at,isbn13,author,title,aladin_item_id) "
+                + "VALUES (NOW(),NOW(),'9788937460449','헤르만 헤세','데미안','176787')");
+        exec(db, "INSERT INTO reviews (created_at,updated_at,member_id,book_id,content,rating,is_spoiler,is_deleted,"
+                + "review_status,review_visibility,view_count,like_count,comment_count) "
+                + "SELECT NOW(),NOW(),m.member_id,b.book_id,'본문',5,b'0',b'0','PUBLISHED','PUBLIC',4242,0,0 "
+                + "FROM members m, books b LIMIT 1");
+
+        Flyway flyway = migrate(db);
+
+        // 컬럼은 하나만 남고 쌓여 있던 값이 0 으로 밀리지 않는다
+        assertThat(query(db, "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='" + db
+                + "' AND TABLE_NAME='reviews' AND COLUMN_NAME='view_count'")).containsExactly("1");
+        assertThat(query(db, "SELECT view_count FROM reviews")).containsExactly("4242");
+        assertHistoryAndNoRoutine(db, flyway);
     }
 
     // ---- helpers ----
@@ -114,10 +146,11 @@ class RenameAladinItemIdMigrationTest {
 
     private static void assertHistoryAndNoRoutine(String db, Flyway flyway) throws Exception {
         MigrationInfo current = flyway.info().current();
-        assertThat(current.getVersion().getVersion()).isEqualTo("3");
+        assertThat(current.getVersion().getVersion()).isEqualTo("4");
         List<String> applied = new ArrayList<>();
         for (MigrationInfo mi : flyway.info().applied()) applied.add(mi.getDescription());
-        assertThat(applied).contains("<< Flyway Baseline >>", "rename aladin item id", "ensure member user id seq", "genres seed");
+        assertThat(applied).contains("<< Flyway Baseline >>", "rename aladin item id", "ensure member user id seq",
+                "add review view count", "genres seed");
         assertThat(query(db, "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='" + db + "'"))
                 .containsExactly("0");
         assertThat(query(db, "SELECT COUNT(*) FROM genres")).containsExactly("15");

@@ -22,11 +22,16 @@ import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
 import com.shelfeed.backend.domain.review.repository.TagRepository;
 import com.shelfeed.backend.domain.tag.entity.Tag;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailLoader;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailSnapshot;
+import com.shelfeed.backend.global.cache.MemberRelationCache;
 import com.shelfeed.backend.global.common.exception.BusinessException;
 import com.shelfeed.backend.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
@@ -50,6 +55,9 @@ public class ReviewService {
     private final BlockService blockService;
     private final FeedService feedService;
     private final NotificationService notificationService;
+    private final ReviewDetailCache reviewDetailCache;
+    private final ReviewDetailLoader reviewDetailLoader;
+    private final MemberRelationCache memberRelationCache;
 
     // ── 1 감상 작성
     @Transactional
@@ -90,24 +98,36 @@ public class ReviewService {
     }
 
     //2. 감상 상세 조회
-    public ReviewDetailResponse getReview(Long reviewId, Long memberUserId){
-        Review review = getReviewOrThrow(reviewId);//삭제 안된 리뷰 여부(소프트 델리트)
-        boolean isMine = memberUserId != null && review.getMember().getMemberUserId().equals(memberUserId);//본인확인
-        if (!isMine && review.getReviewVisibility() == ReviewVisibility.PRIVATE){//비공개 거나 게시물 주인이 아니면
+    // [실험 C] 조회수 UPDATE를 이 경로에서 아예 뺐다. GET은 순수 읽기가 된다.
+    // → 쥘 행 락이 없으니 한 행의 직렬화 천장 자체가 사라진다.
+    //   조회수는 본문을 3초 이상 본 시점에 별도 요청으로 올린다(정의 변경).
+    //   이 실험은 "읽기 경로에서 쓰기를 뺐을 때 천장이 어디까지 가는가"만 잰다.
+    // [실험 H] 그래도 GET 한 건이 커넥션을 2개 빌렸다(인증 1 + 상세 조회 1). 풀이 8개라
+    //   그것만으로 대기열이 찼다. 이제 상세는 스냅샷 캐시, 좋아요/차단은 회원별 Redis SET으로
+    //   받는다. 적중하면 이 메서드는 커넥션을 한 개도 빌리지 않는다.
+    //   readOnly 트랜잭션을 걸면 적중해도 커넥션을 먼저 빌리므로, 클래스 레벨 트랜잭션을
+    //   NOT_SUPPORTED로 덮어 아예 열지 않는다. DB가 필요한 적재만 별도 빈에서 트랜잭션을 연다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public ReviewDetailResponse getReview(Long reviewId, Member requester){
+        ReviewDetailSnapshot snapshot = reviewDetailCache.get(reviewId, () -> reviewDetailLoader.load(reviewId));
+
+        boolean isMine = requester != null
+                && snapshot.ownerMemberUserId().equals(requester.getMemberUserId());//본인확인
+        if (!isMine && snapshot.reviewVisibility() == ReviewVisibility.PRIVATE){//비공개 거나 게시물 주인이 아니면
             throw new BusinessException(ErrorCode.PRIVATE_REVIEW);//비공개 감상
         }
-        // 좋아요 여부 조회에도 PK가 필요하므로 requester를 한 번만 로드해 차단 확인과 함께 재사용한다.
-        Member requester = memberUserId != null ? memberLoader.getOrThrow(memberUserId) : null;
         if (!isMine && requester != null) {
-            Member owner = review.getMember();
-            if (blockService.isBlockedBetween(owner, requester)) {
+            boolean blocked = memberRelationCache.isBlockedWith(
+                    requester.getMemberUserId(), snapshot.ownerMemberUserId(),
+                    () -> blockService.blockedIdSet(requester));
+            if (blocked) {
                 throw new BusinessException(ErrorCode.BLOCKED_USER);
             }
         }
-        List<String> tags = getTagNames(review);
-        boolean isLiked = requester != null
-                && reviewLikeRepository.existsByReview_ReviewIdAndMemberId(reviewId, requester.getMemberId());
-        return ReviewDetailResponse.of(review, tags, isMine, isLiked);
+        boolean isLiked = requester != null && memberRelationCache.isLiked(
+                requester.getMemberId(), reviewId,
+                () -> reviewLikeRepository.findReviewIdsByMemberId(requester.getMemberId()));
+        return snapshot.toResponse(isMine, isLiked);
     }
 
     //3. 감상 수정
@@ -152,6 +172,7 @@ public class ReviewService {
         reviewTagRepository.deleteByReview(review);
         List<String> tagNames = saveTags(review,request.getTags());
 
+        reviewDetailCache.evict(reviewId);// 본문·공개범위·태그가 바뀌었으니 스냅샷을 버린다
         return ReviewUpdateResponse.of(review,tagNames);
     }
     //4. 감상 삭제
@@ -165,6 +186,7 @@ public class ReviewService {
             memberRepository.decreaseReviewCount(review.getMember().getMemberUserId());
         }
         feedService.removeByReview(review);
+        reviewDetailCache.evict(reviewId);// 지워진 글이 캐시에 남아 계속 보이면 안 된다
     }
     //5. 내 감상 목록
     public List<ReviewSummaryResponse> getMyReviews(Long memberUserId, ReviewStatus status, Long cursor, int limit){
@@ -249,12 +271,6 @@ public class ReviewService {
     private Review getReviewOrThrow(Long reviewId) {
         return reviewRepository.findByReviewIdAndIsDeletedFalse(reviewId).orElseThrow(()-> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
     }
-    //태그 이름 목록 조회 (단건)
-    private List<String> getTagNames(Review review) {
-        return reviewTagRepository.findByReview(review).stream()
-                .map(reviewTag -> reviewTag.getTag().getTagName()).toList();
-    }
-
     //태그 이름 목록 일괄 조회 (IN절 - N+1 방지)
     private Map<Long, List<String>> getTagNamesByReviews(List<Review> reviews) {
         if (reviews.isEmpty()) return Map.of();

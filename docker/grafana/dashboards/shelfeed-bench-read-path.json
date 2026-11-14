@@ -1,0 +1,504 @@
+{
+  "uid": "shelfeed-bench-read-path",
+  "title": "Shelfeed — 벤치 · 글 하나의 최근 1시간 조회수를 누가 답하나",
+  "description": "리뷰 피드백 반영: event_id 단건 조회 대신 서비스가 실제로 묻는 질문으로 ClickHouse·MySQL·Redis를 동시 접속별로 비교.",
+  "tags": [
+    "shelfeed",
+    "view-count",
+    "bench"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "질문 — 상세 화면이 초당 3천 번 묻는 '이 글의 최근 1시간 조회수'",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "options": {
+        "mode": "markdown",
+        "content": "**질문** — 글 하나(review_id=3)의 최근 1시간 조회수를 읽는다. 상세 API가 캐시 적중 시 초당 3,000건을 받으니(실험 H) 조회수를 요청마다 저장소에 물으면 그 저장소가 초당 3,000번 답해야 한다.\n\n**세 경로** — ClickHouse는 이벤트 원본이 아니라 분 단위 집계 테이블 `view_stats`에서 `countMerge(views)`로 60행을 합친다(OLAP가 잘하는 질문). MySQL은 `reviews.view_count` PK 조회. Redis는 `GET view:count:{id}`.\n\n**방법** — clickhouse-benchmark / redis-benchmark / mysqlslap. 동시 접속 50·100·200. ClickHouse 컨테이너 메모리 상한 2GB, 호스트 10코어. 실행 2026-09-22 15:30 KST. 스크립트: `read-path-results.json` → `build-read-path-dashboard.py`."
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "동시 접속 1 — 한 번 묻는 값 자체는 ClickHouse도 빠르다",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "ClickHouse p50 · 1 conn",
+      "description": "집계 테이블에서 한 글의 60분치를 합치는 데 2ms. 단건이 느린 게 아니다.",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "value\n2.0"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "ClickHouse p99 · 1 conn",
+      "description": "",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "value\n4.0"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 8
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "ClickHouse QPS · 1 conn",
+      "description": "",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "value\n458"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Redis GET p99 · 50 conn",
+      "description": "",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "value\n0.18"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "동시 접속을 올리면 — 천장은 QPS 1,400, 200 동시엔 OOM",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "초당 처리량 (QPS) · 높을수록 좋음 — ClickHouse 200 동시는 OOM으로 0",
+      "description": "ClickHouse는 50→100 동시에서 1,303→1,421로 이미 천장이고, 200 동시에서 컨테이너(메모리 2GB)가 OOM으로 죽었다. Redis는 200 동시에서도 21만 QPS. MySQL PK 조회는 8천 QPS인데 이건 누적 숫자 하나라 '최근 1시간'을 못 답한다.",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "path,ClickHouse,MySQL,Redis\n동시 50,1303,7968,221729\n동시 100,1421,,\n동시 200,0,,214133\n"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ClickHouse"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MySQL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Redis"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "path",
+        "showValue": "always",
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "p99 지연 (ms) · 낮을수록 좋음",
+      "description": "ClickHouse p99는 50 동시에서 152ms, 200 동시에서 504ms(죽기 직전). Redis는 200 동시에서도 1.4ms. 상세 API p99 목표가 1초인데 조회수 하나 읽는 데 0.5초를 쓸 수는 없다.",
+      "datasource": {
+        "type": "grafana-testdata-datasource",
+        "uid": "testdata"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-testdata-datasource",
+            "uid": "testdata"
+          },
+          "scenarioId": "csv_content",
+          "csvContent": "path,ClickHouse,Redis\n동시 50,152,0.18\n동시 100,146,\n동시 200,504,1.36\n"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ClickHouse"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MySQL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Redis"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "path",
+        "showValue": "always",
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      }
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "그래서",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "id": 12,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "options": {
+        "mode": "markdown",
+        "content": "ClickHouse가 느려서 Redis를 덧댄 게 아니다. **한 번 묻는 값은 2ms로 충분히 빠르다.** 문제는 초당 3,000번 묻는 것이고, 그 질문에 ClickHouse는 10코어를 다 쓰고도 1,400번까지만 답하다가 200 동시에서 죽었다. 집계는 ClickHouse가 하되, **그 결과를 읽는 건 Redis가 한다** — 스케줄러가 매 분 `view_stats`에서 글별 최근 1시간 조회수를 뽑아 Redis에 넣고, 상세 API는 GET 한 번(p99 1.4ms)으로 끝낸다. ClickHouse는 분당 쿼리 1개만 받는다."
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      }
+    }
+  ]
+}

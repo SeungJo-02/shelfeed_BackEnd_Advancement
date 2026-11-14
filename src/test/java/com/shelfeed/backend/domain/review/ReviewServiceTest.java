@@ -15,6 +15,9 @@ import com.shelfeed.backend.domain.review.dto.response.ReviewLikeResponse;
 import com.shelfeed.backend.domain.review.entity.Review;
 import com.shelfeed.backend.domain.review.enums.ReviewStatus;
 import com.shelfeed.backend.domain.review.enums.ReviewVisibility;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailCache;
+import com.shelfeed.backend.domain.review.cache.ReviewDetailLoader;
+import com.shelfeed.backend.global.cache.MemberRelationCache;
 import com.shelfeed.backend.domain.review.repository.ReviewLikeRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewRepository;
 import com.shelfeed.backend.domain.review.repository.ReviewTagRepository;
@@ -59,6 +62,9 @@ class ReviewServiceTest {
     @Mock BlockService blockService;
     @Mock FeedService feedService;
     @Mock NotificationService notificationService;
+    @Mock ReviewDetailCache reviewDetailCache;
+    @Mock ReviewDetailLoader reviewDetailLoader;
+    @Mock MemberRelationCache memberRelationCache;
 
     @InjectMocks ReviewService reviewService;
 

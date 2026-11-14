@@ -33,4 +33,9 @@ public interface ReviewLikeRepository extends JpaRepository<ReviewLike,Long> {
 """)
     Set<Long> findLikedReviewIds(@Param("reviewIds") List<Long> reviewIds,
                                  @Param("memberId") Long memberId);
+
+    // [실험 H] 한 회원이 누른 좋아요 전부. 감상마다 exists를 치는 대신 한 번에 받아
+    // Redis SET에 담아두고, 이후 상세 조회는 SISMEMBER로 끝낸다.
+    @Query("SELECT rl.review.reviewId FROM ReviewLike rl WHERE rl.memberId = :memberId")
+    Set<Long> findReviewIdsByMemberId(@Param("memberId") Long memberId);
 }

@@ -16,6 +16,17 @@ import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+    // [장애 재현용 나쁜 구현] 읽기(조회) 경로에서 같은 행에 UPDATE를 발생시킨다.
+    // 인기글 하나에 요청이 몰리면 이 행의 X락을 두고 요청들이 한 줄로 직렬화된다.
+    @Modifying
+    @Query("UPDATE Review r SET r.viewCount = r.viewCount + 1 WHERE r.reviewId = :reviewId")
+    void incrementViewCount(@Param("reviewId") Long reviewId);
+
+    // Redis에 모아둔 조회수를 한 번에 더한다. 요청마다 한 건씩 쓰던 것을 주기당 리뷰 하나에 한 건으로 줄인다.
+    @Modifying
+    @Query("UPDATE Review r SET r.viewCount = r.viewCount + :delta WHERE r.reviewId = :reviewId")
+    void addViewCount(@Param("reviewId") Long reviewId, @Param("delta") long delta);
+
     @Query("SELECT r FROM Review r JOIN FETCH r.member WHERE r.isDeleted = false AND r.reviewStatus = 'PUBLISHED'")
     List<Review> findAllPublishedWithMember();
 
