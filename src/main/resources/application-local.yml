@@ -10,13 +10,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate   # 스키마는 Flyway(db/migration)가 만든다
     show-sql: true
-    defer-datasource-initialization: true
-
-  sql:
-    init:
-      mode: always
 
   mail:
     properties:
@@ -46,7 +41,10 @@ shelfeed:
     # k6는 요청마다 다른 X-Viewer-Key를 보내므로 TTL과 무관하게 전부 통과한다.
     dedup-ttl-seconds: 1800
     flush-interval-ms: 60000   # 누적분을 MySQL에 반영하는 주기 — 리뷰당 UPDATE 1건
-    kafka-enabled: true         # [실험 E] 조회 이벤트를 Kafka로 보낸다. false면 요청 스레드가 바로 Redis에 누적
+    # 결론은 Redis 누적 + 분당 배치만으로 충분했다(실험 D·H). 기본값을 그 결론에 맞춘다.
+    # true 로 바꾸면 조회 이벤트가 Kafka 토픽을 거쳐 컨슈머에서 누적된다(실험 E 재현).
+    # 그때는 docker compose 의 kafka 컨테이너가 떠 있어야 한다.
+    kafka-enabled: false
     event-dedup-ttl-seconds: 3600   # at-least-once 중복 전달을 걸러내는 창
 
   review-cache:

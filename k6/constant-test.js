@@ -17,7 +17,7 @@
  *
  * 사전 준비:
  *   1. docker compose up -d
- *   2. ./gradlew bootRun --args='--spring.profiles.active=mock-aladin,perf-seed'
+ *   2. ./gradlew bootRun --args='--spring.profiles.active=mock-catalog,perf-seed'
  *   3. "[PerfBookSeeder] 시딩 완료: 1000000건" 로그 확인
  *   4. k6 run k6/setup-tokens.js  (tokens.local.json 생성)
  *
@@ -115,8 +115,8 @@ export function setup() {
 
   const info = JSON.parse(res.body);
   if (__ENV.SKIP_PROFILE_CHECK !== '1') {
-    if (!info.profile?.includes('mock-aladin') || !info.profile?.includes('perf-seed')) {
-      exec.test.abort('[ABORT] mock-aladin,perf-seed 프로파일 없음 — --spring.profiles.active=mock-aladin,perf-seed 로 재시작 필요 (실서버는 SKIP_PROFILE_CHECK=1)');
+    if (!info.profile?.includes('mock-catalog') || !info.profile?.includes('perf-seed')) {
+      exec.test.abort('[ABORT] mock-catalog,perf-seed 프로파일 없음 — --spring.profiles.active=mock-catalog,perf-seed 로 재시작 필요 (실서버는 SKIP_PROFILE_CHECK=1)');
     }
   }
   if (tokens.length === 0) {

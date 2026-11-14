@@ -335,12 +335,12 @@
 
 ### GET /api/v1/books/search
 
-- **목적**: 도서 검색 (알라딘 API 연동, 커서 페이지네이션)
+- **목적**: 도서 검색 (YES24 Open API 연동, 커서 페이지네이션)
 - **인증**: 공개 (로그인 시 `inMyLibrary` 반영 — 선택적 인증)
 - **파라미터** (query, `@ModelAttribute BookSearchRequest`):
   - `query` (String, 선택 — 코드상 검증 없음, 주석상 검색어): 검색어
   - `limit` (int, 선택, 기본값 `20`, Swagger 제약 min 1 / max 50): 조회 개수
-  - `page` (int, 선택, 기본값 `1`, Swagger 제약 min 1): 알라딘 API 페이지 번호
+  - `page` (int, 선택, 기본값 `1`, Swagger 제약 min 1): 외부 카탈로그(YES24) API 페이지 번호
 - **요청 본문**: 없음
 - **응답** (`BookSearchListResponse`):
   - `content` (array of `BookSummaryResponse`):
@@ -374,7 +374,7 @@
   - `description` (String)
   - `totalPages` (Integer)
   - `publishedDate` (LocalDate, `yyyy-MM-dd`)
-  - `aladinItemId` (String)
+  - `externalItemId` (String — 외부 카탈로그 상품 번호, YES24 itemId)
   - `averageRating` (Double)
   - `reviewCount` (Long)
   - `myLibraryStatus` (String — ReadingStatus 이름, nullable)
@@ -400,7 +400,7 @@
   - `description` (String)
   - `totalPages` (Integer)
   - `publishedDate` (LocalDate, `yyyy-MM-dd`)
-  - `aladinItemId` (String)
+  - `externalItemId` (String — 외부 카탈로그 상품 번호, YES24 itemId)
   - `inMyLibrary` (Boolean)
   - (참고: `averageRating`, `reviewCount`, `myLibraryStatus`, `myLibraryBookId`, `myReviewId` 는 미설정 → null 이므로 JSON 제외)
 - **성공 상태**: 200

@@ -1,8 +1,8 @@
 package com.shelfeed.backend.domain.book;
 
-import com.shelfeed.backend.domain.book.client.AladinClient;
-import com.shelfeed.backend.domain.book.client.dto.AladinItem;
-import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
+import com.shelfeed.backend.domain.book.client.BookCatalogClient;
+import com.shelfeed.backend.domain.book.client.CatalogUnavailableException;
+import com.shelfeed.backend.domain.book.client.dto.CatalogBookItem;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookGenreRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
@@ -39,6 +39,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,7 +58,7 @@ class BookServiceTest {
     @Mock LibraryRepository libraryRepository;
     @Mock ReviewRepository reviewRepository;
     @Mock ReviewLikeRepository reviewLikeRepository;
-    @Mock AladinClient aladinApiClient;
+    @Mock BookCatalogClient catalogClient;
     // #203 리팩터로 DB upsert/ES 색인이 BookPersistenceService로 분리됨 — BookService가 위임함
     @Mock BookPersistenceService bookPersistenceService;
     // 좋아요 조회에 PK가 필요해져 회원을 실제로 로드하게 되면서 차단 필터 경로도 함께 타게 됐다.
@@ -92,41 +93,35 @@ class BookServiceTest {
         lenient().when(review.getCreatedAt()).thenReturn(null);
     }
 
-    private AladinItem buildAladinItem(String isbn) {
-        AladinItem item = new AladinItem();
-        item.setIsbn13(isbn);
-        item.setTitle("Test Book");
-        item.setAuthor("Author");
-        item.setPublisher("Publisher");
-        item.setCover("http://cover.url");
-        item.setDescription("description");
-        item.setPubDate("2023-01-01");
-        item.setItemId(12345L);
-        item.setCategoryName("소설");
-        return item;
-    }
-
-    private AladinSearchResponse buildAladinResponse(AladinItem item) {
-        AladinSearchResponse response = new AladinSearchResponse();
-        response.setItems(List.of(item));
-        return response;
+    private CatalogBookItem buildCatalogItem(String isbn) {
+        return CatalogBookItem.builder()
+                .isbn13(isbn)
+                .title("Test Book")
+                .author("Author")
+                .publisher("Publisher")
+                .coverImageUrl("http://cover.url")
+                .description("description")
+                .publishedDate(LocalDate.of(2023, 1, 1))
+                .externalItemId("12345")
+                .category("국내도서-소설/시/희곡")
+                .genre("소설/시/희곡")
+                .build();
     }
 
     @Nested
-    @DisplayName("도서 검색 (Aladin API)")
+    @DisplayName("도서 검색 (외부 카탈로그 API)")
     class SearchBooks {
 
         @Test
         @DisplayName("성공 - 이미 DB에 있는 책, 로그인 상태")
         void 성공_DB에_있는_책_로그인() {
-            AladinItem item = buildAladinItem("9781234567890");
-            AladinSearchResponse aladinResponse = buildAladinResponse(item);
+            CatalogBookItem item = buildCatalogItem("9781234567890");
 
             BookSearchRequest request = new BookSearchRequest();
             request.setQuery("test");
             request.setLimit(10);
 
-            given(aladinApiClient.search("test", 1, 11)).willReturn(aladinResponse);
+            given(catalogClient.search("test", 1, 11)).willReturn(List.of(item));
             given(bookPersistenceService.upsertAndGetBooks(anyList()))
                     .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
             given(memberRepository.findByMemberUserId(1L)).willReturn(Optional.of(member));
@@ -141,30 +136,88 @@ class BookServiceTest {
         }
 
         @Test
-        @DisplayName("성공 - Aladin 응답 null → 빈 목록 반환")
-        void 성공_Aladin_null_빈_목록() {
+        @DisplayName("성공 - 카탈로그 응답 비어 있음(무결과·429 폴백) → 빈 목록 반환, DB 쓰기 없음")
+        void 성공_카탈로그_빈_응답_빈_목록() {
             BookSearchRequest request = new BookSearchRequest();
             request.setQuery("noresult");
             request.setLimit(10);
 
-            given(aladinApiClient.search("noresult", 1, 11)).willReturn(null);
+            given(catalogClient.search("noresult", 1, 11)).willReturn(List.of());
 
             BookSearchListResponse response = bookService.searchBooks(request, null);
 
             assertThat(response.getContent()).isEmpty();
+            then(bookPersistenceService).should(never()).upsertAndGetBooks(any());
+        }
+
+        @Test
+        @DisplayName("성공 - 같은 ISBN 중복·ISBN 없는 항목은 걸러서 upsert 한다")
+        void 성공_ISBN_중복_제거() {
+            BookSearchRequest request = new BookSearchRequest();
+            request.setQuery("test");
+            request.setLimit(10);
+
+            CatalogBookItem dup1 = buildCatalogItem("9781234567890");
+            CatalogBookItem dup2 = buildCatalogItem("9781234567890");
+            CatalogBookItem noIsbn = CatalogBookItem.builder().isbn13(" ").title("no isbn").author("a").build();
+            given(catalogClient.search("test", 1, 11)).willReturn(List.of(dup1, noIsbn, dup2));
+            given(bookPersistenceService.upsertAndGetBooks(anyList()))
+                    .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
+
+            BookSearchListResponse response = bookService.searchBooks(request, null);
+
+            assertThat(response.getContent()).hasSize(1);
+            then(bookPersistenceService).should().upsertAndGetBooks(argThat(items -> items.size() == 1));
+        }
+
+        @Test
+        @DisplayName("성공 - NOT NULL 컬럼(title·author)이 비거나 ISBN이 13자가 아닌 항목은 저장 전에 걸러낸다")
+        void 성공_필수_컬럼_누락_항목_제외() {
+            BookSearchRequest request = new BookSearchRequest();
+            request.setQuery("test");
+            request.setLimit(10);
+
+            CatalogBookItem ok = buildCatalogItem("9781234567890");
+            CatalogBookItem noTitle = CatalogBookItem.builder().isbn13("9780000000001").title(" ").author("a").build();
+            CatalogBookItem noAuthor = CatalogBookItem.builder().isbn13("9780000000002").title("t").author(null).build();
+            CatalogBookItem isbn10 = CatalogBookItem.builder().isbn13("8937460440").title("t").author("a").build();
+            given(catalogClient.search("test", 1, 11)).willReturn(List.of(noTitle, ok, noAuthor, isbn10));
+            given(bookPersistenceService.upsertAndGetBooks(anyList()))
+                    .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
+
+            BookSearchListResponse response = bookService.searchBooks(request, null);
+
+            assertThat(response.getContent()).hasSize(1);
+            then(bookPersistenceService).should().upsertAndGetBooks(argThat(items ->
+                    items.size() == 1 && items.get(0).getIsbn13().equals("9781234567890")));
+        }
+
+        @Test
+        @DisplayName("성공 - 제공처 불가(429·5xx·타임아웃)면 500 없이 빈 목록으로 폴백한다")
+        void 성공_제공처_불가_빈_목록_폴백() {
+            BookSearchRequest request = new BookSearchRequest();
+            request.setQuery("test");
+            request.setLimit(10);
+
+            given(catalogClient.search("test", 1, 11)).willThrow(new CatalogUnavailableException("YES24 search status=429"));
+
+            BookSearchListResponse response = bookService.searchBooks(request, null);
+
+            assertThat(response.getContent()).isEmpty();
+            assertThat(response.isHasNext()).isFalse();
+            then(bookPersistenceService).should(never()).upsertAndGetBooks(any());
         }
 
         @Test
         @DisplayName("성공 - 비회원 (서재 여부 조회 생략)")
         void 성공_비회원() {
-            AladinItem item = buildAladinItem("9781234567890");
-            AladinSearchResponse aladinResponse = buildAladinResponse(item);
+            CatalogBookItem item = buildCatalogItem("9781234567890");
 
             BookSearchRequest request = new BookSearchRequest();
             request.setQuery("test");
             request.setLimit(10);
 
-            given(aladinApiClient.search("test", 1, 11)).willReturn(aladinResponse);
+            given(catalogClient.search("test", 1, 11)).willReturn(List.of(item));
             given(bookPersistenceService.upsertAndGetBooks(anyList()))
                     .willReturn(new BookPersistenceService.UpsertResult(Map.of("9781234567890", book), true));
 
@@ -255,33 +308,41 @@ class BookServiceTest {
 
             assertThat(response).isNotNull();
             assertThat(response.getIsbn13()).isEqualTo("9781234567890");
-            then(aladinApiClient).should(never()).lookupByIsbn(any());
+            then(catalogClient).should(never()).lookupByIsbn(any());
         }
 
         @Test
-        @DisplayName("성공 - DB에 없어서 Aladin에서 조회 후 저장")
-        void 성공_Aladin에서_조회() {
-            AladinItem item = buildAladinItem("9781234567890");
-            AladinSearchResponse aladinResponse = buildAladinResponse(item);
+        @DisplayName("성공 - DB에 없어서 카탈로그(YES24)에서 조회 후 저장")
+        void 성공_카탈로그에서_조회() {
+            CatalogBookItem item = buildCatalogItem("9781234567890");
 
             given(bookRepository.findByIsbn13("9781234567890")).willReturn(Optional.empty());
-            given(aladinApiClient.lookupByIsbn("9781234567890")).willReturn(aladinResponse);
-            given(bookPersistenceService.findOrCreateBook(any())).willReturn(book);
+            given(catalogClient.lookupByIsbn("9781234567890")).willReturn(Optional.of(item));
+            given(bookPersistenceService.findOrCreateBook(item)).willReturn(book);
 
             BookDetailResponse response = bookService.getBookByIsbn("9781234567890", null);
 
             assertThat(response).isNotNull();
-            then(bookPersistenceService).should().findOrCreateBook(any());
+            then(bookPersistenceService).should().findOrCreateBook(item);
         }
 
         @Test
-        @DisplayName("BOOK_NOT_FOUND 예외 - Aladin에도 없는 책")
-        void Aladin에도_없음_예외() {
-            AladinSearchResponse emptyResponse = new AladinSearchResponse();
-            emptyResponse.setItems(List.of());
+        @DisplayName("CATALOG_UNAVAILABLE(503) - DB에 없고 제공처가 응답하지 못하면 404가 아니라 503")
+        void 제공처_불가_503() {
+            given(bookRepository.findByIsbn13("9781234567890")).willReturn(Optional.empty());
+            given(catalogClient.lookupByIsbn("9781234567890")).willThrow(new CatalogUnavailableException("YES24 lookupByIsbn status=503"));
 
+            assertThatThrownBy(() -> bookService.getBookByIsbn("9781234567890", null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CATALOG_UNAVAILABLE);
+            then(bookPersistenceService).should(never()).findOrCreateBook(any());
+        }
+
+        @Test
+        @DisplayName("BOOK_NOT_FOUND 예외 - 카탈로그에도 없는 책")
+        void 카탈로그에도_없음_예외() {
             given(bookRepository.findByIsbn13("0000000000000")).willReturn(Optional.empty());
-            given(aladinApiClient.lookupByIsbn("0000000000000")).willReturn(emptyResponse);
+            given(catalogClient.lookupByIsbn("0000000000000")).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> bookService.getBookByIsbn("0000000000000", null))
                     .isInstanceOf(BusinessException.class)

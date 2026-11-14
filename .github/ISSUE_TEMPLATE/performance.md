@@ -25,7 +25,7 @@ assignees: ''
 
 ```bash
 # 예시
-JAVA_TOOL_OPTIONS="-Xmx2g" ./gradlew bootRun --args='--spring.profiles.active=mock-aladin,perf-seed'
+JAVA_TOOL_OPTIONS="-Xmx2g" ./gradlew bootRun --args='--spring.profiles.active=mock-catalog,perf-seed'
 k6 run k6/constant-test.js -e CONSTANT_VUS=50
 ```
 

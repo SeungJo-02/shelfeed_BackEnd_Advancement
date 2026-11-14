@@ -19,7 +19,7 @@ public class BookDetailResponse {
     private String description;
     private Integer totalPages;
     private LocalDate publishedDate;
-    private String aladinItemId;
+    private String externalItemId;
     //isbn 조회 전용
     private Boolean inMyLibrary;
     //도서 상세조회 전용
@@ -40,7 +40,7 @@ public class BookDetailResponse {
                 .description(book.getDescription())
                 .totalPages(book.getTotalPages())
                 .publishedDate(book.getPublishedDate())
-                .aladinItemId(book.getAladinItemId())
+                .externalItemId(book.getExternalItemId())
                 .inMyLibrary(inMyLibrary)
                 .build();
     }
@@ -57,7 +57,7 @@ public class BookDetailResponse {
                 .description(book.getDescription())
                 .totalPages(book.getTotalPages())
                 .publishedDate(book.getPublishedDate())
-                .aladinItemId(book.getAladinItemId())
+                .externalItemId(book.getExternalItemId())
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
                 .myLibraryStatus(myLibraryStatus != null ? myLibraryStatus.name() : null)

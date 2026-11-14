@@ -5,6 +5,7 @@ import com.shelfeed.backend.domain.book.document.BookDocument;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
 import com.shelfeed.backend.domain.book.repository.BookSearchRepository;
+import com.shelfeed.backend.domain.book.client.CatalogUnavailableException;
 import com.shelfeed.backend.domain.book.service.BookService;
 import com.shelfeed.backend.domain.follow.repository.FollowRepository;
 import com.shelfeed.backend.domain.member.entity.Member;
@@ -52,6 +53,9 @@ public class SearchService {
     private final BlockService blockService;
     private final RedisService redisService;
     private final Tracer tracer;
+
+    // 제공처 불가 네거티브 캐시 유지 시간. YES24 429의 Retry-After가 초 단위 소수라 넉넉히 잡는다.
+    private static final long CATALOG_UNAVAILABLE_TTL_SECONDS = 45;
 
     @Value("${app.search.history-enabled:true}")
     private boolean historyEnabled;
@@ -117,16 +121,21 @@ public class SearchService {
     public SearchPageResponse<BookSearchResult> searchBooks(String query, Long cursor, int limit) {
         Span span = tracer.nextSpan().name("search.books").start();
         try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
-        // 첫 페이지일 때만 알라딘 캐싱 — 신규 키워드도 즉시 결과 노출 (DB에 upsert)
-        // 알라딘이 책을 가져온 경우에만 Redis 마커 찍기 (빈 응답 시엔 다음 요청에서 재시도 가능)
-        if (cursor == null && !redisService.isAladinQuerySynced(query)) {
+        // 첫 페이지일 때만 외부 카탈로그(YES24) 동기화 — 신규 키워드도 즉시 결과 노출 (DB에 upsert)
+        // 카탈로그가 책을 가져온 경우에만 검색어 마커 찍기 (빈 응답이면 다음 요청에서 재시도 가능)
+        // 제공처 불가(429·5xx·타임아웃)면 짧은 네거티브 캐시를 두어, 한도 초과가 지속되는 동안
+        // 통합검색 요청마다 외부 호출이 한 번씩 나가는 일을 막는다. 빈 결과에는 마커를 찍지 않는다.
+        if (cursor == null && !redisService.isCatalogQuerySynced(query) && !redisService.isCatalogUnavailable()) {
             try {
-                boolean fetched = bookService.syncFromAladin(query, limit);
+                boolean fetched = bookService.syncFromCatalog(query, limit);
                 if (fetched) {
-                    redisService.markAladinQuerySynced(query, 5);
+                    redisService.markCatalogQuerySynced(query, 5);
                 }
+            } catch (CatalogUnavailableException e) {
+                log.warn("카탈로그 제공처 불가, {}초간 외부 호출 생략: query={}, error={}", CATALOG_UNAVAILABLE_TTL_SECONDS, query, e.getMessage());
+                redisService.markCatalogUnavailable(CATALOG_UNAVAILABLE_TTL_SECONDS);
             } catch (Exception e) {
-                log.warn("알라딘 캐싱 실패, 검색 결과로 폴백: query={}, error={}", query, e.getMessage());
+                log.warn("카탈로그 동기화 실패, 검색 결과로 폴백: query={}, error={}", query, e.getMessage());
             }
         }
 

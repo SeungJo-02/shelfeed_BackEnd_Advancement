@@ -1,0 +1,68 @@
+# 규모 시더 프로파일 — 정보나루 CSV + 합성 데이터를 성능 테스트 DB(3308)에 넣는다.
+#   ./gradlew bootRun --args='--spring.profiles.active=mock-catalog,scale-seed'
+#   ./gradlew bootRun --args='--spring.profiles.active=mock-catalog,scale-seed --app.seed.members=200 --app.seed.reviews=2000'
+# 기동이 끝나면 앱은 계속 떠 있으므로 로그의 "[ScaleSeeder] 완료" 를 보고 종료한다.
+spring:
+  datasource:
+    # rewriteBatchedStatements=true 가 없으면 JdbcTemplate batch 가 한 행씩 나가 수십 배 느리다.
+    url: ${PERF_DB_URL:jdbc:mysql://localhost:3308/shelfeed?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true}
+    username: ${PERF_DB_USERNAME:shelfeed}
+    password: ${PERF_DB_PASSWORD:shelfeed}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 4
+      connection-timeout: 5000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 스키마는 Flyway 가 만든다
+    show-sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+jwt:
+  secret: ${JWT_SECRET:scale-seed-only-not-for-prod-0123456789abcdef0123456789abcdef}
+  access-expiration: 18000000
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+admin:
+  email: ${ADMIN_EMAIL:scale-seed@shelfeed.test}      # AdminInitializer 가 무조건 읽는다 — 새 체크아웃에서도 뜨게 기본값을 둔다
+  password: ${ADMIN_PASSWORD:ScaleSeed1234!}
+
+# 시더는 OAuth·OCR 을 쓰지 않지만 빈들이 무조건 값을 읽는다 — 새 체크아웃(.env 없음)에서도 뜨게 기본값을 둔다
+oauth2:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:scale-seed-unused}
+    client-secret: ${GOOGLE_CLIENT_SECRET:scale-seed-unused}
+clova:
+  ocr:
+    secret-key: ${CLOVA_OCR_SECRET_KEY:scale-seed-unused}
+    api-url: ${CLOVA_OCR_API_URL:http://localhost/unused}
+
+yes24:
+  api:
+    key: mock-key-not-used   # mock-catalog 프로파일과 같이 띄우므로 yes24RestTemplate 이 뜨지 않는다
+
+app:
+  search:
+    history-enabled: false
+  seed:
+    books-csv: ${SEED_BOOKS_CSV:seed/data/books.csv}   # 없으면 seed/data/books.sample.csv 로 대체
+    members: 5000
+    reviews: 200000
+    follows-per-member: 30
+    hub-ratio: 0.01
+    hub-followers: 3000
+    library-per-member: 60
+    comments-per-review: 2
+    likes-per-review: 5
+    feeds-per-member: 50
+    notifications-per-member: 20
+    batch-size: 2000
+    seed: 42
+
+info:
+  profile: mock-catalog,scale-seed

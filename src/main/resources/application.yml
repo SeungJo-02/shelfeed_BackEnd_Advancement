@@ -9,6 +9,15 @@ spring:
         format_sql: true
     open-in-view: false
 
+  # 스키마는 Flyway 가 관리한다(src/main/resources/db/migration). Hibernate 는 검증만(각 프로파일 ddl-auto=validate).
+  # baseline-on-migrate: flyway_schema_history 가 없는 기존 DB(옛 덤프 복원 등)를 V1 으로 간주하고 V2 부터 적용한다.
+  flyway:
+    enabled: true                       # Spring Boot 기본값. 문서화를 위해 명시
+    locations: classpath:db/migration   # Spring Boot 기본값. 문서화를 위해 명시
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -89,10 +98,10 @@ oauth2:
     client-secret: ${GOOGLE_CLIENT_SECRET}
     redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/auth/callback/google}
 
-aladin:
+# YES24 Open API — 도서 검색·ISBN 조회 (알라딘 OpenAPI 종료 대체). developers.yes24.com 에서 발급.
+yes24:
   api:
-    ttbkey: ${ALADIN_API_KEY}
-    version: "20131101"
+    key: ${YES24_API_KEY}
 
 clova:
   ocr:

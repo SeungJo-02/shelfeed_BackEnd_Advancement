@@ -33,7 +33,7 @@ Spring Environment에 주입한다. 경로의 마지막 세그먼트가 프로�
 | `GOOGLE_CLIENT_ID` | `/config/shelfeed/oauth2.google.client-id` | `oauth2.google.client-id` |
 | `GOOGLE_CLIENT_SECRET` | `/config/shelfeed/oauth2.google.client-secret` | `oauth2.google.client-secret` |
 | `GOOGLE_REDIRECT_URI` | `/config/shelfeed/oauth2.google.redirect-uri` | `oauth2.google.redirect-uri` |
-| `ALADIN_API_KEY` | `/config/shelfeed/aladin.api.ttbkey` | `aladin.api.ttbkey` |
+| `YES24_API_KEY` | `/config/shelfeed/yes24.api.key` | `yes24.api.key` |
 | `CLOVA_OCR_SECRET_KEY` | `/config/shelfeed/clova.ocr.secret-key` | `clova.ocr.secret-key` |
 | `CLOVA_OCR_API_URL` | `/config/shelfeed/clova.ocr.api-url` | `clova.ocr.api-url` |
 | `MAIL_USERNAME` | `/config/shelfeed/spring.mail.username` | `spring.mail.username` |

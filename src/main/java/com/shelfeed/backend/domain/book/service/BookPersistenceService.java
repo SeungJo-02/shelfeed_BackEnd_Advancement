@@ -1,6 +1,6 @@
 package com.shelfeed.backend.domain.book.service;
 
-import com.shelfeed.backend.domain.book.client.dto.AladinItem;
+import com.shelfeed.backend.domain.book.client.dto.CatalogBookItem;
 import com.shelfeed.backend.domain.book.document.BookDocument;
 import com.shelfeed.backend.domain.book.entity.Book;
 import com.shelfeed.backend.domain.book.repository.BookRepository;
@@ -14,7 +14,6 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,7 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 알라딘 도서 영속화 전담 빈.
+ * 외부 카탈로그(YES24) 도서 영속화 전담 빈.
  * 외부 HTTP 호출은 BookService가 트랜잭션 밖에서 수행하고,
  * DB 쓰기/ES 색인만 이 빈의 트랜잭션 가진 메서드로 위임받는다.
  * (별도 빈 → 프록시 경유로 새 트랜잭션이 정상적으로 시작됨)
@@ -45,11 +44,11 @@ public class BookPersistenceService {
 
     /**
      * DB에 없는 도서만 저장하고 전체 isbn→Book 맵과 ES 색인 결과를 반환한다.
-     * searchBooks()와 syncFromAladin() 모두 이 메서드를 통해 upsert 한다.
+     * searchBooks()와 syncFromCatalog() 모두 이 메서드를 통해 upsert 한다.
      */
     @Transactional
-    public UpsertResult upsertAndGetBooks(List<AladinItem> items) {
-        List<String> isbns = items.stream().map(AladinItem::getIsbn13).toList();
+    public UpsertResult upsertAndGetBooks(List<CatalogBookItem> items) {
+        List<String> isbns = items.stream().map(CatalogBookItem::getIsbn13).toList();
         Map<String, Book> existing = bookRepository.findByIsbn13In(isbns).stream()
                 .collect(Collectors.toMap(Book::getIsbn13, b -> b));
 
@@ -73,7 +72,7 @@ public class BookPersistenceService {
                 refetched.forEach(b -> all.put(b.getIsbn13(), b));
             }
         }
-        // [Fix A] 신규/기존 가리지 않고 이번 검색의 알라딘 결과 전체를 멱등 재색인한다.
+        // [Fix A] 신규/기존 가리지 않고 이번 검색의 카탈로그 결과 전체를 멱등 재색인한다.
         // 신규 도서만 색인하면 "DB엔 있는데 ES엔 없는" 책(시드 데이터·과거 색인 실패분 등)이
         // 통합검색에서 영영 안 잡힌다. 전체 재색인(동일 ID 덮어쓰기)으로 DB↔ES 드리프트를 자가치유한다.
         // 재색인량은 검색 limit 크기로 바운드되어 부담이 작다.
@@ -82,10 +81,10 @@ public class BookPersistenceService {
         return new UpsertResult(all, indexed);
     }
 
-    // 알라딘 아이템 → DB Book (없으면 저장) - 단건 조회용 (getBookByIsbn 등)
+    // 카탈로그 아이템 → DB Book (없으면 저장) - 단건 조회용 (getBookByIsbn 등)
     // 신규 저장 시 ES에도 색인 (실패해도 무시 — BookIndexInitializer로 보강)
     @Transactional
-    public Book findOrCreateBook(AladinItem item) {
+    public Book findOrCreateBook(CatalogBookItem item) {
         return bookRepository.findByIsbn13(item.getIsbn13())
                 .orElseGet(() -> {
                     Book saved = bookRepository.save(createBookFromItem(item));
@@ -94,33 +93,32 @@ public class BookPersistenceService {
                 });
     }
 
-    // 알라딘 아이템 → Book 엔티티 생성 (저장 없이 객체만 반환, saveAll용)
-    private Book createBookFromItem(AladinItem item) {
-        LocalDate pubDate = null;
-        try {
-            pubDate = LocalDate.parse(item.getPubDate());
-        } catch (Exception ignored) {}
-        Integer totalPages = item.getSubInfo() != null ? item.getSubInfo().getItemPage() : null;
-        String author = item.getAuthor();
-        if (author != null && author.length() > 50) author = author.substring(0, 50);
+    // 카탈로그 아이템 → Book 엔티티 생성 (저장 없이 객체만 반환, saveAll용)
+    // 날짜 파싱·장르 추출은 CatalogBookItem 팩토리가 이미 끝냈다. 여기서는 컬럼 길이만 방어한다.
+    // (YES24 author는 "저자 저/역자 역" 형식이라 50자를 넘기기 쉽다 — 넘치면 INSERT가 통째로 실패한다)
+    private Book createBookFromItem(CatalogBookItem item) {
         return Book.create(
-                item.getIsbn13(), item.getTitle(), author, item.getPublisher(),
-                item.getCover(), item.getDescription(), totalPages, pubDate,
-                item.getItemId() != null ? String.valueOf(item.getItemId()) : null,
-                item.getCategoryName(),
-                extractGenre(item.getCategoryName())
+                item.getIsbn13(),
+                truncate(item.getTitle(), 500),
+                truncate(item.getAuthor(), 50),
+                truncate(item.getPublisher(), 200),
+                truncate(item.getCoverImageUrl(), 500),
+                item.getDescription(),
+                item.getTotalPages(),
+                item.getPublishedDate(),
+                truncate(item.getExternalItemId(), 50),
+                truncate(item.getCategory(), 100),
+                truncate(item.getGenre(), 100)
         );
     }
 
-    // "국내도서>소설/시/희곡>한국소설" → "소설/시/희곡", "소설" → "소설" (단일 계층도 보존)
-    private String extractGenre(String categoryName) {
-        if (categoryName == null || categoryName.isBlank()) return null;
-        String[] parts = categoryName.split(">");
-        return parts.length >= 2 ? parts[1].trim() : parts[0].trim();
+    private static String truncate(String value, int max) {
+        if (value == null) return null;
+        return value.length() > max ? value.substring(0, max) : value;
     }
 
     // ES 색인 — 실패해도 트랜잭션 영향 없음 (BookIndexInitializer로 재동기화 가능)
-    // refresh() 호출로 색인 즉시 검색 가능 상태로 전환 — 같은 요청에서 알라딘 캐싱 → 검색 사용 가능
+    // refresh() 호출로 색인 즉시 검색 가능 상태로 전환 — 같은 요청에서 카탈로그 동기화 → 검색 사용 가능
     private boolean indexToElasticsearch(List<Book> books) {
         if (books.isEmpty()) return true;
         try {

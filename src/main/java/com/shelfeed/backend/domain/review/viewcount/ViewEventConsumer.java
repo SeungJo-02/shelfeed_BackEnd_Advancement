@@ -17,9 +17,14 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>Kafka는 at-least-once라 같은 이벤트가 두 번 올 수 있다. {@code eventId}를
  * {@code SET key 1 NX EX} 로 한 번만 통과시켜 중복을 거른다. 메시지에 UUID를 담는 것만으로는
  * 멱등이 되지 않고, 이렇게 소비 측이 기억하고 걸러야 성립한다.
+ *
+ * <p>kafka-enabled=false(기본값)이면 빈을 만들지 않는다. 그러지 않으면 브로커가 없는
+ * 환경에서 리스너 컨테이너가 떠 재접속 실패 로그를 계속 남긴다.
  */
 @Slf4j
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "shelfeed.view-count.kafka-enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class ViewEventConsumer {
 

@@ -22,7 +22,8 @@ public class RedisService {
     private static final String PW_RESET_COOLDOWN_PREFIX  = "auth:pwreset:cooldown:";
     private static final String LOGIN_ATTEMPTS_PREFIX     = "auth:login:attempts:";
     private static final String OAUTH_STATE_PREFIX       = "auth:oauth:state:";
-    private static final String ALADIN_SYNC_PREFIX       = "search:aladin:";
+    private static final String CATALOG_SYNC_PREFIX      = "search:catalog:";
+    private static final String CATALOG_UNAVAILABLE_KEY  = "search:catalog:unavailable";
 
     // Refresh Token : JWT는 서버 강제 무효화 불가하기에 로그인,갱신,로그아웃 시 저장·검증·삭제 형식으로 만들기
     public void saveRefreshToken(Long memberUserId, String refreshToken, long ttlSeconds){//opsForValue: Key-Value로 사용할 것을 정의
@@ -155,13 +156,23 @@ public class RedisService {
         return Long.valueOf(1L).equals(result);
     }
 
-    // 알라딘 검색 캐싱 여부 확인
-    public boolean isAladinQuerySynced(String query) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(ALADIN_SYNC_PREFIX + query.toLowerCase()));
+    // 외부 카탈로그(YES24) 검색 결과를 이미 DB에 동기화했는지 확인
+    public boolean isCatalogQuerySynced(String query) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(CATALOG_SYNC_PREFIX + query.toLowerCase()));
     }
 
-    // 알라딘 검색 결과 캐싱 마킹 (TTL: 분 단위)
-    public void markAladinQuerySynced(String query, long ttlMinutes) {
-        redisTemplate.opsForValue().set(ALADIN_SYNC_PREFIX + query.toLowerCase(), "1", ttlMinutes, TimeUnit.MINUTES);
+    // 카탈로그 동기화 완료 마킹 (TTL: 분 단위) — 같은 검색어로 외부 API를 반복 호출하지 않게 한다
+    public void markCatalogQuerySynced(String query, long ttlMinutes) {
+        redisTemplate.opsForValue().set(CATALOG_SYNC_PREFIX + query.toLowerCase(), "1", ttlMinutes, TimeUnit.MINUTES);
+    }
+
+    // 카탈로그 제공처 불가(429·5xx·타임아웃) 네거티브 캐시 — 잠깐 동안 통합검색이 외부 호출을 건너뛰게 한다.
+    // 검색어와 무관하게 하나의 키다: 한도 초과는 계정 단위 상태라 어떤 검색어로 불러도 똑같이 막힌다.
+    public boolean isCatalogUnavailable() {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(CATALOG_UNAVAILABLE_KEY));
+    }
+
+    public void markCatalogUnavailable(long ttlSeconds) {
+        redisTemplate.opsForValue().set(CATALOG_UNAVAILABLE_KEY, "1", ttlSeconds, TimeUnit.SECONDS);
     }
 }

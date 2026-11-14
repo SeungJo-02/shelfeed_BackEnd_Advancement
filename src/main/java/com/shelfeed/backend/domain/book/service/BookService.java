@@ -1,8 +1,8 @@
 package com.shelfeed.backend.domain.book.service;
 
-import com.shelfeed.backend.domain.book.client.AladinClient;
-import com.shelfeed.backend.domain.book.client.dto.AladinItem;
-import com.shelfeed.backend.domain.book.client.dto.AladinSearchResponse;
+import com.shelfeed.backend.domain.book.client.BookCatalogClient;
+import com.shelfeed.backend.domain.book.client.CatalogUnavailableException;
+import com.shelfeed.backend.domain.book.client.dto.CatalogBookItem;
 import com.shelfeed.backend.domain.book.dto.request.BookReviewSearchRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookGenreRequest;
 import com.shelfeed.backend.domain.book.dto.request.BookSearchRequest;
@@ -50,7 +50,7 @@ public class BookService {
     private final LibraryRepository libraryRepository;
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
-    private final AladinClient aladinApiClient;
+    private final BookCatalogClient catalogClient;
     private final BlockService blockService;
     private final BookPersistenceService bookPersistenceService;
     private final GenreRepository genreRepository;
@@ -59,13 +59,21 @@ public class BookService {
     // 1. 도서 검색 — 외부 HTTP는 트랜잭션 밖(NOT_SUPPORTED), DB 쓰기는 BookPersistenceService 위임
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public BookSearchListResponse searchBooks(BookSearchRequest request, Long memberUserId) {
-        AladinSearchResponse response = aladinApiClient.search(request.getQuery(), request.getPage(), request.getLimit() + 1); //무한스크롤을 위해 +1 개 더 조회
-        if (response == null || response.getItems() == null) {
+        // 무한스크롤을 위해 +1 개 더 조회. 제공처 장애(429·5xx·타임아웃)는 500이 아니라 빈 목록으로 내린다 —
+        // 통합검색은 DB·ES 결과로 폴백하고, 이 엔드포인트는 외부 결과만 쓰므로 빈손이 정답이다.
+        List<CatalogBookItem> fetched;
+        try {
+            fetched = catalogClient.search(request.getQuery(), request.getPage(), request.getLimit() + 1);
+        } catch (CatalogUnavailableException e) {
+            log.warn("카탈로그 검색 불가, 빈 목록 반환: query={}, error={}", request.getQuery(), e.getMessage());
+            return BookSearchListResponse.of(List.of(), request.getLimit());
+        }
+        if (fetched == null || fetched.isEmpty()) {
             return BookSearchListResponse.of(List.of(), request.getLimit());// 내용없으면 빈 리스트
         }
 
         // isbn13 null/blank 제거 + 응답 내 중복 제거 후 DB upsert (순서 유지)
-        List<AladinItem> items = deduplicateByIsbn(response.getItems());
+        List<CatalogBookItem> items = deduplicateByIsbn(fetched);
         if (items.isEmpty()) {
             return BookSearchListResponse.of(List.of(), request.getLimit());
         }
@@ -96,9 +104,9 @@ public class BookService {
     /**
      * 장르에 속한 도서를 페이지로 조회한다.
      *
-     * <p>장르명을 검색어로 알라딘에 질의하던 방식을 대체한다. 그 방식은 제목에 장르명이
+     * <p>장르명을 검색어로 외부 카탈로그에 질의하던 방식을 대체한다. 그 방식은 제목에 장르명이
      * 든 책만 걸려 '만화/라이트노벨'이 2권뿐이었고, 뒤 페이지는 비어 늘 같은 책만 나왔다.
-     * 여기서는 이미 저장된 도서의 알라딘 카테고리 경로를 {@code genres.category_pattern}과
+     * 여기서는 이미 저장된 도서의 카탈로그 분류 경로를 {@code genres.category_pattern}과
      * 맞춘다(같은 장르가 301권).
      *
      * <p>장르 조회가 book 도메인에서 genre 도메인을 건너다본다. 서비스를 분리하게 되면
@@ -168,11 +176,15 @@ public class BookService {
     public BookDetailResponse getBookByIsbn(String isbn13, Long memberUserId) {
         Optional<Book> existing = bookRepository.findByIsbn13(isbn13);
         Book book = existing.orElseGet(() -> {
-            AladinSearchResponse response = aladinApiClient.lookupByIsbn(isbn13);
-            if (response == null || response.getItems() == null || response.getItems().isEmpty()) {
-                throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
+            CatalogBookItem item;
+            try {
+                item = catalogClient.lookupByIsbn(isbn13)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+            } catch (CatalogUnavailableException e) {
+                // 없는 책(404)이 아니라 제공처 장애 — 클라이언트가 재시도할 수 있게 503으로 구분한다.
+                throw new BusinessException(ErrorCode.CATALOG_UNAVAILABLE);
             }
-            return bookPersistenceService.findOrCreateBook(response.getItems().get(0));
+            return bookPersistenceService.findOrCreateBook(item);
         });
 
         boolean inMyLibrary = false;
@@ -227,27 +239,37 @@ public class BookService {
     }
 
     /**
-     * 알라딘 응답 아이템에서 isbn13 null/blank 제거 + 중복 제거 (삽입 순서 유지).
-     * 알라딘이 동일 ISBN을 카테고리별로 중복 반환하는 경우를 방어한다.
+     * 카탈로그 응답 아이템에서 저장 불가 항목 제거 + ISBN 중복 제거 (삽입 순서 유지).
+     *
+     * <p>{@code books.isbn13}(13자)·{@code title}·{@code author}는 NOT NULL이다. 하나라도 비면 saveAll이 통째로
+     * 실패해 요청이 500이 되므로, 그런 항목은 건너뛴다. 같은 ISBN이 분류별로 중복 반환되는 경우도 방어한다.
      */
-    private List<AladinItem> deduplicateByIsbn(List<AladinItem> rawItems) {
+    private List<CatalogBookItem> deduplicateByIsbn(List<CatalogBookItem> rawItems) {
         return rawItems.stream()
-                .filter(item -> item.getIsbn13() != null && !item.getIsbn13().isBlank())
-                .collect(Collectors.toMap(AladinItem::getIsbn13, i -> i, (a, b) -> a, LinkedHashMap::new))
+                .filter(BookService::isPersistable)
+                .collect(Collectors.toMap(CatalogBookItem::getIsbn13, i -> i, (a, b) -> a, LinkedHashMap::new))
                 .values().stream().toList();
     }
 
+    private static boolean isPersistable(CatalogBookItem item) {
+        return item != null
+                && item.getIsbn13() != null && item.getIsbn13().length() == 13
+                && item.getTitle() != null && !item.getTitle().isBlank()
+                && item.getAuthor() != null && !item.getAuthor().isBlank();
+    }
+
     /**
-     * SearchService가 통합 검색 전 호출하는 알라딘 캐싱 메서드.
+     * SearchService가 통합 검색 전 호출하는 외부 카탈로그(YES24) 동기화 메서드.
      * DB에 없는 도서를 INSERT 후 ES 색인까지 완료한다.
      * 외부 HTTP는 트랜잭션 밖(NOT_SUPPORTED)에서 수행하고, DB 쓰기는 BookPersistenceService에 위임한다.
      * @return ES 색인까지 모두 성공한 경우만 true — 색인 실패 시 false 반환하여 호출자가 Redis 마커를 찍지 않도록 함
      */
+    // 제공처 장애(CatalogUnavailableException)는 그대로 올린다 — SearchService가 잡아 폴백하고 Redis 마커를 찍지 않는다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public boolean syncFromAladin(String query, int maxResults) {
-        AladinSearchResponse response = aladinApiClient.search(query, 1, maxResults);
-        if (response == null || response.getItems() == null || response.getItems().isEmpty()) return false;
-        List<AladinItem> items = deduplicateByIsbn(response.getItems());
+    public boolean syncFromCatalog(String query, int maxResults) {
+        List<CatalogBookItem> fetched = catalogClient.search(query, 1, maxResults);
+        if (fetched == null || fetched.isEmpty()) return false;
+        List<CatalogBookItem> items = deduplicateByIsbn(fetched);
         if (items.isEmpty()) return false;
         return bookPersistenceService.upsertAndGetBooks(items).indexed();
     }

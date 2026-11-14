@@ -1,0 +1,26 @@
+{
+ "response": {
+  "request": {
+   "isbn13": "9788900000007",
+   "loaninfoYN": "N",
+   "format": "json"
+  },
+  "detail": [
+   {
+    "book": {
+     "no": "1",
+     "bookname": "소년이 온다",
+     "publication_date": "2014-05-19",
+     "authors": "한강 지음",
+     "publisher": "창비",
+     "class_no": "813.7",
+     "publication_year": "2014",
+     "bookImageURL": "https://image.aladin.co.kr/product/1000/1/cover/8900000007_1.jpg",
+     "isbn": "8936434128",
+     "isbn13": "9788900000007",
+     "description": "섬세한 감수성과 치밀한 문장으로 인간 존재의 본질을 탐구해온 작가의 장편소설. 1980년 5월 광주를 살아낸 사람들의 이야기를 담았다."
+    }
+   }
+  ]
+ }
+}

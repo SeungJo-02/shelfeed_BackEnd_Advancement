@@ -1,7 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate      # Flyway 마이그레이션(V1/V2/R__)이 Testcontainers MySQL 에 적용되고 Hibernate 는 검증만 한다
     show-sql: true
     properties:
       hibernate:
@@ -28,10 +28,9 @@ jwt:
   access-expiration: 3600000
   refresh-expiration: 604800000
 
-aladin:
+yes24:
   api:
-    ttbkey: test-key
-    version: "20131101"
+    key: test-key
 
 oauth2:
   google:
